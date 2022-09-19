@@ -315,7 +315,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
           "anger, surprise, disgust, fear", end="")
     print(", neutral.\n") if predict_neutral_class else print(".\n")
 
-    compute_score_metrics = True if label_type == "all" or label_type == "coarse" else False
+    compute_score_metrics = False if label_type == "dominant" else True
 
     if compute_score_metrics:
         # Regression metrics

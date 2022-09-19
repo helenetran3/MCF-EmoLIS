@@ -33,11 +33,11 @@ python3 main.py \
 --loss_function mean_absolute_error \
 --learning_rate 0.001 \
 --val_metric loss \
---predict_neutral_class \
 --threshold_emo_present 0 0.5 1 \
 --round_decimals 3 \
 --save_confusion_matrix \
 --display_fig \
 --save_predictions
+#--predict_neutral_class \
 #--with_custom_split \
 #--display_fig

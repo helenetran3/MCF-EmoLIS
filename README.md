@@ -133,10 +133,10 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             to keep the original number of steps.
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
                             Type of labels used for model training and evaluation.
-                            Possible values: all (for all presencescores provided by
+                            Possible values: all (for all presence scores provided by
                             the dataset), coarse (presence score for each emotion among
                             [0, 1, 2, 3]), present (multi-label classification),
-                            dominant (multi-label classification)
+                            dominant (multi-class classification)
       -opt {adam,sgd,adagrad,adadelta,rmsprop}, --optimizer {adam,sgd,adagrad,adadelta,rmsprop}
                             Optimizer for model training. Values: adam, sgd, adagrad,
                             adadelta, rmsprop.
@@ -164,6 +164,16 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
       -df, --display_fig    Whether we display the figures
 
     ```
+
+### Useful parameters to set
+`--label_type {all,coarse,present,dominant}`: Choose the task the model has to perform for model training and evaluation.
+- **all** is to estimate the presence score provided by the dataset [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
+for each emotion
+- **coarse** is to estimate the presence score among [0, 1, 2, 3] for each emotion
+- **present** is to classify each emotion as present (1) or not present (0) in the sample
+- **dominant** is to assign a single emotion (the dominant one) to the sample
+
+`--predict_neutral_class`: Whether we predict neutral class 
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
 

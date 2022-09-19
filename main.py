@@ -42,7 +42,7 @@ parser.add_argument('-s', '--fixed_num_steps', type=int,
 parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', 'present', 'dominant'],
                     help="Type of labels used for model training and evaluation. Possible values: all (for all presence"
                          "scores provided by the dataset), coarse (presence score for each emotion among "
-                         "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)")
+                         "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-class classification)")
 parser.add_argument('-opt', '--optimizer', type=str, choices=['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop'],
                     help="Optimizer for model training. Values: adam, sgd, adagrad, adadelta, rmsprop.")
 parser.add_argument('-lf', '--loss_function', type=str,
