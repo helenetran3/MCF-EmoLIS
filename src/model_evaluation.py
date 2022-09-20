@@ -95,7 +95,7 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
     metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                                   pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                  threshold_emo_pres, num_classes, predict_neutral_class, round_decimals)
+                                  threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
+                                  model_id, model_folder)
 
     return loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
-g

@@ -153,7 +153,8 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     return res
 
 
-def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, thres=None):
+def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, model_id, model_folder,
+                               thres=None):
     """
     Compute classification metrics.
      Accuracy
@@ -165,10 +166,31 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     :param pred_classes: binary array of predictions, shape (test_size, num_classes) (num_classes = 7 if with neutral class, else 6)
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
+    :param model_id: Model id (int)
+    :param model_folder: The folder where the result will be saved
     :return: List of classification metrics
     """
 
-    acc = round(accuracy_score(true_classes, pred_classes), round_decimals)
+    def compute_binary_accuracy_per_class():
+        bin_acc = []
+        if thres is None:
+            conf_matrix = load_from_pickle('conf_matrix_{}_dom'.format(model_id),
+                                           pickle_folder="confusion_matrix", root_folder=model_folder)
+        else:
+            conf_matrix = load_from_pickle('conf_matrix_{}_pres_t_{}'.format(model_id, thres),
+                                           pickle_folder="confusion_matrix", root_folder=model_folder)
+        for emo_i in range(num_classes):
+            tp = conf_matrix[emo_i, 0, 0]
+            fp = conf_matrix[emo_i, 0, 1]
+            fn = conf_matrix[emo_i, 1, 0]
+            tn = conf_matrix[emo_i, 1, 1]
+            bin_acc_emo = (tp+tn)/(tp+fp+fn+tn)
+            bin_acc_emo_rounded = round(bin_acc_emo, round_decimals)
+            bin_acc.append(bin_acc_emo_rounded)
+        return bin_acc
+
+    acc_per_class = compute_binary_accuracy_per_class()
+    acc_overall = round(accuracy_score(true_classes, pred_classes), round_decimals)
     f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
     f1_macro = round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
     f1_weighted = round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
@@ -198,7 +220,8 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     if thres is not None:
         print('\n>>> Threshold:', thres)
 
-    print("Multilabel Accuracy:", acc)
+    print("Multilabel accuracy:", acc_overall)
+    print("Binary accuracy (for each):", acc_per_class)
     print("F1 score (for each):", f1_each_rounded)
     print("F1 score (unweighted mean):", f1_macro)
     print("F1 score (weighted mean):", f1_weighted)
@@ -213,12 +236,12 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
         print("ROC AUC (unweighted mean):", roc_auc_macro)
         print("ROC AUC (weighted mean):", roc_auc_weighted)
 
-    res = [acc, f1_macro, f1_weighted, rec_macro, rec_weighted, prec_macro, prec_weighted]
+    res = [acc_overall, f1_macro, f1_weighted, rec_macro, rec_weighted, prec_macro, prec_weighted]
     if thres is None:
-        res = res + [roc_auc_macro, roc_auc_weighted] + f1_each_rounded + rec_each_rounded + prec_each_rounded + \
-              roc_auc_each_rounded
+        res = res + [roc_auc_macro, roc_auc_weighted] + acc_per_class + f1_each_rounded + rec_each_rounded + \
+              prec_each_rounded + roc_auc_each_rounded
     else:
-        res = res + f1_each_rounded + rec_each_rounded + prec_each_rounded
+        res = res + acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
 
     return res
 
@@ -305,7 +328,8 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, num_classes,
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                               pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                              threshold_emo_pres, num_classes, predict_neutral_class, round_decimals):
+                              threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
+                              model_id, model_folder):
     """
     Compute metrics for four tasks: estimation of presence score (regression), classification of presence score among
     [0, 1, 2, 3], binary classification for each emotion, and prediction of dominant classes (multilabel classification)
@@ -325,6 +349,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param predict_neutral_class: Whether we predict the neutral class
     :param round_decimals: Number of decimals to be rounded for metrics
+    :param model_id: Model id (int)
+    :param model_folder: The folder where the result will be saved
     :return: metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
     """
 
@@ -350,8 +376,10 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     # Classification metrics
     print("\n------- Detecting the presence of emotions ------------")
     metrics_presence = [get_classification_metrics(true_classes_pres[i], pred_classes_pres[i], num_classes,
-                                                   round_decimals, thres) for i, thres in enumerate(threshold_emo_pres)]
+                                                   round_decimals, model_id, model_folder, thres)
+                        for i, thres in enumerate(threshold_emo_pres)]
     print("\n------- Predicting dominant emotions ------------------\n")
-    metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom, num_classes, round_decimals)
+    metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom, num_classes, round_decimals,
+                                                  model_id, model_folder)
 
     return metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
