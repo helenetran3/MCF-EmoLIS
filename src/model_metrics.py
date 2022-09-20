@@ -228,17 +228,17 @@ def plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, displa
     display = None
 
     def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, end_of_title):
-        display = ConfusionMatrixDisplay(confusion_matrix=conf_matrix[emo_i, :, :],
-                                         display_labels=[0, 1])
-        display.plot(ax=axes[axe_id], values_format='.4g')
-        display.ax_.set_title(emotions[emo_i] + end_of_title)
+        d = ConfusionMatrixDisplay(confusion_matrix=conf_matrix[emo_i, :, :],
+                                   display_labels=[0, 1])
+        d.plot(ax=axes[axe_id], values_format='.4g')
+        d.ax_.set_title(emotions[emo_i] + end_of_title)
         # if i != len(threshold_emo_pres)-1:  ## Remove "Predicted label" xlabel from the graph
         #     display.ax_.set_xlabel('')
         if emo_i != 0:
-            display.ax_.set_ylabel('')
-        display.im_.colorbar.remove()
+            d.ax_.set_ylabel('')
+        d.im_.colorbar.remove()
 
-        return display
+        return d
 
     emotions = ['happy', 'sad', 'anger', 'surprise', 'disgust', 'fear']
     if num_classes == 7:

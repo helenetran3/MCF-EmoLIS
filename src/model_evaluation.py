@@ -32,7 +32,7 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
 
 def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_type,
                    model_name, model_id, all_scores, predict_neutral_class, threshold_emo_pres, round_decimals,
-                   ext_name, save_pred, save_confusion_matrix, display_fig):
+                   ext_name, save_pred, plot_confusion_matrix, display_fig):
     """
     Evaluate the performance of the best model.
 
@@ -49,7 +49,7 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
     :param round_decimals: Number of decimals to be rounded for metrics
     :param ext_name: extension name containing info on whether we predict neutral class
     :param save_pred: Whether we save predictions with pickle
-    :param save_confusion_matrix: Whether we save confusion matrices with pickle
+    :param plot_confusion_matrix: Whether we save confusion matrices with pickle
     :param display_fig: Whether we display figures
     """
 
@@ -85,7 +85,8 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
                                         model_id, model_folder, display_fig, threshold_emo_pres)
     compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, num_classes,
                                         model_id, model_folder, display_fig)
-    plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, display_fig, threshold_emo_pres)
+    if plot_confusion_matrix:
+        plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, display_fig, threshold_emo_pres)
 
     # Model evaluation
     loss_function_val = compute_loss_value(model, test_dataset, loss_function, round_decimals)
@@ -97,3 +98,4 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
                                   threshold_emo_pres, num_classes, predict_neutral_class, round_decimals)
 
     return loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
+g

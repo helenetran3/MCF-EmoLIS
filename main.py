@@ -61,7 +61,7 @@ parser.add_argument('-rd', '--round_decimals', type=int,
                     help="Number of decimals to be rounded for metrics.")
 parser.add_argument('-sp', '--save_predictions', action='store_true',
                     help="Save predictions with pickle")
-parser.add_argument('-scm', '--save_confusion_matrix', action='store_true',
+parser.add_argument('-pcm', '--plot_confusion_matrix', action='store_true',
                     help="Save confusion matrix with pickle")
 parser.add_argument('-df', '--display_fig', action='store_true',
                     help="Whether we display the figures")
@@ -112,7 +112,7 @@ def main():
     loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
         evaluate_model(test_list, args.batch_size, args.fixed_num_steps, args.loss_function, args.label_type,
                        args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
-                       args.round_decimals, ext_name, args.save_predictions, args.save_confusion_matrix, args.display_fig)
+                       args.round_decimals, ext_name, args.save_predictions, args.plot_confusion_matrix, args.display_fig)
 
     # Save metrics in csv file
     save_results_in_csv_file(args.model_name, model_id, args.loss_function, loss_function_val,
