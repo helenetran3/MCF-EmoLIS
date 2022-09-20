@@ -223,66 +223,84 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     return res
 
 
-def plot_multilabel_confusion_matrix(threshold_emo_pres, num_classes, model_id, model_folder, display_fig):
+def plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, display_fig, threshold_emo_pres):
 
     display = None
+
+    def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, end_of_title):
+        display = ConfusionMatrixDisplay(confusion_matrix=conf_matrix[emo_i, :, :],
+                                         display_labels=[0, 1])
+        display.plot(ax=axes[axe_id], values_format='.4g')
+        display.ax_.set_title(emotions[emo_i] + end_of_title)
+        # if i != len(threshold_emo_pres)-1:  ## Remove "Predicted label" xlabel from the graph
+        #     display.ax_.set_xlabel('')
+        if emo_i != 0:
+            display.ax_.set_ylabel('')
+        display.im_.colorbar.remove()
+
+        return display
 
     emotions = ['happy', 'sad', 'anger', 'surprise', 'disgust', 'fear']
     if num_classes == 7:
         emotions += ['neutral']
 
-    f, axes = plt.subplots(len(threshold_emo_pres), num_classes,
-                           figsize=(5*num_classes, 5*len(threshold_emo_pres)))
+    f, axes = plt.subplots(len(threshold_emo_pres)+1, num_classes,
+                           figsize=(5*num_classes, 5*(len(threshold_emo_pres)+1)))
     axes = axes.ravel()
 
-    for i, thres in enumerate(threshold_emo_pres):
-
-        conf_matrix = load_from_pickle('conf_matrix_{}_t_{}'.format(model_id, thres),
+    # Plot confusion matrix for dominant emotions
+    conf_matrix_dom = load_from_pickle('conf_matrix_{}_dom'.format(model_id),
                                        pickle_folder="confusion_matrix", root_folder=model_folder)
+    for emo_i in range(num_classes):
+        display = plot_one_confusion_matrix(conf_matrix_dom, emo_i, axe_id=emo_i, end_of_title=" dominant")
 
+    # Plot confusion matrix for emotions present
+    for i, thres in enumerate(threshold_emo_pres):
+        conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}'.format(model_id, thres),
+                                            pickle_folder="confusion_matrix", root_folder=model_folder)
         for emo_i in range(num_classes):
-            display = ConfusionMatrixDisplay(confusion_matrix=conf_matrix[emo_i, :, :],
-                                             display_labels=[0, 1])
-            display.plot(ax=axes[i*num_classes + emo_i], values_format='.4g')
-            display.ax_.set_title(emotions[emo_i] + " - score>{}".format(thres))
-            if i != len(threshold_emo_pres)-1:
-                display.ax_.set_xlabel('')
-            if emo_i != 0:
-                display.ax_.set_ylabel('')
-            display.im_.colorbar.remove()
+            display = plot_one_confusion_matrix(conf_matrix_pres, emo_i, axe_id=(i+1)*num_classes + emo_i,
+                                                end_of_title=" with score>{}".format(thres))
 
+    # Save figure
     plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_{}.png".format(model_id)),
                 bbox_inches='tight')
-
-    # https://stackoverflow.com/questions/62722416/plot-confusion-matrix-for-multilabel-classifcation-python
 
     f.colorbar(display.im_, ax=axes)
     if display_fig:
         plt.show()
 
 
-def compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, threshold_emo_pres, num_classes,
-                                        model_id, model_folder, display_fig):
+def compute_multilabel_confusion_matrix(true_classes, pred_classes, num_classes,
+                                        model_id, model_folder, display_fig, threshold_emo_pres=None):
     """
     Compute the multilabel confusion matrix for each emotion (whether the emotion is present or not).
     Pickle file generated.
 
-    :param true_classes_pres: List of arrays giving the emotions truly present (varying thresholds for presence score
-    given by threshold_emo_pres)
-    :param pred_classes_pres: List of arrays giving the emotions present predicted by the model (varying thresholds)
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    :param true_classes: List of arrays giving the emotions truly present (varying thresholds for presence score
+    given by threshold_emo_pres) or the dominant emotions
+    :param pred_classes: List of arrays giving the emotions present/dominant predicted by the model
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param model_id: Model id (int)
     :param model_folder: The folder where the results will be saved
+    :param display_fig: Whether we display the figure when running the code
+    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3.
+    This parameter should be used only when dealing with emotions present.
     """
 
-    for i, thres in enumerate(threshold_emo_pres):
-        conf_matrix = multilabel_confusion_matrix(true_classes_pres[i], pred_classes_pres[i],
-                                                  labels=list(range(num_classes)))
-        save_with_pickle(conf_matrix, 'conf_matrix_{}_t_{}'.format(model_id, thres),
-                         pickle_folder="confusion_matrix", root_folder=model_folder)
+    # emotions present
+    if threshold_emo_pres is not None:
+        for i, thres in enumerate(threshold_emo_pres):
+            conf_matrix = multilabel_confusion_matrix(true_classes[i], pred_classes[i],
+                                                      labels=list(range(num_classes)))
+            save_with_pickle(conf_matrix, 'conf_matrix_{}_pres_t_{}'.format(model_id, thres),
+                             pickle_folder="confusion_matrix", root_folder=model_folder)
 
-    plot_multilabel_confusion_matrix(threshold_emo_pres, num_classes, model_id, model_folder, display_fig)
+    # emotions dominant
+    else:
+        conf_matrix = multilabel_confusion_matrix(true_classes, pred_classes, labels=list(range(num_classes)))
+        save_with_pickle(conf_matrix, 'conf_matrix_{}_dom'.format(model_id),
+                         pickle_folder="confusion_matrix", root_folder=model_folder)
 
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,

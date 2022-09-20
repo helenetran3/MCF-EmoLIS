@@ -3,7 +3,8 @@ import os
 from tensorflow.keras.models import load_model
 from src.pickle_functions import save_with_pickle
 from src.dataset_utils import get_tf_dataset
-from src.model_metrics import compute_loss_value, compute_multilabel_confusion_matrix, get_and_print_all_metrics
+from src.model_metrics import compute_loss_value, compute_multilabel_confusion_matrix, plot_multilabel_confusion_matrix
+from src.model_metrics import get_and_print_all_metrics
 from src.label_processing import compute_true_labels, compute_pred_labels
 
 
@@ -80,9 +81,11 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
                             num_classes, model_folder)
 
     # Confusion matrix
-    if save_confusion_matrix:
-        compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, threshold_emo_pres, num_classes,
-                                            model_id, model_folder, display_fig)
+    compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, num_classes,
+                                        model_id, model_folder, display_fig, threshold_emo_pres)
+    compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, num_classes,
+                                        model_id, model_folder, display_fig)
+    plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, display_fig, threshold_emo_pres)
 
     # Model evaluation
     loss_function_val = compute_loss_value(model, test_dataset, loss_function, round_decimals)
