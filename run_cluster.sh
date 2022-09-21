@@ -22,22 +22,22 @@ python3 main.py \
 --model_name ef_williams \
 --num_layers 1 \
 --num_nodes 100 \
---dropout_rate 0.2 \
+--dropout_rate 0.1 \
 --final_activ linear \
---num_epochs 5 \
---patience 1 \
---batch_size 128 \
---fixed_num_steps 45 \
+--num_epochs 1000 \
+--patience 10 \
+--batch_size 64 \
+--fixed_num_steps 15 \
 --label_type present \
 --optimizer adam \
 --loss_function mean_absolute_error \
 --learning_rate 0.001 \
 --val_metric loss \
---threshold_emo_present 0 0.5 1 \
+--threshold_emo_present 0 0.25 0.5 \
 --round_decimals 3 \
 --save_confusion_matrix \
 --display_fig \
 --save_predictions
-#--predict_neutral_class \
+#--predict_neutral_class \ #Do not use this parameter for the moment
 #--with_custom_split \
 #--display_fig
