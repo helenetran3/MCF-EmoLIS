@@ -100,17 +100,18 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         data = data_param + metrics
 
     elif task == "presence":
-        metrics_emo = ['f1', 'rec', 'prec']
+        metrics_emo = ['acc', 'f1', 'rec', 'prec']
         header_per_emo = ['{}_{}'.format(m, e) for m in metrics_emo for e in emotions]
-        header_overall = ['acc', 'f1_macro', 'f1_weighted', 'rec_macro', 'rec_weighted', 'prec_macro', 'prec_weighted']
+        header_overall = ['multilabel_acc', 'f1_macro', 'f1_weighted', 'rec_macro', 'rec_weighted',
+                          'prec_macro', 'prec_weighted']
         header = header_param + header_overall + header_per_emo
         data = [data_param + m for m in metrics]  # list for different thresholds
 
     elif task == "dominant":
-        metrics_emo = ['f1', 'rec', 'prec', 'roc_auc']
+        metrics_emo = ['acc', 'f1', 'rec', 'prec', 'roc_auc']
         header_per_emo = ['{}_{}'.format(m, e) for m in metrics_emo for e in emotions]
-        header_overall = ['acc', 'f1_macro', 'f1_weighted', 'rec_macro', 'rec_weighted', 'prec_macro', 'prec_weighted',
-                          'roc_auc_macro', 'roc_auc_weighted']
+        header_overall = ['multilabel_acc', 'f1_macro', 'f1_weighted', 'rec_macro', 'rec_weighted',
+                          'prec_macro', 'prec_weighted', 'roc_auc_macro', 'roc_auc_weighted']
         header = header_param + header_overall + header_per_emo
         data = data_param + metrics
 

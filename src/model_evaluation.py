@@ -3,7 +3,8 @@ import os
 from tensorflow.keras.models import load_model
 from src.pickle_functions import save_with_pickle
 from src.dataset_utils import get_tf_dataset
-from src.model_metrics import compute_loss_value, compute_multilabel_confusion_matrix, get_and_print_all_metrics
+from src.model_metrics import compute_loss_value, compute_multilabel_confusion_matrix, plot_multilabel_confusion_matrix
+from src.model_metrics import get_and_print_all_metrics
 from src.label_processing import compute_true_labels, compute_pred_labels
 
 
@@ -31,7 +32,7 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
 
 def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_type,
                    model_name, model_id, all_scores, predict_neutral_class, threshold_emo_pres, round_decimals,
-                   ext_name, save_pred, save_confusion_matrix, display_fig):
+                   ext_name, save_pred, plot_confusion_matrix, display_fig):
     """
     Evaluate the performance of the best model.
 
@@ -48,7 +49,7 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
     :param round_decimals: Number of decimals to be rounded for metrics
     :param ext_name: extension name containing info on whether we predict neutral class
     :param save_pred: Whether we save predictions with pickle
-    :param save_confusion_matrix: Whether we save confusion matrices with pickle
+    :param plot_confusion_matrix: Whether we save confusion matrices with pickle
     :param display_fig: Whether we display figures
     """
 
@@ -80,9 +81,12 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
                             num_classes, model_folder)
 
     # Confusion matrix
-    if save_confusion_matrix:
-        compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, threshold_emo_pres, num_classes,
-                                            model_id, model_folder, display_fig)
+    compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, num_classes,
+                                        model_id, model_folder, display_fig, threshold_emo_pres)
+    compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, num_classes,
+                                        model_id, model_folder, display_fig)
+    if plot_confusion_matrix:
+        plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, display_fig, threshold_emo_pres)
 
     # Model evaluation
     loss_function_val = compute_loss_value(model, test_dataset, loss_function, round_decimals)
@@ -91,6 +95,7 @@ def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_
     metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                                   pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                  threshold_emo_pres, num_classes, predict_neutral_class, round_decimals)
+                                  threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
+                                  model_id, model_folder)
 
     return loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
