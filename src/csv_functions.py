@@ -179,7 +179,7 @@ def save_results_in_csv_file(model_name, model_id,
 
 def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epochs, patience, batch_size,
                                  fixed_num_steps, optimizer_name, loss_function, learning_rate, val_metric,
-                                 predict_neutral_class, model_name):
+                                 predict_neutral_class, label_type, model_name):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
@@ -194,6 +194,9 @@ def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epoc
     :param learning_rate: Learning rate for training
     :param val_metric: Metric on validation data to monitor
     :param predict_neutral_class: Whether we predict the neutral class
+    :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
+                         scores provided by the dataset), coarse (presence score for each emotion among "
+                         [0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)
     :param model_name: Name of the model
     :return: model id of the current model
     """
@@ -201,9 +204,9 @@ def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epoc
 
     model_id = get_current_model_id(csv_path)
     model_training_param = [num_epochs, patience, batch_size, fixed_num_steps, optimizer_name, loss_function,
-                            learning_rate, val_metric, predict_neutral_class]
+                            learning_rate, val_metric, predict_neutral_class, label_type]
     model_training_header = ['num_epochs', 'patience', 'batch_size', 'fixed_num_steps', 'optimizer', 'loss_function',
-                             'learning_rate', 'val_metric', 'predict_neutral_class']
+                             'learning_rate', 'val_metric', 'predict_neutral_class', 'label_type']
     header_all = ['model_id'] + model_archi_header + model_training_header
     param_all = [model_id] + model_archi_param + model_training_param
 

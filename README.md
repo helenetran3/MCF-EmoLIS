@@ -2,7 +2,7 @@
 
 :dart: This repository is intended to experiment state-of-the-art codes on Multimodal Emotion Recognition.
 
-The code is not ready yet and this README will be updated once it is (it will be ready by the end of this week). Feel free to open an issue on this repository if you have any question or remark. Thank you for your interest!
+Feel free to open an issue on this repository if you have any question or remark. Thank you for your interest!
 
 
 ### README Structure
@@ -91,7 +91,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                [-opt {adam,sgd,adagrad,adadelta,rmsprop}] [-lf LOSS_FUNCTION]
                [-lr LEARNING_RATE] [-v {loss,acc}] [-nc]
                [-tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]]
-               [-rd ROUND_DECIMALS] [-sp] [-scm] [-df]
+               [-rd ROUND_DECIMALS] [-sp] [-pcm] [-df]
 
     SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.
     
@@ -160,7 +160,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
       -sp, --save_predictions
                             Save predictions with pickle
       -pcm, --plot_confusion_matrix
-                            Save confusion matrix with pickle
+                            Plot confusion matrix
       -df, --display_fig    Whether we display the figures
 
     ```

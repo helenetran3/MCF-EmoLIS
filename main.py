@@ -62,7 +62,7 @@ parser.add_argument('-rd', '--round_decimals', type=int,
 parser.add_argument('-sp', '--save_predictions', action='store_true',
                     help="Save predictions with pickle")
 parser.add_argument('-pcm', '--plot_confusion_matrix', action='store_true',
-                    help="Save confusion matrix with pickle")
+                    help="Plot confusion matrix")
 parser.add_argument('-df', '--display_fig', action='store_true',
                     help="Whether we display the figures")
 args = parser.parse_args()
@@ -88,7 +88,7 @@ def main():
                                                           train_ids, valid_ids, test_ids,
                                                           args.image_feature, args.pickle_name_fold)
 
-    all_scores = [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]  # TODO: get it from training fold
+    all_scores = [0.0, 0.17, 0.33, 0.5, 0.67, 0.83, 1.0, 1.17, 1.33, 1.5, 1.67, 2.0, 2.33, 2.67, 3.0]  # TODO: get it from training fold
 
     train_list, valid_list, test_list = \
         update_folds_for_training_and_evaluation(train_list, valid_list, test_list, args.label_type, all_scores,
@@ -100,13 +100,13 @@ def main():
     model_id = save_model_param_in_csv_file(model_data, model_header, args.num_epochs, args.patience,
                                             args.batch_size, args.fixed_num_steps, args.optimizer, args.loss_function,
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,
-                                            args.model_name)
+                                            args.label_type, args.model_name)
     # Model training
     train_model(train_list, valid_list, test_list,
                 args.batch_size, args.num_epochs, args.fixed_num_steps, args.num_layers, args.num_nodes,
                 args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                 args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
-                model_id, args.display_fig)
+                model_id, args.display_fig, args.label_type)
 
     # Model evaluation
     loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \

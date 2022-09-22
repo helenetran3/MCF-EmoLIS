@@ -114,7 +114,7 @@ def plot_history(history, model_id, val_metric, history_folder, root_folder, dis
 def train_model(train_list, valid_list, test_list,
                 batch_size, num_epochs, fixed_num_steps, num_layers,
                 num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
-                val_metric, patience, model_name, predict_neutral_class, model_id, display_fig):
+                val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
     """
     Train the model.
 
@@ -195,6 +195,7 @@ def train_model(train_list, valid_list, test_list,
     print("Number of output cells:", num_classes)
     print("Predict neutral class:", predict_neutral_class)
     print("\n>>> Model training")
+    print("Task:", label_type)
     print("Batch size:", batch_size)
     print("Number epochs:", num_epochs)
     print("Patience:", patience)

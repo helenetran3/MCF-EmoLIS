@@ -355,7 +355,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     """
 
     print("\n\n")
-    print("In the following, all the metrics displayed for each emotion are in this order: sentiment, happy, sad, "
+    print("In the following, all the metrics displayed for each emotion are in this order: happiness, sadness, "
           "anger, surprise, disgust, fear", end="")
     print(", neutral.\n") if predict_neutral_class else print(".\n")
 

@@ -27,15 +27,15 @@ python3 main.py \
 --num_epochs 1000 \
 --patience 10 \
 --batch_size 64 \
---fixed_num_steps 15 \
---label_type present \
+--fixed_num_steps 20 \
+--label_type all \
 --optimizer adam \
 --loss_function mean_absolute_error \
 --learning_rate 0.001 \
 --val_metric loss \
 --threshold_emo_present 0 0.25 0.5 \
 --round_decimals 3 \
---save_confusion_matrix \
+--plot_confusion_matrix \
 --display_fig \
 --save_predictions
 #--predict_neutral_class \ #Do not use this parameter for the moment
