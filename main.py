@@ -90,6 +90,7 @@ def main():
 
     all_scores = [0.0, 0.17, 0.33, 0.5, 0.67, 0.83, 1.0, 1.17, 1.33, 1.5, 1.67, 2.0, 2.33, 2.67, 3.0]  # TODO: get it from training fold
 
+    # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
     train_list, valid_list, test_list = \
         update_folds_for_training_and_evaluation(train_list, valid_list, test_list, args.label_type, all_scores,
                                                  args.predict_neutral_class, args.threshold_emo_present, ext_name)

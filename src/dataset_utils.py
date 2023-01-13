@@ -141,7 +141,7 @@ def split_dataset(dataset, train_ids, valid_ids, test_ids, image_feature, pickle
     For each training, validation and test sets, create three lists:
     - one for features (x): arrays of shape (number steps, number features) for text/image/audio features (concatenated
     in this order)
-    - one for labels (y): arrays of shape (1, 7), for the 7 emotions
+    - one for labels (y): arrays of shape (1, 6), for the 6 emotions
     - one for segment ids (seg): id of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
     (Followed tutorial https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb)
     Note that this function performs **early fusion** (concatenation of low level text, image and audio features).

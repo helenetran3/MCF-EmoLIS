@@ -137,7 +137,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             Possible values: all (for all presence scores provided by
                             the dataset), coarse (presence score for each emotion among
                             [0, 1, 2, 3]), present (multi-label classification),
-                            dominant (multi-class classification)
+                            dominant (multi-class one-label classification)
       -opt {adam,sgd,adagrad,adadelta,rmsprop}, --optimizer {adam,sgd,adagrad,adadelta,rmsprop}
                             Optimizer for model training. Values: adam, sgd, adagrad,
                             adadelta, rmsprop.
