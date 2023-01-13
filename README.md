@@ -204,9 +204,22 @@ Some pickle names have an extension:
 
 ## Data preprocessing and statistics
 
-*This section is currently in process of being written. Thank you for your understanding!*
+The preprocessing of CMU-MOSEI feature data follows this tutorial (recommended by the authors of CMU-MOSEI): 
+https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb
 
-The data retrieved from CMU-MOSEI have been preprocessed (details will come soon!). 
+Here are the steps undertaken for feature data:
+1. All the following datapoints are removed:
+   - datapoints with one or two missing modalities
+   - the three modalities do not have the same number of time steps
+   - datapoints that do not belong to any of the training, validation and test id lists provided by the SDK
+2. All NaN are replaced by numbers
+3. Visual and acoustic modalities are z-normalised
+
+The labels are also processed based on the targeted task chosen by the user (can be set by the parameter `label_type`):
+- `all`: original presence scores provided by the dataset
+- `coarse`: presence score for each emotion among [0, 1, 2, 3]
+- `present`: one-hot encoded labels for multi-label classification
+- `dominant`: one-hot encoded labels for one-label classification
 
 After the preprocessing step, here are the statistics:
 
