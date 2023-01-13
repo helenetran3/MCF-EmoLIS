@@ -11,7 +11,7 @@ Feel free to open an issue on this repository if you have any question or remark
 2. [Environment](#Environment)
 3. [How to run the code](#How-to-run-the-code)
 4. [Output generated](#outputs-generated)
-5. [Data preprocessing and statistics](#Data-preprocessing-and-statistics)
+5. [Data preprocessing and resulting statistics](#Data-preprocessing-and-resulting-statistics)
 6. [Models available](#models-available)
 
 ## CMU-MOSEI Database
@@ -202,12 +202,15 @@ Some pickle names have an extension:
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
 
 
-## Data preprocessing and statistics
+## Data preprocessing and resulting statistics
 
-The preprocessing of CMU-MOSEI feature data follows this tutorial (recommended by the authors of CMU-MOSEI): 
+This section presents the work conducted on feature data and labels, as well as the statistics obtained after the data preprocessing step.
+
+### Preprocessing of feature data
+The work is based on the following tutorial (recommended by the authors of CMU-MOSEI): 
 https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb
 
-Here are the steps undertaken for feature data:
+Here are the steps undertaken:
 1. All the following datapoints are removed:
    - datapoints with one or two missing modalities
    - the three modalities do not have the same number of time steps
@@ -215,13 +218,14 @@ Here are the steps undertaken for feature data:
 2. All NaN are replaced by numbers
 3. Visual and acoustic modalities are z-normalised
 
-The labels are also processed based on the targeted task chosen by the user (can be set by the parameter `label_type`):
+### Preprocessing of labels
+The labels are processed based on the targeted task chosen by the user (can be set by the parameter `label_type`):
 - `all`: original presence scores provided by the dataset
 - `coarse`: presence score for each emotion among [0, 1, 2, 3]
 - `present`: one-hot encoded labels for multi-label classification
 - `dominant`: one-hot encoded labels for one-label classification
 
-After the preprocessing step, here are the statistics:
+### Data split statistics
 
 |            | # of samples | Proportion |
 |------------|--------------|------------|
@@ -229,6 +233,7 @@ After the preprocessing step, here are the statistics:
 | Validation | 1871         | 8.19%      |
 | Test       | 4654         | 20.38%     |
 
+### Label statistics
 
 The two diagrams below show the label distribution for training, validation and test sets. 
 It is worth noting that "happiness" is more expressed in the videos than the other 
