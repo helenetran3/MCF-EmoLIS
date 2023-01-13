@@ -202,8 +202,8 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
-def update_folds_for_training_and_evaluation(train_list, valid_list, test_list, label_type, all_scores,
-                                             predict_neutral_class, threshold_emo_pres, ext_name):
+def update_labels(train_list, valid_list, test_list, label_type, all_scores,
+                  predict_neutral_class, threshold_emo_pres, ext_name):
     """
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset

@@ -1,9 +1,9 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
-from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, split_dataset
+from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset
 from src.model_training import train_model
 from src.model_evaluation import evaluate_model
 from src.csv_functions import save_model_param_in_csv_file, save_results_in_csv_file, get_header_and_data_model
-from src.label_processing import update_folds_for_training_and_evaluation
+from src.label_processing import update_labels
 import argparse
 
 parser = argparse.ArgumentParser(description="SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.")
@@ -84,16 +84,16 @@ def main():
 
         # Get data for training, validation and test sets (split provided by the SDK)
         train_ids, valid_ids, test_ids = get_fold_ids(args.with_custom_split)
-        train_list, valid_list, test_list = split_dataset(dataset,
-                                                          train_ids, valid_ids, test_ids,
-                                                          args.image_feature, args.pickle_name_fold)
+        train_list, valid_list, test_list = process_and_split_dataset(dataset,
+                                                                      train_ids, valid_ids, test_ids,
+                                                                      args.image_feature, args.pickle_name_fold)
 
     all_scores = [0.0, 0.17, 0.33, 0.5, 0.67, 0.83, 1.0, 1.17, 1.33, 1.5, 1.67, 2.0, 2.33, 2.67, 3.0]  # TODO: get it from training fold
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
     train_list, valid_list, test_list = \
-        update_folds_for_training_and_evaluation(train_list, valid_list, test_list, args.label_type, all_scores,
-                                                 args.predict_neutral_class, args.threshold_emo_present, ext_name)
+        update_labels(train_list, valid_list, test_list, args.label_type, all_scores,
+                      args.predict_neutral_class, args.threshold_emo_present, ext_name)
 
     # Save model parameters and return model id
     model_header, model_data = get_header_and_data_model(args.model_name, args.num_layers, args.num_nodes,

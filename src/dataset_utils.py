@@ -136,7 +136,7 @@ def get_fold_ids(with_custom_split):
     return train_ids, valid_ids, test_ids
 
 
-def split_dataset(dataset, train_ids, valid_ids, test_ids, image_feature, pickle_name_fold):
+def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_feature, pickle_name_fold):
     """
     For each training, validation and test sets, create three lists:
     - one for features (x): arrays of shape (number steps, number features) for text/image/audio features (concatenated
