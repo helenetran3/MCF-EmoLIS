@@ -252,6 +252,8 @@ generate other graphs, please refer to `label_statistics.ipynb` file.
 
   </p>
 
+[Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
+
 ## Models available
 
 *The current code only runs the following model. We aim to add more models in this repository.*
