@@ -11,7 +11,8 @@ Feel free to open an issue on this repository if you have any question or remark
 2. [Environment](#Environment)
 3. [How to run the code](#How-to-run-the-code)
 4. [Output generated](#outputs-generated)
-5. [Models available](#models-available)
+5. [Data preprocessing and statistics](#Data-preprocessing-and-statistics)
+6. [Models available](#models-available)
 
 ## CMU-MOSEI Database
 
@@ -199,6 +200,39 @@ Some pickle names have an extension:
 | Metrics                        | `regression.csv` <br> `classif_score_coarse.csv`  <br> `classif_pres_t_{thres}.csv`  <br> `classif_dom.csv`                                            | CSV files with all the metrics: <br> **regression**: Regression metrics calculated from the closeness with the presence score <br> **classif_score_coarse**: Classification metrics based on presence score (from 0 to 3) for each emotion <br> **classif_pres**: Classification metrics based on the presence/absence of an emotion (presence score >= thres) <br> **classif_dom**: Classification metrics based on identifying the dominant emotion(s) (the highest presence score)                                                                                                                                   | results/<br>*model_name*/csv/                  |
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
+
+
+## Data preprocessing and statistics
+
+*This section is currently in process of being written. Thank you for your understanding!*
+
+The data retrieved from CMU-MOSEI have been preprocessed (details will come soon!). 
+
+After the preprocessing step, here are the statistics:
+
+|            | # of samples | Proportion |
+|------------|--------------|------------|
+| Training   | 16315        | 71.43%     |
+| Validation | 1871         | 8.19%      |
+| Test       | 4654         | 20.38%     |
+
+
+The two diagrams below show the label distribution for training, validation and test sets. 
+It is worth noting that "happiness" is more expressed in the videos than the other 
+emotion classes (the blue area is larger when the presence score is high). If you want to manipulate statistics and
+generate other graphs, please refer to `label_statistics.ipynb` file.
+
+  <p font="italic" align="center">  
+
+  <img src="images/cmu-mosei_stats_area.png" align="center" alt="cmu_mosei_database">
+
+  </p>
+
+  <p font="italic" align="center">  
+
+  <img src="images/cmu-mosei_stats_hist.png" align="center" alt="cmu_mosei_database">
+
+  </p>
 
 ## Models available
 
