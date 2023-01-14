@@ -139,13 +139,12 @@ def get_fold_ids(with_custom_split):
 def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_feature, pickle_name_fold):
     """
     For each training, validation and test sets, create a list of three sublists:
-    - one for features (x): arrays of shape (number steps, number features) for text/image/audio features (concatenated
-    in this order)
+    - one for features (x): a list of 3 arrays of shape (number steps, number features) for text, image and audio
+    features in this order
     - one for labels (y): arrays of shape (1, 6), for the 6 emotions
     - one for segment ids (seg): id of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
     (Followed tutorial https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb)
     Note that this function performs **early fusion** (concatenation of low level text, image and audio features).
-    # TODO Separate modalities.
 
     :param dataset: CMU-MOSEI mmdataset
     :param train_ids: list of training ids
@@ -207,18 +206,18 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
         audio_seg = np.nan_to_num(
             (audio_seg - audio_seg.mean(0, keepdims=True)) / (EPS + np.std(audio_seg, axis=0, keepdims=True)))
 
-        data_seg = np.concatenate((text_seg, image_seg, audio_seg), axis=1)  # early fusion
+        # data_seg = np.concatenate((text_seg, image_seg, audio_seg), axis=1)  # early fusion
 
         if vid in train_ids:
-            x_train.append(data_seg)
+            x_train.append([text_seg, image_seg, audio_seg])
             y_train.append(label_seg)
             seg_train.append(seg_id)
         elif vid in valid_ids:
-            x_valid.append(data_seg)
+            x_valid.append([text_seg, image_seg, audio_seg])
             y_valid.append(label_seg)
             seg_valid.append(seg_id)
         elif vid in test_ids:
-            x_test.append(data_seg)
+            x_test.append([text_seg, image_seg, audio_seg])
             y_test.append(label_seg)
             seg_test.append(seg_id)
         else:
