@@ -138,7 +138,7 @@ def get_fold_ids(with_custom_split):
 
 def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_feature, pickle_name_fold):
     """
-    For each training, validation and test sets, create three lists:
+    For each training, validation and test sets, create a list of three sublists:
     - one for features (x): arrays of shape (number steps, number features) for text/image/audio features (concatenated
     in this order)
     - one for labels (y): arrays of shape (1, 6), for the 6 emotions

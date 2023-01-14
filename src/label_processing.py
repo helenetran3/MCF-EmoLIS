@@ -208,8 +208,8 @@ def update_labels(train_list, valid_list, test_list, label_type, all_scores,
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
     - coarse: presence score for each emotion among [0, 1, 2, 3]
-    - present: one-hot encoded labels for multi-label classification
-    - dominant: one-hot encoded labels for one-label classification
+    - present: one-hot encoded labels for multi-label classification. 7 classes if predict_neutral_class else 6.
+    - dominant: one-hot encoded labels for one-label classification. 7 classes if predict_neutral_class else 6.
 
     :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
