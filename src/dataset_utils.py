@@ -283,7 +283,7 @@ def seq_with_fixed_length(seq_array, fixed_num_steps):
 
 def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_steps, concatenate_x):
     """
-    Yields iteratively one datapoint represented by 1 array of features, 1 array of labels, 1 list of start/end times
+    Yields successively one datapoint represented by 1 array of features, 1 array of labels, 1 list of start/end times
 
     :param x_list: list of arrays of shape (number steps, number features)
     :param y_list: list of arrays of shape (1, 7), for the 7 emotions
@@ -298,10 +298,13 @@ def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_s
 
     else:
         for x_list_i, y_list_i, seg_list_i in zip(x_list, y_list, seg_list):  # loop on each sample
-            x_list_i = np.concatenate(x_list_i, axis=1) if concatenate_x else x_list_i  # TODO Traiter le cas sans early fusion
-            x_list_i = x_list_i if not with_fixed_length else seq_with_fixed_length(x_list_i, fixed_num_steps)
-            x_list_i = x_list_i[None, :]  # Add one dimension: (1, number steps, number features)
-            yield x_list_i, y_list_i  #, seg_list_i
+            # x_list_i = np.concatenate(x_list_i, axis=1) if concatenate_x else x_list_i  # TODO Traiter le cas sans early fusion
+            # x_list_i = x_list_i if not with_fixed_length else seq_with_fixed_length(x_list_i, fixed_num_steps)
+            x_list_i_0 = x_list_i[0][None, :]  # Add one dimension: (1, number steps, number features)
+            x_list_i_1 = x_list_i[1][None, :]
+            x_list_i_2 = x_list_i[2][None, :]
+            y_list_i = y_list_i[None, :]
+            yield x_list_i_0, x_list_i_1, x_list_i_2, y_list_i  #, seg_list_i
 
 
 def get_tf_dataset(concatenate_x, x_list, y_list, seg_list, num_classes, batch_size, with_fixed_length, fixed_num_steps, train_mode):
@@ -309,7 +312,7 @@ def get_tf_dataset(concatenate_x, x_list, y_list, seg_list, num_classes, batch_s
     Returns a TensorFlow dataset from a datapoint generator.
     #TODO Case where the number of steps is not fixed
     
-    :param x_list: list of arrays of shape (number steps, number features)
+    :param x_list: list of list of 3 arrays of shape (number steps, number features)
     :param y_list: list of arrays of shape (1, 7), for the 7 emotions
     :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
     :param num_classes: number of classes to predict
@@ -319,14 +322,20 @@ def get_tf_dataset(concatenate_x, x_list, y_list, seg_list, num_classes, batch_s
     :return: a TensorFlow dataset
     """
 
-    num_features = x_list[0][0].shape[1] + x_list[0][1].shape[1] + x_list[0][2].shape[1]
+    num_features_text = x_list[0][0].shape[1]  # Here we consider that all samples have the same number of features
+    num_features_image = x_list[0][1].shape[1]
+    num_features_audio = x_list[0][2].shape[1]
 
     tf_dataset = tf.data.Dataset.from_generator(generator=lambda: datapoint_generator(x_list, y_list, seg_list,
                                                                                       with_fixed_length,
                                                                                       fixed_num_steps,
                                                                                       concatenate_x),
                                                 output_signature=(
-                                                    tf.TensorSpec(shape=(None, fixed_num_steps, num_features),
+                                                    tf.TensorSpec(shape=(None, fixed_num_steps, num_features_text),
+                                                                  dtype=tf.float64),
+                                                    tf.TensorSpec(shape=(None, fixed_num_steps, num_features_image),
+                                                                  dtype=tf.float64),
+                                                    tf.TensorSpec(shape=(None, fixed_num_steps, num_features_audio),
                                                                   dtype=tf.float64),
                                                     tf.TensorSpec(shape=(1, num_classes), dtype=tf.float64)
                                                     # tf.TensorSpec(shape=(), dtype=tf.string)

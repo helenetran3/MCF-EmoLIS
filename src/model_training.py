@@ -154,7 +154,7 @@ def train_tf_model(train_list, valid_list, test_list,
     num_test_samples = len(test_list[1])
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
-    concatenate_x = True
+    concatenate_x = False  # TODO Remove it when the task is done
 
     # Create TensorFlow datasets for model training
     with_fixed_length = (fixed_num_steps > 0)
@@ -210,7 +210,7 @@ def train_tf_model(train_list, valid_list, test_list,
     print("\n>>> Model parameters")
     model_class.print_values()
     print("\n")
-    print(model.summary())
+    # print(model.summary())  # TODO Make it workq
 
     print("\n\n================================= Model Training =============================================\n")
     history = model.fit(x=train_dataset,

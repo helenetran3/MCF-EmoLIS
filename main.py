@@ -104,7 +104,7 @@ def main():
                                             args.label_type, args.model_name)
 
     is_tf = True  # for testing
-    concatenate_x = True # for testing
+    concatenate_x = False # for testing
 
     # Model training
     train_model(is_tf, train_list, valid_list, test_list,
