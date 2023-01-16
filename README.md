@@ -217,7 +217,8 @@ Based on [this tutorial on CMU-Multimodal SDK](https://github.com/Justin1904/CMU
 2. All NaN are replaced by numbers
 3. Visual and acoustic modalities are z-normalised
 
-The output structure of the processed data is the following:
+The output structure of the processed data from the function `process_and_split_dataset` is the following 
+(example with the training set `train_list`):
 
   <p font="italic" align="center">  
 

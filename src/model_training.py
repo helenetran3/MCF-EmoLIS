@@ -111,15 +111,16 @@ def plot_history(history, model_id, val_metric, history_folder, root_folder, dis
         plt.show()
 
 
-def train_model(train_list, valid_list, test_list,
-                batch_size, num_epochs, fixed_num_steps, num_layers,
-                num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
-                val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
+def train_tf_model(train_list, valid_list, test_list,
+                   batch_size, num_epochs, fixed_num_steps, num_layers,
+                   num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
+                   val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
     """
     Train the model.
 
-    :param train_list: [x_train, y_train, seg_train] where x_train is a list of arrays of shape (number steps, number
-    features), y_train a list arrays of shape (1, 6 or 7), and seg_train a list of segment ids (ex: 'zk2jTlAtvSU[1]')
+    :param train_list: [x_train, y_train, seg_train] where x_train is a list of 3 lists of arrays of shape
+    (num_steps, num_features), y_train a list arrays of shape (1, 6 or 7), and seg_train a list of segment ids
+    (ex: 'zk2jTlAtvSU[1]')
     :param valid_list: [x_valid, y_valid, seg_valid]
     :param test_list: [x_test, y_test, seg_test]
     :param batch_size: Batch size for training
@@ -138,12 +139,13 @@ def train_model(train_list, valid_list, test_list,
     :param predict_neutral_class: Whether we predict the neutral class
     :param model_id: Model id (int)
     :param display_fig: Whether we display the figures
+    :param label_type: Type of labels used for model training and evaluation.
     """
 
-    x_train = train_list[0]
+    x_train = train_list[0]  # list of lists of 3 arrays
     y_train = train_list[1]
     seg_train = train_list[2]
-    x_valid = valid_list[0]
+    x_valid = valid_list[0]  # list of lists of 3 arrays
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
     num_classes = y_train[0].shape[1]
@@ -152,11 +154,13 @@ def train_model(train_list, valid_list, test_list,
     num_test_samples = len(test_list[1])
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
+    concatenate_x = True
+
     # Create TensorFlow datasets for model training
     with_fixed_length = (fixed_num_steps > 0)
-    train_dataset = get_tf_dataset(x_train, y_train, seg_train, num_classes, batch_size, with_fixed_length,
+    train_dataset = get_tf_dataset(concatenate_x, x_train, y_train, seg_train, num_classes, batch_size, with_fixed_length,
                                    fixed_num_steps, train_mode=True)
-    valid_dataset = get_tf_dataset(x_valid, y_valid, seg_valid, num_classes, batch_size, with_fixed_length,
+    valid_dataset = get_tf_dataset(concatenate_x, x_valid, y_valid, seg_valid, num_classes, batch_size, with_fixed_length,
                                    fixed_num_steps, train_mode=True)
 
     # Parameters to save model
@@ -179,7 +183,7 @@ def train_model(train_list, valid_list, test_list,
                                    restore_best_weights=True)
 
     # Build model
-    num_features = x_train[0].shape[1]
+    num_features = x_train[0][0].shape[1] + x_train[0][1].shape[1] + x_train[0][2].shape[1]
     optimizer_tf = get_optimizer(optimizer_name)
     optimizer_lr = optimizer_tf(learning_rate=learning_rate)
     model_class = get_model(model_name, model_id, num_features, num_classes, fixed_num_steps, num_layers, num_nodes,
@@ -227,3 +231,29 @@ def train_model(train_list, valid_list, test_list,
     # Display and save history plot
     plot_history(history, model_id, val_metric,
                  history_folder="history", root_folder=model_folder, display_fig=display_fig)
+
+
+def train_torch_model(train_list, valid_list, test_list,
+                      batch_size, num_epochs, fixed_num_steps, num_layers,
+                      num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
+                      val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
+
+    return 0
+
+
+def train_model(is_tf,
+                train_list, valid_list, test_list,
+                batch_size, num_epochs, fixed_num_steps, num_layers,
+                num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
+                val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
+    if is_tf:
+        train_tf_model(train_list, valid_list, test_list,
+                       batch_size, num_epochs, fixed_num_steps, num_layers,
+                       num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
+                       val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type)
+
+    else:
+        train_torch_model(train_list, valid_list, test_list,
+                          batch_size, num_epochs, fixed_num_steps, num_layers,
+                          num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
+                          val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type)
