@@ -46,9 +46,9 @@ class Model_ef:
 
         bidir = None
 
-        in_text = Input(shape=(self.num_steps, self.num_features_text))
-        in_image = Input(shape=(self.num_steps, self.num_features_image))
-        in_audio = Input(shape=(self.num_steps, self.num_features_audio))
+        in_text = Input(shape=(self.num_steps, self.num_features_text), name="text")
+        in_image = Input(shape=(self.num_steps, self.num_features_image), name="image")
+        in_audio = Input(shape=(self.num_steps, self.num_features_audio), name="audio")
 
         concat = Concatenate(axis=2)([in_text, in_image, in_audio])
         bnorm = BatchNormalization()(concat)

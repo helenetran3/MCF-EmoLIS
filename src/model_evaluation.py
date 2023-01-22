@@ -30,7 +30,7 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
     return pred_raw
 
 
-def evaluate_model(test_list, batch_size, concatenate_x, fixed_num_steps, loss_function, label_type,
+def evaluate_model(test_list, batch_size, fixed_num_steps, loss_function, label_type,
                    model_name, model_id, all_scores, predict_neutral_class, threshold_emo_pres, round_decimals,
                    ext_name, save_pred, plot_confusion_matrix, display_fig):
     """
@@ -67,7 +67,7 @@ def evaluate_model(test_list, batch_size, concatenate_x, fixed_num_steps, loss_f
 
     # Create TensorFlow test dataset for model prediction and evaluation
     with_fixed_length = (fixed_num_steps > 0)
-    test_dataset = get_tf_dataset(concatenate_x, x_test, y_test, seg_test, num_classes, batch_size, with_fixed_length,
+    test_dataset = get_tf_dataset(x_test, y_test, seg_test, num_classes, batch_size, with_fixed_length,
                                   fixed_num_steps, train_mode=False)
 
     # True labels

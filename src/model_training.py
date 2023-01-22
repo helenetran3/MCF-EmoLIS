@@ -34,14 +34,16 @@ def get_optimizer(optimizer_str):
                          .format(optimizer_str))
 
 
-def get_model(model_str, model_id, num_features, num_classes, fixed_num_steps, num_layers, num_nodes, dropout_rate,
-              final_activ):
+def get_model(model_str, model_id, num_features_text, num_features_image, num_features_audio, num_classes,
+              fixed_num_steps, num_layers, num_nodes, dropout_rate, final_activ):
     """
     Get model class from string.
 
     :param model_str: string
     :param model_id: Model id (int)
-    :param num_features: Number of features
+    :param num_features_text: size of text feature vector (it should be the same at each step)
+    :param num_features_image: size of image feature vector (it should be the same at each step)
+    :param num_features_audio: size of audio feature vector (it should be the same at each step)
     :param num_classes: Number of classes
     :param fixed_num_steps: Fixed size for all the sequences (if we keep the original size, this parameter is set to 0)
     :param num_layers: Number of bidirectional layers for the model
@@ -52,7 +54,8 @@ def get_model(model_str, model_id, num_features, num_classes, fixed_num_steps, n
     """
 
     model_dict = {
-        'ef_williams': ef_williams.Model_ef(model_id, num_features, num_classes, fixed_num_steps, num_layers, num_nodes,
+        'ef_williams': ef_williams.Model_ef(model_id, num_features_text, num_features_image, num_features_audio,
+                                            num_classes, fixed_num_steps, num_layers, num_nodes,
                                             dropout_rate, final_activ)
     }
 
@@ -154,13 +157,11 @@ def train_tf_model(train_list, valid_list, test_list,
     num_test_samples = len(test_list[1])
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
-    concatenate_x = False  # TODO Remove it when the task is done
-
     # Create TensorFlow datasets for model training
     with_fixed_length = (fixed_num_steps > 0)
-    train_dataset = get_tf_dataset(concatenate_x, x_train, y_train, seg_train, num_classes, batch_size, with_fixed_length,
+    train_dataset = get_tf_dataset(x_train, y_train, seg_train, num_classes, batch_size, with_fixed_length,
                                    fixed_num_steps, train_mode=True)
-    valid_dataset = get_tf_dataset(concatenate_x, x_valid, y_valid, seg_valid, num_classes, batch_size, with_fixed_length,
+    valid_dataset = get_tf_dataset(x_valid, y_valid, seg_valid, num_classes, batch_size, with_fixed_length,
                                    fixed_num_steps, train_mode=True)
 
     # Parameters to save model
@@ -183,10 +184,13 @@ def train_tf_model(train_list, valid_list, test_list,
                                    restore_best_weights=True)
 
     # Build model
-    num_features = x_train[0][0].shape[1] + x_train[0][1].shape[1] + x_train[0][2].shape[1]
+    num_features_text = x_train[0][0].shape[1]
+    num_features_image = x_train[0][1].shape[1]
+    num_features_audio = x_train[0][2].shape[1]
     optimizer_tf = get_optimizer(optimizer_name)
     optimizer_lr = optimizer_tf(learning_rate=learning_rate)
-    model_class = get_model(model_name, model_id, num_features, num_classes, fixed_num_steps, num_layers, num_nodes,
+    model_class = get_model(model_name, model_id, num_features_text, num_features_image, num_features_audio,
+                            num_classes, fixed_num_steps, num_layers, num_nodes,
                             dropout_rate, final_activ)
     model = model_class.build()
     model.compile(loss=loss_function, optimizer=optimizer_lr)
@@ -210,7 +214,7 @@ def train_tf_model(train_list, valid_list, test_list,
     print("\n>>> Model parameters")
     model_class.print_values()
     print("\n")
-    # print(model.summary())  # TODO Make it works
+    print(model.summary())
 
     print("\n\n================================= Model Training =============================================\n")
     history = model.fit(x=train_dataset,

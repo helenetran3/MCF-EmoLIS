@@ -281,7 +281,7 @@ def seq_with_fixed_length(seq_array, fixed_num_steps):
     return new_seq_array
 
 
-def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_steps, concatenate_x):
+def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_steps):
     """
     Yields successively one datapoint represented by 1 array of features, 1 array of labels, 1 list of start/end times
 
@@ -298,7 +298,6 @@ def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_s
 
     else:
         for x_list_i, y_list_i, seg_list_i in zip(x_list, y_list, seg_list):  # loop on each sample
-            # x_list_i = np.concatenate(x_list_i, axis=1) if concatenate_x else x_list_i  # TODO Traiter le cas sans early fusion
             # x_list_i = x_list_i if not with_fixed_length else seq_with_fixed_length(x_list_i, fixed_num_steps)
             x_list_i_0 = x_list_i[0][None, :]  # Add one dimension: (1, number steps, number features)
             x_list_i_1 = x_list_i[1][None, :]
@@ -307,7 +306,7 @@ def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_s
             yield {"text": x_list_i_0, "image": x_list_i_1, "audio": x_list_i_2}, y_list_i  # , seg_list_i
 
 
-def get_tf_dataset(concatenate_x, x_list, y_list, seg_list, num_classes, batch_size, with_fixed_length, fixed_num_steps,
+def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, with_fixed_length, fixed_num_steps,
                    train_mode):
     """
     Returns a TensorFlow dataset from a datapoint generator.
@@ -329,8 +328,7 @@ def get_tf_dataset(concatenate_x, x_list, y_list, seg_list, num_classes, batch_s
 
     tf_dataset = tf.data.Dataset.from_generator(generator=lambda: datapoint_generator(x_list, y_list, seg_list,
                                                                                       with_fixed_length,
-                                                                                      fixed_num_steps,
-                                                                                      concatenate_x),
+                                                                                      fixed_num_steps),
                                                 output_signature=(
                                                     {"text": tf.TensorSpec(shape=(None, fixed_num_steps,
                                                                                   num_features_text),

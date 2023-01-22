@@ -104,7 +104,6 @@ def main():
                                             args.label_type, args.model_name)
 
     is_tf = True  # for testing
-    concatenate_x = False # for testing
 
     # Model training
     train_model(is_tf, train_list, valid_list, test_list,
@@ -115,7 +114,7 @@ def main():
 
     # Model evaluation
     loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
-        evaluate_model(test_list, args.batch_size, concatenate_x, args.fixed_num_steps, args.loss_function, args.label_type,
+        evaluate_model(test_list, args.batch_size, args.fixed_num_steps, args.loss_function, args.label_type,
                        args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
                        args.round_decimals, ext_name, args.save_predictions, args.plot_confusion_matrix, args.display_fig)
 
