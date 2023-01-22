@@ -36,9 +36,9 @@ parser.add_argument('-p', '--patience', type=int,
                     help="Number of epochs with no improvement after which the training will be stopped.")
 parser.add_argument('-b', '--batch_size', type=int,
                     help="Batch size")
-parser.add_argument('-s', '--fixed_num_steps', type=int,
+parser.add_argument('-s', '--fixed_num_steps', type=int, default=-1,  # To be removed soon if not needed
                     help="Number of steps to fix for all sequences. Set to 0 if you want to keep the original number "
-                         "of steps.")
+                         "of steps. To be removed soon.")
 parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', 'present', 'dominant'],
                     help="Type of labels used for model training and evaluation. Possible values: all (for all presence"
                          "scores provided by the dataset), coarse (presence score for each emotion among "
@@ -107,14 +107,14 @@ def main():
 
     # Model training
     train_model(is_tf, train_list, valid_list, test_list,
-                args.batch_size, args.num_epochs, args.fixed_num_steps, args.num_layers, args.num_nodes,
+                args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
                 args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                 args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                 model_id, args.display_fig, args.label_type)
 
     # Model evaluation
     loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
-        evaluate_model(test_list, args.batch_size, args.fixed_num_steps, args.loss_function, args.label_type,
+        evaluate_model(test_list, args.batch_size, args.loss_function, args.label_type,
                        args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
                        args.round_decimals, ext_name, args.save_predictions, args.plot_confusion_matrix, args.display_fig)
 

@@ -9,7 +9,7 @@ class Model_ef:
     (Challenge-HML) (pp. 11-19).
     """
 
-    def __init__(self, model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_steps,
+    def __init__(self, model_id, num_features_text, num_features_image, num_features_audio, num_classes,
                  num_layers, num_nodes, dropout_rate, final_activ):
         """
         Build the model described in the paper (cf. README for the reference).
@@ -20,7 +20,6 @@ class Model_ef:
         :param num_features_image: size of image feature vector (it should be the same at each step)
         :param num_features_audio: size of audio feature vector (it should be the same at each step)
         :param num_classes: number of classes to predict
-        :param num_steps: number of steps in the sequence
         :param num_layers: number of bidirectional layers
         :param num_nodes: number of nodes for the penultimate dense layer
         :param dropout_rate: dropout rate before each dense layer
@@ -33,7 +32,6 @@ class Model_ef:
         self.num_features_image = num_features_image
         self.num_features_audio = num_features_audio
         self.num_classes = num_classes
-        self.num_steps = num_steps
         self.num_layers = num_layers
         self.num_nodes = num_nodes
         self.dropout_rate = dropout_rate
@@ -73,7 +71,6 @@ class Model_ef:
     def print_values(self):
         print("Model name:", self.model_name)
         print("Model id:", self.model_id)
-        print("Fixed number of steps:", self.num_steps)
         print("Number layers:", self.num_layers)
         print("Number nodes for the penultimate dense layer:", self.num_nodes)
         print("Dropout rate:", self.dropout_rate)
