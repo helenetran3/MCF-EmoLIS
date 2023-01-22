@@ -52,8 +52,8 @@ def get_model(model_str, model_id, num_features, num_classes, fixed_num_steps, n
     """
 
     model_dict = {
-        'ef_williams': ef_williams.Model(model_id, num_features, num_classes, fixed_num_steps, num_layers, num_nodes,
-                                         dropout_rate, final_activ)
+        'ef_williams': ef_williams.Model_ef(model_id, num_features, num_classes, fixed_num_steps, num_layers, num_nodes,
+                                            dropout_rate, final_activ)
     }
 
     if model_str.lower() in model_dict.keys():
@@ -210,7 +210,7 @@ def train_tf_model(train_list, valid_list, test_list,
     print("\n>>> Model parameters")
     model_class.print_values()
     print("\n")
-    # print(model.summary())  # TODO Make it workq
+    # print(model.summary())  # TODO Make it works
 
     print("\n\n================================= Model Training =============================================\n")
     history = model.fit(x=train_dataset,

@@ -1,0 +1,14 @@
+# Folders from Pycharm, pycache, jupyter notebook
+.idea/
+__pycache__/
+.ipynb_checkpoints/
+
+# Folders generated from the code
+cmu_mosei/
+results/
+
+# Personal files
+TODO_list
+personal_tests/
+archives/
+train_labels.csv
