@@ -131,7 +131,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             Batch size
       -s FIXED_NUM_STEPS, --fixed_num_steps FIXED_NUM_STEPS
                             Number of steps to fix for all sequences. Set to 0 if you want
-                            to keep the original number of steps. To be removed soon.
+                            to keep the original number of steps.
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
                             Type of labels used for model training and evaluation.
                             Possible values: all (for all presence scores provided by
@@ -272,6 +272,5 @@ Want to try one of the following models? Set `--model_name` parameter with the s
    - Updated version of [Multimodal DNN](https://github.com/rhoposit/MultimodalDNN)
    - Use standard training, validation and test sets from CMU-MOSEI SDK (instead of using only training and validation sets 
 originally specified in the paper)
-   - Keep the original number of timesteps (instead of padding / truncating data) to preserve information
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:

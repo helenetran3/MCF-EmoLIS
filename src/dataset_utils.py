@@ -281,13 +281,15 @@ def seq_with_fixed_length(seq_array, fixed_num_steps):
     return new_seq_array
 
 
-def datapoint_generator(x_list, y_list, seg_list):
+def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_steps):
     """
     Yields successively one datapoint represented by 1 array of features, 1 array of labels, 1 list of start/end times
 
     :param x_list: list of arrays of shape (number steps, number features)
     :param y_list: list of arrays of shape (1, 7), for the 7 emotions
     :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
+    :param with_fixed_length: whether we fix all feature vectors to the same length
+    :param fixed_num_steps: fixed number of steps in the sequence
     :return: yields 1 datapoint (x, y, seg_id) iteratively
     """
 
@@ -296,6 +298,7 @@ def datapoint_generator(x_list, y_list, seg_list):
 
     else:
         for x_list_i, y_list_i, seg_list_i in zip(x_list, y_list, seg_list):  # loop on each sample
+            # x_list_i = x_list_i if not with_fixed_length else seq_with_fixed_length(x_list_i, fixed_num_steps)
             x_list_i_0 = x_list_i[0][None, :]  # Add one dimension: (1, number steps, number features)
             x_list_i_1 = x_list_i[1][None, :]
             x_list_i_2 = x_list_i[2][None, :]
@@ -303,10 +306,12 @@ def datapoint_generator(x_list, y_list, seg_list):
             yield {"text": x_list_i_0, "image": x_list_i_1, "audio": x_list_i_2}, y_list_i  # , seg_list_i
 
 
-def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, train_mode):
+def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, with_fixed_length, fixed_num_steps,
+                   train_mode):
     """
     Returns a TensorFlow dataset from a datapoint generator.
-
+    #TODO Case where the number of steps is not fixed
+    
     :param x_list: list of list of 3 arrays of shape (number steps, number features)
     :param y_list: list of arrays of shape (1, 7), for the 7 emotions
     :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
@@ -322,13 +327,18 @@ def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, train_mode
     num_features_image = x_list[0][1].shape[1]
     num_features_audio = x_list[0][2].shape[1]
 
-    tf_dataset = tf.data.Dataset.from_generator(generator=lambda: datapoint_generator(x_list, y_list, seg_list),
+    tf_dataset = tf.data.Dataset.from_generator(generator=lambda: datapoint_generator(x_list, y_list, seg_list,
+                                                                                      with_fixed_length,
+                                                                                      fixed_num_steps),
                                                 output_signature=(
-                                                    {"text": tf.TensorSpec(shape=(None, None, num_features_text),
+                                                    {"text": tf.TensorSpec(shape=(None, None,
+                                                                                  num_features_text),
                                                                            dtype=tf.float64),
-                                                     "image": tf.TensorSpec(shape=(None, None, num_features_image),
+                                                     "image": tf.TensorSpec(shape=(None, None,
+                                                                                   num_features_image),
                                                                             dtype=tf.float64),
-                                                     "audio": tf.TensorSpec(shape=(None, None, num_features_audio),
+                                                     "audio": tf.TensorSpec(shape=(None, None,
+                                                                                   num_features_audio),
                                                                             dtype=tf.float64)},
                                                     tf.TensorSpec(shape=(1, num_classes), dtype=tf.float64)
                                                     # tf.TensorSpec(shape=(), dtype=tf.string)
