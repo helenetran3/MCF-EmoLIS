@@ -302,7 +302,6 @@ def datapoint_generator(x_list, y_list, seg_list, with_fixed_length, fixed_num_s
             x_list_i_0 = x_list_i[0][None, :]  # Add one dimension: (1, number steps, number features)
             x_list_i_1 = x_list_i[1][None, :]
             x_list_i_2 = x_list_i[2][None, :]
-            y_list_i = y_list_i[None, :]
             yield {"text": x_list_i_0, "image": x_list_i_1, "audio": x_list_i_2}, y_list_i  # , seg_list_i
 
 
@@ -310,8 +309,7 @@ def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, with_fixed
                    train_mode):
     """
     Returns a TensorFlow dataset from a datapoint generator.
-    #TODO Case where the number of steps is not fixed
-    
+
     :param x_list: list of list of 3 arrays of shape (number steps, number features)
     :param y_list: list of arrays of shape (1, 7), for the 7 emotions
     :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
@@ -331,14 +329,11 @@ def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, with_fixed
                                                                                       with_fixed_length,
                                                                                       fixed_num_steps),
                                                 output_signature=(
-                                                    {"text": tf.TensorSpec(shape=(None, None,
-                                                                                  num_features_text),
+                                                    {"text": tf.TensorSpec(shape=(None, None, num_features_text),
                                                                            dtype=tf.float64),
-                                                     "image": tf.TensorSpec(shape=(None, None,
-                                                                                   num_features_image),
+                                                     "image": tf.TensorSpec(shape=(None, None, num_features_image),
                                                                             dtype=tf.float64),
-                                                     "audio": tf.TensorSpec(shape=(None, None,
-                                                                                   num_features_audio),
+                                                     "audio": tf.TensorSpec(shape=(None, None, num_features_audio),
                                                                             dtype=tf.float64)},
                                                     tf.TensorSpec(shape=(1, num_classes), dtype=tf.float64)
                                                     # tf.TensorSpec(shape=(), dtype=tf.string)
