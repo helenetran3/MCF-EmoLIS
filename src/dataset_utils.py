@@ -299,6 +299,7 @@ def datapoint_generator(x_list, y_list, seg_list):
             x_list_i_0 = x_list_i[0][None, :]  # Add one dimension: (1, number steps, number features)
             x_list_i_1 = x_list_i[1][None, :]
             x_list_i_2 = x_list_i[2][None, :]
+            y_list_i = y_list_i[None, :]
             yield {"text": x_list_i_0, "image": x_list_i_1, "audio": x_list_i_2}, y_list_i  # , seg_list_i
 
 
@@ -311,6 +312,8 @@ def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, train_mode
     :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
     :param num_classes: number of classes to predict
     :param batch_size: batch size
+    :param with_fixed_length: whether we fix all feature vectors to the same length
+    :param fixed_num_steps: fixed number of steps in the sequence
     :param train_mode: whether we use the dataset for training or not (if not, it is for testing)
     :return: a TensorFlow dataset
     """
