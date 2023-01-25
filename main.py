@@ -3,7 +3,7 @@ from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_sp
 from src.model_training import train_model
 from src.model_evaluation import evaluate_model
 from src.csv_functions import save_model_param_in_csv_file, save_results_in_csv_file, get_header_and_data_model
-from src.label_processing import update_labels
+from src.label_processing import get_available_presence_scores_arr, update_labels
 import argparse
 
 parser = argparse.ArgumentParser(description="SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.")
@@ -88,7 +88,7 @@ def main():
                                                                       train_ids, valid_ids, test_ids,
                                                                       args.image_feature, args.pickle_name_fold)
 
-    all_scores = [0.0, 0.17, 0.33, 0.5, 0.67, 0.83, 1.0, 1.17, 1.33, 1.5, 1.67, 2.0, 2.33, 2.67, 3.0]  # TODO: get it from training fold
+    all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
     train_list, valid_list, test_list = \

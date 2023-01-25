@@ -11,6 +11,26 @@ def get_available_presence_scores(true_scores_all):
     return le.classes_
 
 
+def get_available_presence_scores_arr(train_list, valid_list, test_list):
+    """
+    Get the list of all unique values of presence scores, based on three lists of [x, y, seg] (training, validation, test)
+
+    :param train_list: a list [x_train, y_train, seg_train]
+    :param valid_list: a list [x_valid, y_valid, seg_valid]
+    :param test_list: a list [x_test, y_test, seg_test]
+    :return: a list of unique values of presence scores
+    """
+    train_y = np.reshape(np.array(train_list[1]), (-1, 6))
+    valid_y = np.reshape(np.array(valid_list[1]), (-1, 6))
+    test_y = np.reshape(np.array(test_list[1]), (-1, 6))
+    all_y = np.concatenate([train_y, valid_y, test_y], axis=0)
+
+    all_y_uniq = np.unique(all_y)
+    all_y_uniq_rounded = np.around(all_y_uniq, decimals=2)
+
+    return list(all_y_uniq_rounded)
+
+
 def get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes, coarse=False):
     """
     Get the presence score from a finer grained presence score
