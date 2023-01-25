@@ -1,7 +1,7 @@
 import os.path
 
 from src.pickle_functions import save_with_pickle
-from src.dataset_utils import get_tf_dataset
+from src.dataset_utils import get_maximum_sequence_length, get_tf_dataset
 from src.models import ef_williams
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -34,8 +34,8 @@ def get_optimizer(optimizer_str):
                          .format(optimizer_str))
 
 
-def get_model(model_str, model_id, num_features_text, num_features_image, num_features_audio, num_classes,
-              fixed_num_steps, num_layers, num_nodes, dropout_rate, final_activ):
+def get_model(model_str, model_id, num_features_text, num_features_image, num_features_audio, num_steps, num_classes,
+              num_layers, num_nodes, dropout_rate, final_activ):
     """
     Get model class from string.
 
@@ -44,6 +44,7 @@ def get_model(model_str, model_id, num_features_text, num_features_image, num_fe
     :param num_features_text: size of text feature vector (it should be the same at each step)
     :param num_features_image: size of image feature vector (it should be the same at each step)
     :param num_features_audio: size of audio feature vector (it should be the same at each step)
+    :param num_steps: total number of timesteps
     :param num_classes: Number of classes
     :param fixed_num_steps: Fixed size for all the sequences (if we keep the original size, this parameter is set to 0)
     :param num_layers: Number of bidirectional layers for the model
@@ -55,8 +56,7 @@ def get_model(model_str, model_id, num_features_text, num_features_image, num_fe
 
     model_dict = {
         'ef_williams': ef_williams.Model_ef(model_id, num_features_text, num_features_image, num_features_audio,
-                                            num_classes, fixed_num_steps, num_layers, num_nodes,
-                                            dropout_rate, final_activ)
+                                            num_steps, num_classes, num_layers, num_nodes, dropout_rate, final_activ)
     }
 
     if model_str.lower() in model_dict.keys():
@@ -119,7 +119,8 @@ def train_tf_model(train_list, valid_list, test_list,
                    num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
                    val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
     """
-    Train the model.
+    Train the model using TensorFlow.
+    Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
 
     :param train_list: [x_train, y_train, seg_train] where x_train is a list of 3 lists of arrays of shape
     (num_steps, num_features), y_train a list arrays of shape (1, 6 or 7), and seg_train a list of segment ids
@@ -158,11 +159,9 @@ def train_tf_model(train_list, valid_list, test_list,
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
     # Create TensorFlow datasets for model training
-    with_fixed_length = (fixed_num_steps > 0)
-    train_dataset = get_tf_dataset(x_train, y_train, seg_train, num_classes, batch_size, with_fixed_length,
-                                   fixed_num_steps, train_mode=True)
-    valid_dataset = get_tf_dataset(x_valid, y_valid, seg_valid, num_classes, batch_size, with_fixed_length,
-                                   fixed_num_steps, train_mode=True)
+    num_steps = max(get_maximum_sequence_length(x_train), get_maximum_sequence_length(x_valid))
+    train_dataset = get_tf_dataset(x_train, y_train, seg_train, num_steps, num_classes, batch_size, train_mode=True)
+    valid_dataset = get_tf_dataset(x_valid, y_valid, seg_valid, num_steps, num_classes, batch_size, train_mode=True)
 
     # Parameters to save model
     model_folder, model_save_path = create_model_folder_and_path(model_name, model_id)
@@ -190,8 +189,7 @@ def train_tf_model(train_list, valid_list, test_list,
     optimizer_tf = get_optimizer(optimizer_name)
     optimizer_lr = optimizer_tf(learning_rate=learning_rate)
     model_class = get_model(model_name, model_id, num_features_text, num_features_image, num_features_audio,
-                            num_classes, fixed_num_steps, num_layers, num_nodes,
-                            dropout_rate, final_activ)
+                            num_steps, num_classes, num_layers, num_nodes, dropout_rate, final_activ)
     model = model_class.build()
     model.compile(loss=loss_function, optimizer=optimizer_lr)
 

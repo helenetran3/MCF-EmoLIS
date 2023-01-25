@@ -9,7 +9,7 @@ class Model_ef:
     (Challenge-HML) (pp. 11-19).
     """
 
-    def __init__(self, model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_steps,
+    def __init__(self, model_id, num_features_text, num_features_image, num_features_audio, num_steps, num_classes,
                  num_layers, num_nodes, dropout_rate, final_activ):
         """
         Build the model described in the paper (cf. README for the reference).
@@ -19,6 +19,7 @@ class Model_ef:
         :param num_features_text: size of text feature vector (it should be the same at each step)
         :param num_features_image: size of image feature vector (it should be the same at each step)
         :param num_features_audio: size of audio feature vector (it should be the same at each step)
+        :param num_steps: total number of timesteps
         :param num_classes: number of classes to predict
         :param num_steps: number of steps in the sequence
         :param num_layers: number of bidirectional layers
@@ -32,6 +33,7 @@ class Model_ef:
         self.num_features_text = num_features_text
         self.num_features_image = num_features_image
         self.num_features_audio = num_features_audio
+        self.num_steps = num_steps
         self.num_classes = num_classes
         self.num_steps = num_steps
         self.num_layers = num_layers
@@ -46,12 +48,9 @@ class Model_ef:
 
         bidir = None
 
-        in_text = Input(shape=(None, self.num_features_text), name="text")
-        in_image = Input(shape=(None, self.num_features_image), name="image")
-        in_audio = Input(shape=(None, self.num_features_audio), name="audio")
-        # in_text = Input(shape=(self.num_steps, self.num_features_text), name="text")
-        # in_image = Input(shape=(self.num_steps, self.num_features_image), name="image")
-        # in_audio = Input(shape=(self.num_steps, self.num_features_audio), name="audio")
+        in_text = Input(shape=(self.num_steps, self.num_features_text), name="text")
+        in_image = Input(shape=(self.num_steps, self.num_features_image), name="image")
+        in_audio = Input(shape=(self.num_steps, self.num_features_audio), name="audio")
 
         concat = Concatenate(axis=2)([in_text, in_image, in_audio])
         bnorm = BatchNormalization()(concat)
