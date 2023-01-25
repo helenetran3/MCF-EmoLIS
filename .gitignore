@@ -12,3 +12,4 @@ TODO_list
 personal_tests/
 archives/
 train_labels.csv
+run_cluster_test.sh

@@ -259,7 +259,25 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
 
 # BUILD DATA GENERATOR AND TENSORFLOW DATASETS
 
-def seq_with_fixed_length(seq_array, fixed_num_steps):
+def get_maximum_sequence_length(x_list):
+    """
+    Return the maximum sequence length in the list of 3 lists of feature arrays.
+
+    :param x_list: list of lists of 3 arrays of shape (number steps, number features)
+    :return: the maximum sequence length in x_list
+    """
+
+    res = 0
+
+    # the length of the sequences for the three modalities should be the same (checked in process_and_split_dataset)
+    for x_i_text, _, _ in x_list:
+        l_text = x_i_text.shape[0]
+        res = max(l_text, res)
+
+    return res
+
+
+def seq_padding(seq_array, fixed_num_steps):
     """
     Pad or truncate sequence data to a given length.
 
@@ -281,13 +299,14 @@ def seq_with_fixed_length(seq_array, fixed_num_steps):
     return new_seq_array
 
 
-def datapoint_generator(x_list, y_list, seg_list):
+def datapoint_generator(x_list, y_list, seg_list, max_len):
     """
     Yields successively one datapoint represented by 1 array of features, 1 array of labels, 1 list of start/end times
 
-    :param x_list: list of arrays of shape (number steps, number features)
+    :param x_list: list of lists of 3 arrays of shape (number steps, number features)
     :param y_list: list of arrays of shape (1, 7), for the 7 emotions
     :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
+    :param max_len: length of the largest sequence in x_list
     :return: yields 1 datapoint (x, y, seg_id) iteratively
     """
 
@@ -295,20 +314,25 @@ def datapoint_generator(x_list, y_list, seg_list):
         print("x_list, y_list, seg_list do not have the same number of elements")
 
     else:
+
         for x_list_i, y_list_i, seg_list_i in zip(x_list, y_list, seg_list):  # loop on each sample
-            x_list_i_0 = x_list_i[0][None, :]  # Add one dimension: (1, number steps, number features)
-            x_list_i_1 = x_list_i[1][None, :]
-            x_list_i_2 = x_list_i[2][None, :]
+            x_list_i_0 = seq_padding(x_list_i[0], max_len)  # Pad sequence data
+            x_list_i_1 = seq_padding(x_list_i[1], max_len)
+            x_list_i_2 = seq_padding(x_list_i[2], max_len)
+            # x_list_i_0 = x_list_i_0[None, :]  # Add one dimension: (1, number steps, number features)
+            # x_list_i_1 = x_list_i_1[None, :]
+            # x_list_i_2 = x_list_i_2[None, :]
             yield {"text": x_list_i_0, "image": x_list_i_1, "audio": x_list_i_2}, y_list_i  # , seg_list_i
 
 
-def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, train_mode):
+def get_tf_dataset(x_list, y_list, seg_list, num_steps, num_classes, batch_size, train_mode):
     """
     Returns a TensorFlow dataset from a datapoint generator.
 
-    :param x_list: list of list of 3 arrays of shape (number steps, number features)
+    :param x_list: list of lists of 3 arrays of shape (number steps, number features)
     :param y_list: list of arrays of shape (1, 7), for the 7 emotions
     :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
+    :param num_steps: total number of timesteps
     :param num_classes: number of classes to predict
     :param batch_size: batch size
     :param train_mode: whether we use the dataset for training or not (if not, it is for testing)
@@ -319,17 +343,17 @@ def get_tf_dataset(x_list, y_list, seg_list, num_classes, batch_size, train_mode
     num_features_image = x_list[0][1].shape[1]
     num_features_audio = x_list[0][2].shape[1]
 
-    tf_dataset = tf.data.Dataset.from_generator(generator=lambda: datapoint_generator(x_list, y_list, seg_list),
+    tf_dataset = tf.data.Dataset.from_generator(generator=lambda: datapoint_generator(x_list, y_list, seg_list, num_steps),
                                                 output_signature=(
-                                                    {"text": tf.TensorSpec(shape=(None, None, num_features_text),
+                                                    {"text": tf.TensorSpec(shape=(num_steps, num_features_text),
                                                                            dtype=tf.float64),
-                                                     "image": tf.TensorSpec(shape=(None, None, num_features_image),
+                                                     "image": tf.TensorSpec(shape=(num_steps, num_features_image),
                                                                             dtype=tf.float64),
-                                                     "audio": tf.TensorSpec(shape=(None, None, num_features_audio),
+                                                     "audio": tf.TensorSpec(shape=(num_steps, num_features_audio),
                                                                             dtype=tf.float64)},
                                                     tf.TensorSpec(shape=(1, num_classes), dtype=tf.float64)
                                                     # tf.TensorSpec(shape=(), dtype=tf.string)
                                                 ))
-    tf_dataset.shuffle(len(seg_list)).batch(batch_size).repeat() if train_mode else tf_dataset.batch(1).repeat(1)
+    tf_dataset = tf_dataset.shuffle(len(seg_list)).batch(batch_size).repeat() if train_mode else tf_dataset.batch(1).repeat(1)
 
     return tf_dataset
