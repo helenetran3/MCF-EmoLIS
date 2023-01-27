@@ -178,7 +178,7 @@ def save_results_in_csv_file(model_name, model_id,
 
 
 def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epochs, patience, batch_size,
-                                 fixed_num_steps, optimizer_name, loss_function, learning_rate, val_metric,
+                                 optimizer_name, loss_function, learning_rate, val_metric,
                                  predict_neutral_class, label_type, model_name):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
@@ -188,7 +188,6 @@ def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epoc
     :param num_epochs: Maximum number of epochs for training
     :param patience: Number of epochs with no improvement after which the training will be stopped
     :param batch_size: Batch size for training
-    :param fixed_num_steps: Fixed size for all the sequences (if we keep the original size, this parameter is set to 0)
     :param optimizer_name: optimizer name
     :param loss_function: Loss function
     :param learning_rate: Learning rate for training
@@ -203,9 +202,9 @@ def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epoc
     csv_path = create_csv_path(model_name, "model_ids")
 
     model_id = get_current_model_id(csv_path)
-    model_training_param = [num_epochs, patience, batch_size, fixed_num_steps, optimizer_name, loss_function,
+    model_training_param = [num_epochs, patience, batch_size, optimizer_name, loss_function,
                             learning_rate, val_metric, predict_neutral_class, label_type]
-    model_training_header = ['num_epochs', 'patience', 'batch_size', 'fixed_num_steps', 'optimizer', 'loss_function',
+    model_training_header = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function',
                              'learning_rate', 'val_metric', 'predict_neutral_class', 'label_type']
     header_all = ['model_id'] + model_archi_header + model_training_header
     param_all = [model_id] + model_archi_param + model_training_param

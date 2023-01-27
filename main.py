@@ -1,5 +1,5 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
-from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset
+from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_maximum_sequence_length_dataset
 from src.model_training import train_model
 from src.model_evaluation import evaluate_model
 from src.csv_functions import save_model_param_in_csv_file, save_results_in_csv_file, get_header_and_data_model
@@ -36,9 +36,6 @@ parser.add_argument('-p', '--patience', type=int,
                     help="Number of epochs with no improvement after which the training will be stopped.")
 parser.add_argument('-b', '--batch_size', type=int,
                     help="Batch size")
-parser.add_argument('-s', '--fixed_num_steps', type=int,
-                    help="Number of steps to fix for all sequences. Set to 0 if you want to keep the original number "
-                         "of steps.")
 parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', 'present', 'dominant'],
                     help="Type of labels used for model training and evaluation. Possible values: all (for all presence"
                          "scores provided by the dataset), coarse (presence score for each emotion among "
@@ -89,6 +86,7 @@ def main():
                                                                       args.image_feature, args.pickle_name_fold)
 
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
+    max_steps = get_maximum_sequence_length_dataset(train_list, valid_list, test_list)
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
     train_list, valid_list, test_list = \
@@ -99,7 +97,7 @@ def main():
     model_header, model_data = get_header_and_data_model(args.model_name, args.num_layers, args.num_nodes,
                                                          args.dropout_rate, args.final_activ)
     model_id = save_model_param_in_csv_file(model_data, model_header, args.num_epochs, args.patience,
-                                            args.batch_size, args.fixed_num_steps, args.optimizer, args.loss_function,
+                                            args.batch_size, args.optimizer, args.loss_function,
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,
                                             args.label_type, args.model_name)
 
@@ -107,14 +105,14 @@ def main():
 
     # Model training
     train_model(is_tf, train_list, valid_list, test_list,
-                args.batch_size, args.num_epochs, args.fixed_num_steps, args.num_layers, args.num_nodes,
+                args.batch_size, args.num_epochs, max_steps, args.num_layers, args.num_nodes,
                 args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                 args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                 model_id, args.display_fig, args.label_type)
 
     # Model evaluation
     loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
-        evaluate_model(test_list, args.batch_size, args.fixed_num_steps, args.loss_function, args.label_type,
+        evaluate_model(test_list, args.batch_size, max_steps, args.loss_function, args.label_type,
                        args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
                        args.round_decimals, ext_name, args.save_predictions, args.plot_confusion_matrix, args.display_fig)
 

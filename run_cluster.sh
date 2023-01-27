@@ -27,7 +27,6 @@ python3 main.py \
 --num_epochs 1000 \
 --patience 10 \
 --batch_size 64 \
---fixed_num_steps 20 \
 --label_type all \
 --optimizer adam \
 --loss_function mean_absolute_error \

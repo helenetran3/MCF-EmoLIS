@@ -258,43 +258,46 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
 
 
 # BUILD DATA GENERATOR AND TENSORFLOW DATASETS
-
-def get_maximum_sequence_length(x_list):
+def get_maximum_sequence_length_dataset(train_list, valid_list, test_list):
     """
-    Return the maximum sequence length in the list of 3 lists of feature arrays.
+    Return the maximum sequence length over all the dataset.
 
-    :param x_list: list of lists of 3 arrays of shape (number steps, number features)
-    :return: the maximum sequence length in x_list
+    :param train_list: [X_train, y_train, seg_train]
+    :param valid_list: [X_valid, y_valid, seg_valid]
+    :param test_list: [X_test, y_test, seg_test]
+    :return: the maximum sequence length in all the dataset
     """
 
-    res = 0
+    def get_maximum_sequence_length(x_list):
+        res = 0
+        # the length of the sequences for the three modalities should be the same (checked in process_and_split_dataset)
+        for x_i_text, _, _ in x_list:
+            l_text = x_i_text.shape[0]
+            res = max(l_text, res)
+        return res
 
-    # the length of the sequences for the three modalities should be the same (checked in process_and_split_dataset)
-    for x_i_text, _, _ in x_list:
-        l_text = x_i_text.shape[0]
-        res = max(l_text, res)
-
-    return res
+    return max(get_maximum_sequence_length(train_list[0]), get_maximum_sequence_length(valid_list[0]),
+               get_maximum_sequence_length(test_list[0]))
 
 
-def seq_padding(seq_array, fixed_num_steps):
+def seq_padding(seq_array, max_num_steps):
     """
     Pad or truncate sequence data to a given length.
 
     :param seq_array: 1 array of shape (own number of steps, number features)
-    :param fixed_num_steps: fixed number of steps
+    :param max_num_steps: max number of steps
     :return: seq_array with the fixed number of steps
     """
     own_num_steps = seq_array.shape[0]
     num_features = seq_array.shape[1]
 
-    if fixed_num_steps >= own_num_steps:
-        diff = fixed_num_steps - own_num_steps
+    if max_num_steps >= own_num_steps:
+        diff = max_num_steps - own_num_steps
         zeroes = np.zeros((diff, num_features))
         new_seq_array = np.concatenate((seq_array, zeroes))
 
     else:
-        new_seq_array = seq_array[-fixed_num_steps:]
+        raise ValueError("The length of the current feature array should not exceed the maximum number of steps.")
 
     return new_seq_array
 
@@ -332,8 +335,6 @@ def get_tf_dataset(x_list, y_list, seg_list, num_steps, num_classes, batch_size,
     :param num_steps: total number of timesteps
     :param num_classes: number of classes to predict
     :param batch_size: batch size
-    :param with_fixed_length: whether we fix all feature vectors to the same length
-    :param fixed_num_steps: fixed number of steps in the sequence
     :param train_mode: whether we use the dataset for training or not (if not, it is for testing)
     :return: a TensorFlow dataset
     """

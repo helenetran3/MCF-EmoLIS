@@ -87,8 +87,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
      usage: main.py [-h] [-pnd PICKLE_NAME_DATASET] [-pnf PICKLE_NAME_FOLD] [-t] [-al]
                [-f {facet,openface}] [-c] [-mn MODEL_NAME] [-l NUM_LAYERS]
                [-n NUM_NODES] [-d DROPOUT_RATE] [-a FINAL_ACTIV] [-e NUM_EPOCHS]
-               [-p PATIENCE] [-b BATCH_SIZE] [-s FIXED_NUM_STEPS]
-               [-lt {all,coarse,present,dominant}]
+               [-p PATIENCE] [-b BATCH_SIZE] [-lt {all,coarse,present,dominant}]
                [-opt {adam,sgd,adagrad,adadelta,rmsprop}] [-lf LOSS_FUNCTION]
                [-lr LEARNING_RATE] [-v {loss,acc}] [-nc]
                [-tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]]
@@ -129,9 +128,6 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             will be stopped.
       -b BATCH_SIZE, --batch_size BATCH_SIZE
                             Batch size
-      -s FIXED_NUM_STEPS, --fixed_num_steps FIXED_NUM_STEPS
-                            Number of steps to fix for all sequences. Set to 0 if you want
-                            to keep the original number of steps.
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
                             Type of labels used for model training and evaluation.
                             Possible values: all (for all presence scores provided by
