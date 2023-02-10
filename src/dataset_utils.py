@@ -1,6 +1,5 @@
 import re
 import numpy as np
-import tensorflow as tf
 from mmsdk import mmdatasdk
 from src.pickle_functions import *
 
@@ -257,10 +256,10 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
     return train_res, valid_res, test_res
 
 
-# BUILD DATA GENERATOR AND TENSORFLOW DATASETS
+# BUILD TENSORFLOW DATASETS
 def get_maximum_sequence_length_dataset(train_list, valid_list, test_list):
     """
-    Return the maximum sequence length over all the dataset.
+    Return the maximum sequence length over all the dataset. Used for creating batches in TensorFlow.
 
     :param train_list: [X_train, y_train, seg_train]
     :param valid_list: [X_valid, y_valid, seg_valid]
@@ -278,82 +277,3 @@ def get_maximum_sequence_length_dataset(train_list, valid_list, test_list):
 
     return max(get_maximum_sequence_length(train_list[0]), get_maximum_sequence_length(valid_list[0]),
                get_maximum_sequence_length(test_list[0]))
-
-
-def seq_padding(seq_array, max_num_steps):
-    """
-    Pad or truncate sequence data to a given length.
-
-    :param seq_array: 1 array of shape (own number of steps, number features)
-    :param max_num_steps: max number of steps
-    :return: seq_array with the fixed number of steps
-    """
-    own_num_steps = seq_array.shape[0]
-    num_features = seq_array.shape[1]
-
-    if max_num_steps >= own_num_steps:
-        diff = max_num_steps - own_num_steps
-        zeroes = np.zeros((diff, num_features))
-        new_seq_array = np.concatenate((seq_array, zeroes))
-
-    else:
-        raise ValueError("The length of the current feature array should not exceed the maximum number of steps.")
-
-    return new_seq_array
-
-
-def datapoint_generator(x_list, y_list, seg_list, max_len):
-    """
-    Yields successively one datapoint represented by 1 array of features, 1 array of labels, 1 list of start/end times
-
-    :param x_list: list of lists of 3 arrays of shape (number steps, number features)
-    :param y_list: list of arrays of shape (1, 7), for the 7 emotions
-    :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
-    :param max_len: length of the largest sequence in x_list
-    :return: yields 1 datapoint (x, y, seg_id) iteratively
-    """
-
-    if not len(x_list) == len(y_list) == len(seg_list):
-        print("x_list, y_list, seg_list do not have the same number of elements")
-
-    else:
-
-        for x_list_i, y_list_i, seg_list_i in zip(x_list, y_list, seg_list):  # loop on each sample
-            x_list_i_0 = seq_padding(x_list_i[0], max_len)  # Pad sequence data
-            x_list_i_1 = seq_padding(x_list_i[1], max_len)
-            x_list_i_2 = seq_padding(x_list_i[2], max_len)
-            yield {"text": x_list_i_0, "image": x_list_i_1, "audio": x_list_i_2}, y_list_i  # , seg_list_i
-
-
-def get_tf_dataset(x_list, y_list, seg_list, num_steps, num_classes, batch_size, train_mode):
-    """
-    Returns a TensorFlow dataset from a datapoint generator.
-
-    :param x_list: list of lists of 3 arrays of shape (number steps, number features)
-    :param y_list: list of arrays of shape (1, 7), for the 7 emotions
-    :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
-    :param num_steps: total number of timesteps
-    :param num_classes: number of classes to predict
-    :param batch_size: batch size
-    :param train_mode: whether we use the dataset for training or not (if not, it is for testing)
-    :return: a TensorFlow dataset
-    """
-
-    num_features_text = x_list[0][0].shape[1]  # Here we consider that all samples have the same number of features
-    num_features_image = x_list[0][1].shape[1]
-    num_features_audio = x_list[0][2].shape[1]
-
-    tf_dataset = tf.data.Dataset.from_generator(generator=lambda: datapoint_generator(x_list, y_list, seg_list, num_steps),
-                                                output_signature=(
-                                                    {"text": tf.TensorSpec(shape=(num_steps, num_features_text),
-                                                                           dtype=tf.float64),
-                                                     "image": tf.TensorSpec(shape=(num_steps, num_features_image),
-                                                                            dtype=tf.float64),
-                                                     "audio": tf.TensorSpec(shape=(num_steps, num_features_audio),
-                                                                            dtype=tf.float64)},
-                                                    tf.TensorSpec(shape=(1, num_classes), dtype=tf.float64)
-                                                    # tf.TensorSpec(shape=(), dtype=tf.string)
-                                                ))
-    tf_dataset = tf_dataset.shuffle(len(seg_list)).batch(batch_size).repeat() if train_mode else tf_dataset.batch(1).repeat(1)
-
-    return tf_dataset

@@ -1,7 +1,7 @@
 import os.path
 
 from src.pickle_functions import save_with_pickle
-from src.dataset_utils import get_tf_dataset
+from src.dataset_loaders import Dataset_tf
 from src.models import ef_williams
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -157,8 +157,8 @@ def train_tf_model(train_list, valid_list, test_list, batch_size, num_epochs, ma
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
     # Create TensorFlow datasets for model training
-    train_dataset = get_tf_dataset(x_train, y_train, seg_train, max_steps, num_classes, batch_size, train_mode=True)
-    valid_dataset = get_tf_dataset(x_valid, y_valid, seg_valid, max_steps, num_classes, batch_size, train_mode=True)
+    train_dataset = Dataset_tf(x_train, y_train, seg_train, max_steps, num_classes, batch_size, train_mode=True).build()
+    valid_dataset = Dataset_tf(x_valid, y_valid, seg_valid, max_steps, num_classes, batch_size, train_mode=True).build()
 
     # Parameters to save model
     model_folder, model_save_path = create_model_folder_and_path(model_name, model_id)

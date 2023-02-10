@@ -2,7 +2,7 @@ import os
 
 from tensorflow.keras.models import load_model
 from src.pickle_functions import save_with_pickle
-from src.dataset_utils import get_tf_dataset
+from src.dataset_loaders import Dataset_tf
 from src.model_metrics import compute_loss_value, compute_multilabel_confusion_matrix, plot_multilabel_confusion_matrix
 from src.model_metrics import get_and_print_all_metrics
 from src.label_processing import compute_true_labels, compute_pred_labels
@@ -66,7 +66,7 @@ def evaluate_model(test_list, batch_size, max_steps, loss_function, label_type,
     num_test_samples = len(y_test)
 
     # Create TensorFlow test dataset for model prediction and evaluation
-    test_dataset = get_tf_dataset(x_test, y_test, seg_test, max_steps, num_classes, batch_size, train_mode=False)
+    test_dataset = Dataset_tf(x_test, y_test, seg_test, max_steps, num_classes, batch_size, train_mode=False).build()
 
     # True labels
     true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
