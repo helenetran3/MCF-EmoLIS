@@ -101,7 +101,7 @@ def main():
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,
                                             args.label_type, args.model_name)
 
-    is_tf = True  # for testing
+    is_tf = False  # for testing
 
     # Model training
     train_model(is_tf, train_list, valid_list, test_list,

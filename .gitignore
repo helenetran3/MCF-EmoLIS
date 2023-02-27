@@ -10,6 +10,7 @@ results/
 # Personal files
 TODO_list
 personal_tests/
+test_torch/
 archives/
 train_labels.csv
 run_cluster_test.sh
