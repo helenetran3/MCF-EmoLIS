@@ -289,9 +289,9 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        if batch % 100 == 0:
-            loss, current = loss.item(), batch * len(X)
-            print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+        # if batch % 10 == 0:
+        loss, current = loss.item(), batch * len(X)
+        print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
 
     return 0
 
