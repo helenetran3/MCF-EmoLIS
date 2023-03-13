@@ -1,6 +1,5 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_maximum_sequence_length_dataset
-from src.model_training import train_model
 from src.model_evaluation import evaluate_model
 from src.csv_functions import save_model_param_in_csv_file, save_results_in_csv_file, get_header_and_data_model
 from src.label_processing import get_available_presence_scores_arr, update_labels
@@ -101,14 +100,23 @@ def main():
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,
                                             args.label_type, args.model_name)
 
-    is_tf = False  # for testing
+    is_tf = False  #TODO
 
     # Model training
-    train_model(is_tf, train_list, valid_list, test_list,
-                args.batch_size, args.num_epochs, max_steps, args.num_layers, args.num_nodes,
-                args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
-                args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
-                model_id, args.display_fig, args.label_type)
+    if is_tf:
+        from src.tensorflow_utils.model_training import train_tf_model
+        train_tf_model(train_list, valid_list, test_list,
+                       args.batch_size, args.num_epochs, max_steps, args.num_layers, args.num_nodes,
+                       args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
+                       args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
+                       model_id, args.display_fig, args.label_type)
+    else:
+        from src.pytorch_utils.model_training import train_torch_model
+        train_torch_model(train_list, valid_list, test_list,
+                          args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
+                          args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
+                          args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
+                          model_id, args.display_fig, args.label_type)
 
     # Model evaluation
     loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \

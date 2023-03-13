@@ -1,6 +1,6 @@
 import os
 import csv
-from src.models import ef_williams
+from src.models import ef_williams_tf
 
 
 def create_csv_path(model_name, filename, extension_name=""):
@@ -65,7 +65,7 @@ def write_csv(csv_path, header, data_to_save):
 def get_header_and_data_model(model_str, num_layers, num_nodes, dropout_rate, final_activ):
 
     model_dict = {
-        'ef_williams': ef_williams
+        'ef_williams': ef_williams_tf
     }
 
     if model_str.lower() in model_dict.keys():
