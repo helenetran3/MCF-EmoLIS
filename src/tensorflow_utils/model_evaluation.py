@@ -1,11 +1,11 @@
 import os
 
 from tensorflow.keras.models import load_model
-from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
+from src.pickle_functions import save_with_pickle
 from src.model_metrics import compute_loss_value, compute_multilabel_confusion_matrix, plot_multilabel_confusion_matrix
 from src.model_metrics import get_and_print_all_metrics
-from src.label_processing import compute_true_labels, compute_pred_labels
+from src.label_processing import compute_pred_labels
 
 
 def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id, model_folder):
@@ -30,9 +30,9 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
     return pred_raw
 
 
-def evaluate_model(test_list, batch_size, max_steps, loss_function, label_type,
+def evaluate_model(test_list, batch_size, max_steps, loss_function,
                    model_name, model_id, all_scores, predict_neutral_class, threshold_emo_pres, round_decimals,
-                   ext_name, save_pred, plot_confusion_matrix, display_fig):
+                   save_pred):
     """
     Evaluate the performance of the best model.
 
@@ -51,11 +51,13 @@ def evaluate_model(test_list, batch_size, max_steps, loss_function, label_type,
     :param save_pred: Whether we save predictions with pickle
     :param plot_confusion_matrix: Whether we save confusion matrices with pickle
     :param display_fig: Whether we display figures
+
+    :returns loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
 
     # Load best model
     model_folder = os.path.join('results', model_name)
-    model_path = os.path.join(model_folder, 'models', "model_{}.h5".format(model_id))
+    model_path = os.path.join(model_folder, '../models', "model_{}.h5".format(model_id))
     model = load_model(model_path)
 
     # Extract x, y and seg_ids for test set
@@ -68,9 +70,8 @@ def evaluate_model(test_list, batch_size, max_steps, loss_function, label_type,
     # Create TensorFlow test dataset for model prediction and evaluation
     test_dataset = DatasetTf(x_test, y_test, seg_test, max_steps, num_classes, batch_size, train_mode=False).build()
 
-    # True labels
-    true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
-        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, threshold_emo_pres, num_classes, ext_name)
+    # Model evaluation
+    loss_function_val = compute_loss_value(model, test_dataset, loss_function, round_decimals)
 
     # Predicted labels
     pred_raw = model_prediction(model, test_dataset, num_test_samples, save_pred, model_id, model_folder)
@@ -78,22 +79,4 @@ def evaluate_model(test_list, batch_size, max_steps, loss_function, label_type,
         compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder)
 
-    # Confusion matrix
-    compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, num_classes,
-                                        model_id, model_folder, display_fig, threshold_emo_pres)
-    compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, num_classes,
-                                        model_id, model_folder, display_fig)
-    if plot_confusion_matrix:
-        plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, display_fig, threshold_emo_pres)
-
-    # Model evaluation
-    loss_function_val = compute_loss_value(model, test_dataset, loss_function, round_decimals)
-
-    # Compute all metrics
-    metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
-        get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                                  pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                  threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
-                                  model_id, model_folder)
-
-    return loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
+    return loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom

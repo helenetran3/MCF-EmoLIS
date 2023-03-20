@@ -1,8 +1,8 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_maximum_sequence_length_dataset
-from src.model_evaluation import evaluate_model
-from src.csv_functions import save_model_param_in_csv_file, save_results_in_csv_file, get_header_and_data_model
+from src.csv_functions import save_model_param_in_csv_file, get_header_and_data_model
 from src.label_processing import get_available_presence_scores_arr, update_labels
+from src.model_metrics import compute_and_save_model_metrics
 import argparse
 
 parser = argparse.ArgumentParser(description="SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.")
@@ -100,16 +100,24 @@ def main():
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,
                                             args.label_type, args.model_name)
 
-    is_tf = False  #TODO
+    is_tf = True  #TODO
 
     # Model training
     if is_tf:
         from src.tensorflow_utils.model_training import train_tf_model
+        from src.tensorflow_utils.model_evaluation import evaluate_model
+
         train_tf_model(train_list, valid_list, test_list,
                        args.batch_size, args.num_epochs, max_steps, args.num_layers, args.num_nodes,
                        args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                        args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                        model_id, args.display_fig, args.label_type)
+
+        loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+            evaluate_model(test_list, args.batch_size, max_steps, args.loss_function,
+                           args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
+                           args.round_decimals, args.save_predictions)
+
     else:
         from src.pytorch_utils.model_training import train_torch_model
         train_torch_model(train_list, valid_list, test_list,
@@ -118,16 +126,18 @@ def main():
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                           model_id, args.display_fig, args.label_type)
 
-    # Model evaluation
-    loss_function_val, metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
-        evaluate_model(test_list, args.batch_size, max_steps, args.loss_function, args.label_type,
-                       args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
-                       args.round_decimals, ext_name, args.save_predictions, args.plot_confusion_matrix, args.display_fig)
+    # Compute and save metrics
+    compute_and_save_model_metrics(test_list,
+                                   loss_function_val,
+                                   pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                                   args.loss_function, args.label_type, args.model_name, model_id, all_scores,
+                                   args.predict_neutral_class, args.threshold_emo_present, args.round_decimals,
+                                   ext_name, args.plot_confusion_matrix, args.display_fig)
 
-    # Save metrics in csv file
-    save_results_in_csv_file(args.model_name, model_id, args.loss_function, loss_function_val,
-                             metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
-                             args.predict_neutral_class, args.threshold_emo_present, ext_name)
+    # # Save metrics in csv file
+    # save_results_in_csv_file(args.model_name, model_id, args.loss_function, loss_function_val,
+    #                          metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
+    #                          args.predict_neutral_class, args.threshold_emo_present, ext_name)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from src.pickle_functions import save_with_pickle, load_from_pickle
+from src.csv_functions import save_results_in_csv_file
+from src.label_processing import compute_true_labels
 
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
@@ -383,3 +385,63 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
                                                   model_id, model_folder)
 
     return metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
+
+
+def compute_and_save_model_metrics(test_list,
+                                   loss_function_val,
+                                   pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                                   loss_function, label_type, model_name, model_id, all_scores,
+                                   predict_neutral_class, threshold_emo_pres, round_decimals, ext_name,
+                                   plot_confusion_matrix, display_fig):
+    """
+    Compute and save model metrics, based on loss function value and prediction scores.
+
+    :param test_list: [x_test, y_test, seg_test]
+    :param loss_function_val: Value of the loss function
+    :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
+    :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
+    :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
+    an emotion (> threshold defined by threshold_emo_pres)
+    :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
+    :param loss_function: Loss function
+    :param label_type: Type of labels used for model training and evaluation.
+    :param model_name: Name of the model currently tested
+    :param model_id: Model id (int)
+    :param all_scores: list of available presence scores
+    :param predict_neutral_class: Whether we predict the neutral class
+    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    :param round_decimals: Number of decimals to be rounded for metrics
+    :param ext_name: extension name containing info on whether we predict neutral class
+    :param plot_confusion_matrix: Whether we save confusion matrices with pickle
+    :param display_fig: Whether we display figures
+    """
+
+    model_folder = os.path.join('results', model_name)
+
+    # Extract x, y and seg_ids for test set
+    y_test = test_list[1]  # each element of shape (1, 6 or 7)
+    num_classes = y_test[0].shape[1]
+
+    # True labels
+    true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
+        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, threshold_emo_pres, num_classes, ext_name)
+
+    # Confusion matrix
+    compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, num_classes,
+                                        model_id, model_folder, display_fig, threshold_emo_pres)
+    compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, num_classes,
+                                        model_id, model_folder, display_fig)
+    if plot_confusion_matrix:
+        plot_multilabel_confusion_matrix(num_classes, model_id, model_folder, display_fig, threshold_emo_pres)
+
+    # Compute all metrics
+    metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
+        get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
+                                  pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                                  threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
+                                  model_id, model_folder)
+
+    # Save metrics in csv file
+    save_results_in_csv_file(model_name, model_id, loss_function, loss_function_val,
+                             metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
+                             predict_neutral_class, threshold_emo_pres, ext_name)

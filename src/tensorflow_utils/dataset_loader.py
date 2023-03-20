@@ -87,7 +87,8 @@ class DatasetTf:
                                                         tf.TensorSpec(shape=(1, self.num_classes), dtype=tf.float64)
                                                         # tf.TensorSpec(shape=(), dtype=tf.string)
                                                     ))
-        tf_dataset = tf_dataset.shuffle(len(self.seg_list)).batch(self.batch_size).repeat() if self.train_mode \
+        # tf_dataset = tf_dataset.shuffle(len(self.seg_list)).batch(self.batch_size).repeat() if self.train_mode \
+        tf_dataset = tf_dataset.batch(self.batch_size).repeat() if self.train_mode \
             else tf_dataset.batch(1).repeat(1)
 
         return tf_dataset
