@@ -122,7 +122,7 @@ def main():
         from src.pytorch_utils.model_training import train_torch_model
         from src.pytorch_utils.model_evaluation import evaluate_torch_model
 
-        train_torch_model(train_list, valid_list, test_list,
+        train_torch_model(train_list, valid_list,
                           args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
                           args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,

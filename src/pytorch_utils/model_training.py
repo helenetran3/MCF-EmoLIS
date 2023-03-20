@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torchinfo import summary
 
 
-def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs, num_layers,
+def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers,
                       num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
                       val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
 
@@ -19,7 +19,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     seg_valid = valid_list[2]
     num_classes = y_train[0].shape[1]
 
-    # Use either gpu or cpu device for training
+    # Use either gpu or cpu device for training #TODO add in the main code
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using {device} device")
 
@@ -42,7 +42,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)  #TODO
 
     # Training
-    size = len(train_dataloader.dataset)
+    train_size = len(train_dataloader.dataset)
     model.train()
 
     for batch, (X, y) in enumerate(train_dataloader):
@@ -60,6 +60,9 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
         optimizer.step()
         # if batch % 10 == 0:
         loss, current = loss.item(), batch * len(X)
-        print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+        print(f"loss: {loss:>7f} [{current:>5d}/{train_size:>5d}]")
+
+        # TODO save model
+        # TODO callbacks : patience and modelcheckpoint
 
     return 0
