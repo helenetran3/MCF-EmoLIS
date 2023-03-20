@@ -105,7 +105,7 @@ def main():
     # Model training
     if is_tf:
         from src.tensorflow_utils.model_training import train_tf_model
-        from src.tensorflow_utils.model_evaluation import evaluate_model
+        from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
         train_tf_model(train_list, valid_list, test_list,
                        args.batch_size, args.num_epochs, max_steps, args.num_layers, args.num_nodes,
@@ -114,17 +114,22 @@ def main():
                        model_id, args.display_fig, args.label_type)
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_model(test_list, args.batch_size, max_steps, args.loss_function,
-                           args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
-                           args.round_decimals, args.save_predictions)
+            evaluate_tf_model(test_list, args.batch_size, max_steps, args.loss_function,
+                              args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
+                              args.round_decimals, args.save_predictions)
 
     else:
         from src.pytorch_utils.model_training import train_torch_model
+        from src.pytorch_utils.model_evaluation import evaluate_torch_model
+
         train_torch_model(train_list, valid_list, test_list,
                           args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
                           args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                           model_id, args.display_fig, args.label_type)
+
+        loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+            evaluate_torch_model()
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,
@@ -133,11 +138,6 @@ def main():
                                    args.loss_function, args.label_type, args.model_name, model_id, all_scores,
                                    args.predict_neutral_class, args.threshold_emo_present, args.round_decimals,
                                    ext_name, args.plot_confusion_matrix, args.display_fig)
-
-    # # Save metrics in csv file
-    # save_results_in_csv_file(args.model_name, model_id, args.loss_function, loss_function_val,
-    #                          metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
-    #                          args.predict_neutral_class, args.threshold_emo_present, ext_name)
 
 
 if __name__ == "__main__":

@@ -3,8 +3,7 @@ import os
 from tensorflow.keras.models import load_model
 from src.tensorflow_utils.dataset_loader import DatasetTf
 from src.pickle_functions import save_with_pickle
-from src.model_metrics import compute_loss_value, compute_multilabel_confusion_matrix, plot_multilabel_confusion_matrix
-from src.model_metrics import get_and_print_all_metrics
+from src.model_metrics import compute_loss_value
 from src.label_processing import compute_pred_labels
 
 
@@ -30,9 +29,8 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
     return pred_raw
 
 
-def evaluate_model(test_list, batch_size, max_steps, loss_function,
-                   model_name, model_id, all_scores, predict_neutral_class, threshold_emo_pres, round_decimals,
-                   save_pred):
+def evaluate_tf_model(test_list, batch_size, max_steps, loss_function, model_name, model_id, all_scores,
+                      predict_neutral_class, threshold_emo_pres, round_decimals, save_pred):
     """
     Evaluate the performance of the best model.
 
@@ -40,17 +38,13 @@ def evaluate_model(test_list, batch_size, max_steps, loss_function,
     :param batch_size: Batch size for training
     :param max_steps: Maximum length for all sequences in the dataset
     :param loss_function: Loss function
-    :param label_type: Type of labels used for model training and evaluation.
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
     :param all_scores: list of available presence scores
     :param predict_neutral_class: Whether we predict the neutral class
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :param round_decimals: Number of decimals to be rounded for metrics
-    :param ext_name: extension name containing info on whether we predict neutral class
     :param save_pred: Whether we save predictions with pickle
-    :param plot_confusion_matrix: Whether we save confusion matrices with pickle
-    :param display_fig: Whether we display figures
 
     :returns loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
