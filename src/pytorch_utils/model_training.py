@@ -13,6 +13,8 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
             or (best_is_smallest and valid_loss < valid_loss_best) \
             or (not best_is_smallest and valid_loss > valid_loss_best):
 
+        valid_loss_best = valid_loss
+
         # TODO check save model
         model_folder = os.path.join('results', model_name)
         model_path = os.path.join(model_folder, '../models', "model_{}.pt".format(model_id))
@@ -22,14 +24,14 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
             'optimizer_state_dict': optimizer.state_dict()
         }, model_path)
 
-        return True
-
-    return False
+    return valid_loss_best
 
 
 def model_early_stopping(valid_loss, valid_loss_best, best_is_smallest, num_epochs_without_improvement):
     if (best_is_smallest and valid_loss >= valid_loss_best) or (not best_is_smallest and valid_loss <= valid_loss_best):
         num_epochs_without_improvement += 1
+    else:
+        num_epochs_without_improvement = 0
     return num_epochs_without_improvement
 
 
@@ -74,6 +76,10 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     best_is_smallest = True  # TODO infer it from the type of loss
     num_epochs_without_improvement = 0
 
+    # Parameters for history
+    history_train = []
+    history_valid = []
+
     print("\n\n============================== Training Parameters ===========================================")
     print("\n>>> Dataset")
     print("Number training datapoints: {} ({:.2f}%)".format(num_train_samples, 100 * (num_train_samples / total_data)))
@@ -93,6 +99,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     print("Metric to monitor on validation data:", val_metric)
     print("\n>>> Model summary")
     summary(model, [(374, 300), (374, 35), (374, 74)], device='cpu', dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+    # TODO does it plot the model?
 
     print("\n\n================================= Model Training =============================================\n")
 
@@ -137,19 +144,20 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
 
         print("Epoch {}: Training loss {}, Validation loss {}", epoch, train_loss, valid_loss)
 
+        # Display and save history plot
+        history_train += train_loss
+        history_valid += valid_loss
+
         # For model checkpoint
-        better_model = model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch,
-                                        model_name, model_id)
-        if better_model:
-            valid_loss_best = valid_loss
+        valid_loss_best = model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch,
+                                           model_name, model_id)
 
         # For early stopping
         num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best, best_is_smallest,
                                                               num_epochs_without_improvement)
         # TODO Verify that it actually breaks
         if patience == num_epochs_without_improvement:
+            # TODO create and display (or not) history + save it
             break
-
-        # TODO check what to save in Tensorflow file
 
     return 0
