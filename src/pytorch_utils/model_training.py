@@ -1,15 +1,44 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, my_collate_fn
 from src.models.ef_williams_torch import Model_ef
 
+import os
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchinfo import summary
 
 
+def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, model_name, model_id):
+    if epoch == 0 \
+            or (best_is_smallest and valid_loss < valid_loss_best) \
+            or (not best_is_smallest and valid_loss > valid_loss_best):
+
+        # TODO check save model
+        model_folder = os.path.join('results', model_name)
+        model_path = os.path.join(model_folder, '../models', "model_{}.pt".format(model_id))
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict()
+        }, model_path)
+
+        return True
+
+    return False
+
+
+def model_early_stopping(valid_loss, valid_loss_best, best_is_smallest, num_epochs_without_improvement):
+    if (best_is_smallest and valid_loss >= valid_loss_best) or (not best_is_smallest and valid_loss <= valid_loss_best):
+        num_epochs_without_improvement += 1
+    return num_epochs_without_improvement
+
+
+
+
 def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers,
                       num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
-                      val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
+                      val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type,
+                      device):
 
     x_train = train_list[0]  # list of lists of 3 arrays
     y_train = train_list[1]
@@ -18,10 +47,6 @@ def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
     num_classes = y_train[0].shape[1]
-
-    # Use either gpu or cpu device for training #TODO add in the main code
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    print(f"Using {device} device")
 
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, device)
@@ -43,26 +68,65 @@ def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers
 
     # Training
     train_size = len(train_dataloader.dataset)
-    model.train()
+    valid_size = len(valid_dataloader.dataset)
 
-    for batch, (X, y) in enumerate(train_dataloader):
-        loss = 0
-        for X_sample, y_sample in zip(X, y):
-            X_text, X_audio, X_image = X_sample
-            if device == 'cpu':
-                X_text = X_text.bfloat16()
-                X_audio = X_audio.bfloat16()
-                X_image = X_image.bfloat16()
-            pred = model(X_text, X_audio, X_image)
-            loss += loss_fn(pred, y_sample)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        # if batch % 10 == 0:
-        loss, current = loss.item(), batch * len(X)
-        print(f"loss: {loss:>7f} [{current:>5d}/{train_size:>5d}]")
+    # Parameters for ModelCheckpoint and EarlyStopping callbacks
+    valid_loss_best = None
+    best_is_smallest = True  # TODO infer it from the type of loss
+    num_epochs_without_improvement = 0
 
-        # TODO save model
-        # TODO callbacks : patience and modelcheckpoint
+    for epoch in range(num_epochs):
+        print("Epoch", epoch)
+        train_loss = 0.0
+        valid_loss = 0.0
+        model.train()
+
+        for batch, (X, y) in enumerate(train_dataloader):
+            loss = 0
+            for X_sample, y_sample in zip(X, y):
+                X_text, X_audio, X_image = X_sample
+                if device == 'cpu':
+                    X_text = X_text.bfloat16()
+                    X_audio = X_audio.bfloat16()
+                    X_image = X_image.bfloat16()
+                pred = model(X_text, X_audio, X_image)
+                loss += loss_fn(pred, y_sample)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            # if batch % 10 == 0:
+            loss, current = loss.item(), batch * len(X)
+            print(f"Training loss: {loss:>7f} [{current:>5d}/{train_size:>5d}]")
+            train_loss += loss
+        train_loss /= train_size  # TODO check the formula
+
+        model.eval()
+        for batch, (X,y) in enumerate(valid_dataloader):
+            for X_sample, y_sample in zip(X, y):
+                X_text, X_audio, X_image = X_sample
+                if device == 'cpu':
+                    X_text = X_text.bfloat16()
+                    X_audio = X_audio.bfloat16()
+                    X_image = X_image.bfloat16()
+                pred = model(X_text, X_audio, X_image)
+                valid_loss += loss_fn(pred, y_sample)
+        valid_loss /= valid_size
+
+        print("Epoch {}: Training loss {}, Validation loss {}", epoch, train_loss, valid_loss)
+
+        # For model checkpoint
+        better_model = model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch,
+                                        model_name, model_id)
+        if better_model:
+            valid_loss_best = valid_loss
+
+        # For early stopping
+        num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best, best_is_smallest,
+                                                              num_epochs_without_improvement)
+        # TODO Verify that it actually breaks
+        if patience == num_epochs_without_improvement:
+            break
+
+        # TODO check what to save in Tensorflow file
 
     return 0

@@ -119,17 +119,21 @@ def main():
                               args.round_decimals, args.save_predictions)
 
     else:
+        import torch
         from src.pytorch_utils.model_training import train_torch_model
         from src.pytorch_utils.model_evaluation import evaluate_torch_model
+
+        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        print(f"Using {device} device")
 
         train_torch_model(train_list, valid_list,
                           args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
                           args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
-                          model_id, args.display_fig, args.label_type)
+                          model_id, args.display_fig, args.label_type, device)
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model()
+            evaluate_torch_model(test_list, args.model_name, model_id, device)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,

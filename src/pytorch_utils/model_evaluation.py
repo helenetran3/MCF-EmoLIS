@@ -1,4 +1,6 @@
-from src.utils.dataset_loader import DatasetTorch
+from src.pytorch_utils.dataset_loader import DatasetTorch
+from src.models.ef_williams_torch import Model_ef
+from src.label_processing import compute_pred_labels
 
 import os
 import torch
@@ -6,20 +8,27 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 
-def evaluate_torch_model(test_list):
-
-    # Load best model
-    model_folder = os.path.join('results', model_name)
-    model_path = os.path.join(model_folder, '../models', "model_{}.h5".format(model_id))
-    # model = load_model(model_path)  #TODO load model
+def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_activ, model_name, model_id, all_scores,
+                         predict_neutral_class, threshold_emo_pres, save_pred, device):
 
     x_test = test_list[0]  # list of lists of 3 arrays
     y_test = test_list[1]
     seg_test = test_list[2]
+    num_classes = y_test[0].shape[1]
 
-    # Use either gpu or cpu device for evaluation #TODO add in the main code
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    print(f"Using {device} device")
+    # TODO check values
+    num_features_text = x_test[0][0].shape[1]
+    num_features_image = x_test[0][1].shape[1]
+    num_features_audio = x_test[0][2].shape[1]
+
+    # Load best model
+    model_folder = os.path.join('results', model_name)
+    model_path = os.path.join(model_folder, '../models', "model_{}.pt".format(model_id))
+    # TODO check load model
+    model = Model_ef(model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_layers,
+                     num_nodes, dropout_rate, final_activ).to(device)
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
 
     # Create dataloader for test data
     test_data = DatasetTorch(x_test, y_test, seg_test, device)
@@ -27,20 +36,30 @@ def evaluate_torch_model(test_list):
 
     test_size = len(test_dataloader.dataset)
     loss_fn = nn.L1Loss()  # TODO
+    test_loss = 0
+    # correct = 0
+    pred_raw = []
 
-    model.eval()  #TODO re-check the code
-    test_loss, correct = 0, 0
+    # TODO re-check the code
     with torch.no_grad():
         for X, y in test_dataloader:
             X, y = X.to(device), y.to(device)
             if device == 'cpu':
                 X = X.bfloat16()
+            # TODO check if pred contains an array (or list) predicted by the model (pred_raw)
             pred = model(X)
+            # TODO check this following line
+            pred_raw += pred
             test_loss += loss_fn(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO formule à vérifier
-    test_loss /= test_size # TODO verify if per batch or not
-    correct /= test_size
-    print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+            # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
+    test_loss /= test_size  # TODO verify if per batch or not
+    # correct /= test_size
+    # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    print(f"Avg test loss: {test_loss:>8f} \n")
 
-    test_loss, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = None, None, None, None, None
+    # TODO check this line
+    pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
+                            num_classes, model_folder)
+
     return test_loss, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
