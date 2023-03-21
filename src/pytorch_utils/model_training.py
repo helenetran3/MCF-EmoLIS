@@ -33,9 +33,7 @@ def model_early_stopping(valid_loss, valid_loss_best, best_is_smallest, num_epoc
     return num_epochs_without_improvement
 
 
-
-
-def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers,
+def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs, num_layers,
                       num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
                       val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type,
                       device):
@@ -47,12 +45,18 @@ def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
     num_classes = y_train[0].shape[1]
+    num_train_samples = len(y_train)
+    num_valid_samples = len(y_valid)
+    num_test_samples = len(test_list[1])
+    total_data = num_train_samples + num_valid_samples + num_test_samples
 
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, device)
     valid_data = DatasetTorch(x_valid, y_valid, seg_valid, device)
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn)
     valid_dataloader = DataLoader(valid_data, batch_size=batch_size, collate_fn=my_collate_fn)
+    train_size = len(train_dataloader.dataset)
+    valid_size = len(valid_dataloader.dataset)
 
     # Create an instance of the model
     num_features_text = x_train[0][0].shape[1]
@@ -60,29 +64,47 @@ def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers
     num_features_audio = x_train[0][2].shape[1]
     model = Model_ef(model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_layers,
                      num_nodes, dropout_rate, final_activ).to(device)
-    summary(model, [(374, 300), (374, 35), (374, 74)], device='cpu', dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
     # Optimizing the model parameters
     loss_fn = nn.L1Loss()  #TODO
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)  #TODO
-
-    # Training
-    train_size = len(train_dataloader.dataset)
-    valid_size = len(valid_dataloader.dataset)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  #TODO
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
     valid_loss_best = None
     best_is_smallest = True  # TODO infer it from the type of loss
     num_epochs_without_improvement = 0
 
+    print("\n\n============================== Training Parameters ===========================================")
+    print("\n>>> Dataset")
+    print("Number training datapoints: {} ({:.2f}%)".format(num_train_samples, 100 * (num_train_samples / total_data)))
+    print("Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
+    print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
+    print("Number of output cells:", num_classes)
+    print("Predict neutral class:", predict_neutral_class)
+    print("\n>>> Model training")
+    print("Task:", label_type)
+    print("Library: PyTorch")
+    print("Batch size:", batch_size)
+    print("Number epochs:", num_epochs)
+    print("Patience:", patience)
+    print("Learning rate:", learning_rate)
+    print("Optimizer:", optimizer_name)
+    print("Loss function:", loss_function)
+    print("Metric to monitor on validation data:", val_metric)
+    print("\n>>> Model summary")
+    summary(model, [(374, 300), (374, 35), (374, 74)], device='cpu', dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+
+    print("\n\n================================= Model Training =============================================\n")
+
     for epoch in range(num_epochs):
         print("Epoch", epoch)
         train_loss = 0.0
         valid_loss = 0.0
-        model.train()
 
+        # Model training on training data
+        model.train()
         for batch, (X, y) in enumerate(train_dataloader):
-            loss = 0
+            batch_loss = 0
             for X_sample, y_sample in zip(X, y):
                 X_text, X_audio, X_image = X_sample
                 if device == 'cpu':
@@ -90,18 +112,19 @@ def train_torch_model(train_list, valid_list, batch_size, num_epochs, num_layers
                     X_audio = X_audio.bfloat16()
                     X_image = X_image.bfloat16()
                 pred = model(X_text, X_audio, X_image)
-                loss += loss_fn(pred, y_sample)
+                batch_loss += loss_fn(pred, y_sample)
             optimizer.zero_grad()
-            loss.backward()
+            batch_loss.backward()
             optimizer.step()
             # if batch % 10 == 0:
-            loss, current = loss.item(), batch * len(X)
-            print(f"Training loss: {loss:>7f} [{current:>5d}/{train_size:>5d}]")
-            train_loss += loss
+            batch_loss, current = batch_loss.item(), batch * len(X)
+            print(f"Training loss: {batch_loss:>7f} [{current:>5d}/{train_size:>5d}]")
+            train_loss += batch_loss
         train_loss /= train_size  # TODO check the formula
 
+        # Model evaluation on validation data
         model.eval()
-        for batch, (X,y) in enumerate(valid_dataloader):
+        for batch, (X, y) in enumerate(valid_dataloader):
             for X_sample, y_sample in zip(X, y):
                 X_text, X_audio, X_image = X_sample
                 if device == 'cpu':

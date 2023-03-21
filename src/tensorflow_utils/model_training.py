@@ -199,6 +199,7 @@ def train_tf_model(train_list, valid_list, test_list, batch_size, num_epochs, ma
     print("Predict neutral class:", predict_neutral_class)
     print("\n>>> Model training")
     print("Task:", label_type)
+    print("Library: TensorFlow")
     print("Batch size:", batch_size)
     print("Number epochs:", num_epochs)
     print("Patience:", patience)

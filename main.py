@@ -126,7 +126,7 @@ def main():
         device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         print(f"Using {device} device")
 
-        train_torch_model(train_list, valid_list,
+        train_torch_model(train_list, valid_list, test_list,
                           args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
                           args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
