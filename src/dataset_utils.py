@@ -194,6 +194,11 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
             num_drop += 1
             continue
 
+        if image_seg.shape[0] == 1:
+            print("Encountered datapoint {} of length 1.".format(seg_id))
+            num_drop += 1
+            continue
+
         # Remove nan values
         image_seg = np.nan_to_num(image_seg)
         audio_seg = np.nan_to_num(audio_seg)

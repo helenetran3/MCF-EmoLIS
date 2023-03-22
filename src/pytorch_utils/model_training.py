@@ -6,9 +6,11 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchinfo import summary
+from tqdm import tqdm
 
 
-def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, model_name, model_id):
+def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, train_loss,
+                     model_name, model_id):
     if epoch == 0 \
             or (best_is_smallest and valid_loss < valid_loss_best) \
             or (not best_is_smallest and valid_loss > valid_loss_best):
@@ -22,6 +24,8 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict()
+            # 'train_loss': train_loss,
+            # 'valid_loss': valid_loss
         }, model_path)
 
     return valid_loss_best
@@ -56,7 +60,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     training_data = DatasetTorch(x_train, y_train, seg_train, device)
     valid_data = DatasetTorch(x_valid, y_valid, seg_valid, device)
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn)
-    valid_dataloader = DataLoader(valid_data, batch_size=batch_size, collate_fn=my_collate_fn)
+    valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
     train_size = len(train_dataloader.dataset)
     valid_size = len(valid_dataloader.dataset)
 
@@ -97,14 +101,14 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     print("Optimizer:", optimizer_name)
     print("Loss function:", loss_function)
     print("Metric to monitor on validation data:", val_metric)
-    print("\n>>> Model summary")
+    print("\n>>> Model summary (for a sequence of length 374)")
     summary(model, [(374, 300), (374, 35), (374, 74)], device='cpu', dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
     # TODO does it plot the model?
 
     print("\n\n================================= Model Training =============================================\n")
 
     for epoch in range(num_epochs):
-        print("Epoch", epoch)
+        print(f"Epoch {epoch:>3d}")
         train_loss = 0.0
         valid_loss = 0.0
 
@@ -131,7 +135,9 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
 
         # Model evaluation on validation data
         model.eval()
-        for batch, (X, y) in enumerate(valid_dataloader):
+        # for idx in tqdm(range(valid_size)):
+        #     X, y = next(iter(train_dataloader))
+        for idx, (X, y) in enumerate(valid_dataloader):
             for X_sample, y_sample in zip(X, y):
                 X_text, X_audio, X_image = X_sample
                 if device == 'cpu':
@@ -140,17 +146,23 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
                     X_image = X_image.bfloat16()
                 pred = model(X_text, X_audio, X_image)
                 valid_loss += loss_fn(pred, y_sample)
+                if idx % 100 == 0 or idx == valid_size-1:
+                    current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
+                    print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
+
         valid_loss /= valid_size
 
-        print("Epoch {}: Training loss {}, Validation loss {}", epoch, train_loss, valid_loss)
+        print("---------------------------------------------------------------------------------------")
+        print(f"Epoch {epoch:>3d} - Training loss {train_loss:>5f}, Validation loss {valid_loss:>5f}")
+        print("---------------------------------------------------------------------------------------")
 
         # Display and save history plot
-        history_train += train_loss
-        history_valid += valid_loss
+        history_train += [train_loss]
+        history_valid += [valid_loss]
 
         # For model checkpoint
         valid_loss_best = model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch,
-                                           model_name, model_id)
+                                           train_loss, model_name, model_id)
 
         # For early stopping
         num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best, best_is_smallest,

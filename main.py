@@ -100,7 +100,7 @@ def main():
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,
                                             args.label_type, args.model_name)
 
-    is_tf = True  #TODO
+    is_tf = False  #TODO
 
     # Model training
     if is_tf:
@@ -124,7 +124,7 @@ def main():
         from src.pytorch_utils.model_evaluation import evaluate_torch_model
 
         device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-        print(f"Using {device} device")
+        print(f"\nUsing {device} device")
 
         train_torch_model(train_list, valid_list, test_list,
                           args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
@@ -133,7 +133,9 @@ def main():
                           model_id, args.display_fig, args.label_type, device)
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, args.model_name, model_id, device)
+            evaluate_torch_model(test_list, args.num_layers, args.num_nodes, args.dropout_rate, args.final_activ,
+                                 args.model_name, model_id, all_scores, args.predict_neutral_class,
+                                 args.threshold_emo_present, args.save_predictions, device)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,
