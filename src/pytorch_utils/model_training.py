@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchinfo import summary
-from tqdm import tqdm
+from alive_progress import alive_bar
 
 
 def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, train_loss,
@@ -114,42 +114,46 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
 
         # Model training on training data
         model.train()
-        for batch, (X, y) in enumerate(train_dataloader):
-            batch_loss = 0
-            for X_sample, y_sample in zip(X, y):
-                X_text, X_audio, X_image = X_sample
-                if device == 'cpu':
-                    X_text = X_text.bfloat16()
-                    X_audio = X_audio.bfloat16()
-                    X_image = X_image.bfloat16()
-                pred = model(X_text, X_audio, X_image)
-                batch_loss += loss_fn(pred, y_sample)
-            optimizer.zero_grad()
-            batch_loss.backward()
-            optimizer.step()
-            # if batch % 10 == 0:
-            batch_loss, current = batch_loss.item(), batch * len(X)
-            print(f"Training loss: {batch_loss:>7f} [{current:>5d}/{train_size:>5d}]")
-            train_loss += batch_loss
+        num_iterations = train_size // batch_size if train_size % batch_size == 0 else train_size // batch_size + 1
+        with alive_bar(num_iterations, title='Model training') as bar:
+            for batch, (X, y) in enumerate(train_dataloader):
+                batch_loss = 0
+                for X_sample, y_sample in zip(X, y):
+                    X_text, X_audio, X_image = X_sample
+                    if device == 'cpu':
+                        X_text = X_text.bfloat16()
+                        X_audio = X_audio.bfloat16()
+                        X_image = X_image.bfloat16()
+                    pred = model(X_text, X_audio, X_image)
+                    batch_loss += loss_fn(pred, y_sample)
+                optimizer.zero_grad()
+                batch_loss.backward()
+                optimizer.step()
+                # if batch % 10 == 0:
+                batch_loss, current = batch_loss.item(), batch * len(X)
+                # batch_loss_current = batch_loss / batch_size
+                # print(f"Batch training loss: {batch_loss_current:>7f} [{current:>5d}/{train_size:>5d}]")
+                train_loss += batch_loss
+                bar()
         train_loss /= train_size  # TODO check the formula
 
         # Model evaluation on validation data
         model.eval()
-        # for idx in tqdm(range(valid_size)):
-        #     X, y = next(iter(train_dataloader))
-        for idx, (X, y) in enumerate(valid_dataloader):
-            for X_sample, y_sample in zip(X, y):
-                X_text, X_audio, X_image = X_sample
-                if device == 'cpu':
-                    X_text = X_text.bfloat16()
-                    X_audio = X_audio.bfloat16()
-                    X_image = X_image.bfloat16()
-                pred = model(X_text, X_audio, X_image)
-                valid_loss += loss_fn(pred, y_sample)
-                if idx % 100 == 0 or idx == valid_size-1:
-                    current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
-                    print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
-
+        with alive_bar(valid_size, title='Model validation') as bar:
+            for idx, (X, y) in enumerate(valid_dataloader):
+                for X_sample, y_sample in zip(X, y):
+                    X_text, X_audio, X_image = X_sample
+                    if device == 'cpu':
+                        X_text = X_text.bfloat16()
+                        X_audio = X_audio.bfloat16()
+                        X_image = X_image.bfloat16()
+                    pred = model(X_text, X_audio, X_image)
+                    valid_loss += loss_fn(pred, y_sample)
+                    bar()
+                    # if idx % 100 == 0 or idx == valid_size-1:
+                    #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
+                    #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
+        valid_loss = valid_loss.item()
         valid_loss /= valid_size
 
         print("---------------------------------------------------------------------------------------")

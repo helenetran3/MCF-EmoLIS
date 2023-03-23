@@ -66,7 +66,8 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
 - Keras 2.8
 - NumPy 1.20.3
 - pydot 1.4.2
-- graphviz
+- graphviz 0.20.1
+- alive-progress 3.0.1
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
 
