@@ -11,6 +11,12 @@ from alive_progress import alive_bar
 
 def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, train_loss,
                      model_name, model_id):
+
+    model_folder = os.path.join('results', model_name, '../models')
+
+    if not os.path.exists(model_folder):
+        os.makedirs(model_folder)
+
     if epoch == 0 \
             or (best_is_smallest and valid_loss < valid_loss_best) \
             or (not best_is_smallest and valid_loss > valid_loss_best):
@@ -18,8 +24,7 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
         valid_loss_best = valid_loss
 
         # TODO check save model
-        model_folder = os.path.join('results', model_name)
-        model_path = os.path.join(model_folder, '../models', "model_{}.pt".format(model_id))
+        model_path = os.path.join(model_folder, "model_{}.pt".format(model_id))
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
