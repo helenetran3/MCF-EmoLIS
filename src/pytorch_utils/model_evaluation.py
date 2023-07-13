@@ -27,7 +27,8 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
     # TODO check load model
     model = Model_ef(model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_layers,
                      num_nodes, dropout_rate, final_activ).to(device)
-    model.load_state_dict(torch.load(model_path))
+    checkpoint = torch.load(model_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     # Create dataloader for test data
