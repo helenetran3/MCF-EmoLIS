@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader
 from torchinfo import summary
 from alive_progress import alive_bar
 
+from matplotlib import pyplot as plt
+
 
 def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, train_loss,
                      model_name, model_id):
@@ -42,6 +44,37 @@ def model_early_stopping(valid_loss, valid_loss_best, best_is_smallest, num_epoc
     else:
         num_epochs_without_improvement = 0
     return num_epochs_without_improvement
+
+
+def plot_history(history_train, history_valid, model_id, val_metric, history_folder, root_folder, display_fig):
+    """
+    Plot history, display and save figures
+
+    :param history_train: List of training losses
+    :param history_valid: List of validation losses
+    :param model_id: Model id (int)
+    :param val_metric: Metric used to monitor validation data
+    :param history_folder: Name of the folder where the history plot will be saved
+    :param root_folder: Name of the root folder where the history folder is created
+    :param display_fig: Whether we display the figures
+    """
+
+    # Create full path folder
+    full_path_folder = os.path.join(root_folder, history_folder)
+    if not os.path.isdir(full_path_folder):
+        os.makedirs(full_path_folder)
+
+    # summarize history for training and validation metric used to monitor
+    plt.plot(history_train)
+    plt.plot(history_valid)
+    plt.title('Model {}'.format(val_metric))
+    plt.ylabel(val_metric)
+    plt.xlabel('epoch')
+    plt.legend(['train', 'val'])
+    history_plot_path = os.path.join(full_path_folder, 'history_{}_{}.png'.format(model_id, val_metric))
+    plt.savefig(history_plot_path, bbox_inches='tight')
+    if display_fig:
+        plt.show()
 
 
 def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs, num_layers,
@@ -180,5 +213,10 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
         if patience == num_epochs_without_improvement:
             # TODO create and display (or not) history + save it
             break
+
+    # TODO Plot model history
+    model_folder = os.path.join('results', model_name)
+    plot_history(history_train, history_valid, model_id, val_metric,
+                 history_folder="history", root_folder=model_folder, display_fig=display_fig)
 
     return 0
