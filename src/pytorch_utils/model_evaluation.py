@@ -3,6 +3,7 @@ from src.models.ef_williams_torch import Model_ef
 from src.label_processing import compute_pred_labels
 
 import os
+import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -44,11 +45,16 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
     # TODO re-check the code
     with torch.no_grad():
         for X, y in test_dataloader:
-            X, y = X.to(device), y.to(device)
+            # X, y = X.to(device), y.to(device)
+            X_text, X_audio, X_image = X
+            # [0] to remove the 1st dimension (initially shape: (1, length, num_feat)
+            X_text, X_audio, X_image, y = X_text[0], X_audio[0], X_image[0], y[0]
             if device == 'cpu':
-                X = X.bfloat16()
-            # TODO check if pred contains an array (or list) predicted by the model (pred_raw)
-            pred = model(X)
+                X_text = X_text.bfloat16()
+                X_audio = X_audio.bfloat16()
+                X_image = X_image.bfloat16()
+                y = y.bfloat16()
+            pred = model(X_text, X_audio, X_image)
             # TODO check this following line
             pred_raw += pred
             test_loss += loss_fn(pred, y).item()
@@ -57,10 +63,13 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
     # correct /= test_size
     # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
     print(f"Avg test loss: {test_loss:>8f} \n")
+    pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
+    pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
+    # print("pred_raw_array.shape: ", pred_raw_array.shape)
 
     # TODO check this line
     pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-        compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
+        compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder)
 
     return test_loss, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom

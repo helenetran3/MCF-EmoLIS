@@ -30,9 +30,9 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict()
-            # 'train_loss': train_loss,
-            # 'valid_loss': valid_loss
+            'optimizer_state_dict': optimizer.state_dict(),
+            'train_loss': train_loss,
+            'valid_loss': valid_loss
         }, model_path)
 
     return valid_loss_best
@@ -210,7 +210,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
         num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best, best_is_smallest,
                                                               num_epochs_without_improvement)
         # TODO Verify that it actually breaks
-        if patience == num_epochs_without_improvement:
+        if patience == num_epochs_without_improvement-1:
             # TODO create and display (or not) history + save it
             break
 
