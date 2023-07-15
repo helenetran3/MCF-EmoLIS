@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+from alive_progress import alive_bar
 
 
 def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_activ, model_name, model_id, all_scores,
@@ -44,21 +45,22 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
 
     # TODO re-check the code
     with torch.no_grad():
-        for X, y in test_dataloader:
-            # X, y = X.to(device), y.to(device)
-            X_text, X_audio, X_image = X
-            # [0] to remove the 1st dimension (initially shape: (1, length, num_feat)
-            X_text, X_audio, X_image, y = X_text[0], X_audio[0], X_image[0], y[0]
-            if device == 'cpu':
-                X_text = X_text.bfloat16()
-                X_audio = X_audio.bfloat16()
-                X_image = X_image.bfloat16()
-                y = y.bfloat16()
-            pred = model(X_text, X_audio, X_image)
-            # TODO check this following line
-            pred_raw += pred
-            test_loss += loss_fn(pred, y).item()
-            # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
+        with alive_bar(test_size, title='Model evaluation') as bar:
+            for X, y in test_dataloader:
+                # X, y = X.to(device), y.to(device)
+                X_text, X_audio, X_image = X
+                # [0] to remove the 1st dimension (initially shape: (1, length, num_feat)
+                X_text, X_audio, X_image, y = X_text[0], X_audio[0], X_image[0], y[0]
+                if device == 'cpu':
+                    X_text = X_text.bfloat16()
+                    X_audio = X_audio.bfloat16()
+                    X_image = X_image.bfloat16()
+                    y = y.bfloat16()
+                pred = model(X_text, X_audio, X_image)
+                pred_raw += pred
+                test_loss += loss_fn(pred, y).item()
+                # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
+                bar()
     test_loss /= test_size  # TODO verify if per batch or not
     # correct /= test_size
     # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")

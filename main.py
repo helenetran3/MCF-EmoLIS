@@ -126,13 +126,13 @@ def main():
         device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         print(f"\nUsing {device} device")
 
-        train_torch_model(train_list, valid_list, test_list,
-                          args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
-                          args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
-                          args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
-                          model_id, args.display_fig, args.label_type, device)
+        # train_torch_model(train_list, valid_list, test_list,
+        #                   args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
+        #                   args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
+        #                   args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
+        #                   model_id, args.display_fig, args.label_type, device)
 
-        # model_id = 6
+        model_id = 6
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_torch_model(test_list, args.num_layers, args.num_nodes, args.dropout_rate, args.final_activ,
