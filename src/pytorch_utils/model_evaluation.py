@@ -65,11 +65,10 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
     print(f"Avg test loss: {test_loss:>8f} \n")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
-    # print("pred_raw_array.shape: ", pred_raw_array.shape)
 
     # TODO check this line
     pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder)
 
-    return test_loss, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return test_loss, pred_raw_array, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
