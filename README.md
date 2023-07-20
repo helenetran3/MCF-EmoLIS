@@ -50,6 +50,12 @@ Recognition.
 
 ### SDK for data retrieval
 
+-----------
+UPDATE: The link provided below does not exist anymore. The CMU MultiComp Lab provides a new link here : https://github.com/CMU-MultiComp-Lab/CMU-MultimodalSDK.
+We did not test yet if this code is able to retrieve the data from this repository, and if the data structure stays the
+same as the previous one. These will be tested later, and the README will be updated once they are verified.
+-----------
+
 The authors provide an SDK that can be found here: [CMU-Multimodal SDK](https://github.com/A2Zadeh/CMU-MultimodalSDK). 
 
 Some useful details on the [CMU-Multimodal SDK](https://github.com/A2Zadeh/CMU-MultimodalSDK) used to retrieve CMU-MOSEI data:
