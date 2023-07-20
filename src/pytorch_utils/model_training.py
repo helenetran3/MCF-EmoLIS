@@ -25,7 +25,6 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
 
         valid_loss_best = valid_loss
 
-        # TODO check save model
         model_path = os.path.join(model_folder, "model_{}.pt".format(model_id))
         torch.save({
             'epoch': epoch,
@@ -97,7 +96,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, device)
     valid_data = DatasetTorch(x_valid, y_valid, seg_valid, device)
-    train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn)
+    train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
     train_size = len(train_dataloader.dataset)
     valid_size = len(valid_dataloader.dataset)
@@ -173,7 +172,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
                 # print(f"Batch training loss: {batch_loss_current:>7f} [{current:>5d}/{train_size:>5d}]")
                 train_loss += batch_loss
                 bar()
-        train_loss /= train_size  # TODO check the formula
+        train_loss /= num_iterations
 
         # Model evaluation on validation data
         model.eval()
@@ -209,12 +208,9 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
         # For early stopping
         num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best, best_is_smallest,
                                                               num_epochs_without_improvement)
-        # TODO Verify that it actually breaks
         if patience == num_epochs_without_improvement-1:
-            # TODO create and display (or not) history + save it
             break
 
-    # TODO Plot model history
     model_folder = os.path.join('results', model_name)
     plot_history(history_train, history_valid, model_id, val_metric,
                  history_folder="history", root_folder=model_folder, display_fig=display_fig)

@@ -82,7 +82,7 @@ class Model_ef:
         print("Final activation:", self.final_activ)
 
 
-def data_for_csv(model_name, num_layers, num_nodes, dropout_rate, final_activ):
+def get_data_for_csv(model_name, num_layers, num_nodes, dropout_rate, final_activ):
 
     data = [model_name, num_layers, num_nodes, dropout_rate, final_activ]
     header = ['model_name', 'num_layers', 'num_nodes', 'dropout_rate', 'final_activ']

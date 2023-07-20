@@ -1,6 +1,6 @@
 import os
 import csv
-from src.models import ef_williams_tf
+from src.models import ef_williams_tf, ef_williams_torch
 
 
 def create_csv_path(model_name, filename, extension_name=""):
@@ -65,11 +65,11 @@ def write_csv(csv_path, header, data_to_save):
 def get_header_and_data_model(model_str, num_layers, num_nodes, dropout_rate, final_activ):
 
     model_dict = {
-        'ef_williams': ef_williams_tf
+        'ef_williams': ef_williams_torch
     }
 
     if model_str.lower() in model_dict.keys():
-        header, data = model_dict[model_str].data_for_csv(model_str, num_layers, num_nodes, dropout_rate, final_activ)
+        header, data = model_dict[model_str].get_data_for_csv(model_str, num_layers, num_nodes, dropout_rate, final_activ)
     else:
         raise ValueError("Model name '{}' not valid. Please choose among ef_williams.".format(model_str))
 

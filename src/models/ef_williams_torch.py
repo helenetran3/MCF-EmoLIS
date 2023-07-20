@@ -45,3 +45,11 @@ class Model_ef(nn.Module):
         l1 = self.dropout(l1)
         out = self.linear2(l1)
         return out
+
+
+def get_data_for_csv(model_name, num_layers, num_nodes, dropout_rate, final_activ):
+
+    data = [model_name, num_layers, num_nodes, dropout_rate, final_activ]
+    header = ['model_name', 'num_layers', 'num_nodes', 'dropout_rate', 'final_activ']
+
+    return header, data
