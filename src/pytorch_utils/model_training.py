@@ -166,13 +166,13 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
                 optimizer.zero_grad()
                 batch_loss.backward()
                 optimizer.step()
-                # if batch % 10 == 0:
                 batch_loss, current = batch_loss.item(), batch * len(X)
-                # batch_loss_current = batch_loss / batch_size
-                # print(f"Batch training loss: {batch_loss_current:>7f} [{current:>5d}/{train_size:>5d}]")
+                if batch % 10 == 0 or batch == num_iterations-1:
+                    batch_loss_current = batch_loss / batch_size
+                    print(f"Batch training loss: {batch_loss_current:>7f} [{current:>5d}/{train_size:>5d}]")
                 train_loss += batch_loss
                 bar()
-        train_loss /= num_iterations
+        train_loss /= train_size
 
         # Model evaluation on validation data
         model.eval()
