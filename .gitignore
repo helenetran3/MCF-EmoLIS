@@ -6,6 +6,7 @@ __pycache__/
 # Folders generated from the code
 cmu_mosei/
 results/
+runs/
 
 # Personal files
 TODO_list

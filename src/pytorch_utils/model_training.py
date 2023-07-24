@@ -6,9 +6,18 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchinfo import summary
+from torch.utils.tensorboard import SummaryWriter
 from alive_progress import alive_bar
 
 from matplotlib import pyplot as plt
+
+
+def inspect_model_tensorboard(writer, train_dataloader, model):
+    dataiter = iter(train_dataloader)
+    data, labels = next(dataiter)
+    data_text, data_audio, data_image = data[0]
+    data_text, data_audio, data_image = data_text.bfloat16(), data_audio.bfloat16(), data_image.bfloat16()
+    writer.add_graph(model, (data_text, data_audio, data_image))
 
 
 def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, train_loss,
@@ -38,7 +47,7 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
 
 
 def model_early_stopping(valid_loss, valid_loss_best, best_is_smallest, num_epochs_without_improvement):
-    if (best_is_smallest and valid_loss >= valid_loss_best) or (not best_is_smallest and valid_loss <= valid_loss_best):
+    if (best_is_smallest and valid_loss > valid_loss_best) or (not best_is_smallest and valid_loss < valid_loss_best):
         num_epochs_without_improvement += 1
     else:
         num_epochs_without_improvement = 0
@@ -81,6 +90,9 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
                       val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type,
                       device):
 
+    writer_path = os.path.join('runs', model_name, 'model_{}'.format(model_id))
+    writer = SummaryWriter(writer_path)
+
     x_train = train_list[0]  # list of lists of 3 arrays
     y_train = train_list[1]
     seg_train = train_list[2]
@@ -107,6 +119,9 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     num_features_audio = x_train[0][2].shape[1]
     model = Model_ef(model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_layers,
                      num_nodes, dropout_rate, final_activ).to(device)
+
+    # Inspect model using Tensorboard
+    inspect_model_tensorboard(writer, train_dataloader, model)
 
     # Optimizing the model parameters
     loss_fn = nn.L1Loss()  #TODO
@@ -153,7 +168,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
         model.train()
         num_iterations = train_size // batch_size if train_size % batch_size == 0 else train_size // batch_size + 1
         with alive_bar(num_iterations, title='Model training') as bar:
-            for batch, (X, y) in enumerate(train_dataloader):
+            for batch_id, (X, y) in enumerate(train_dataloader):
                 batch_loss = 0
                 for X_sample, y_sample in zip(X, y):
                     X_text, X_audio, X_image = X_sample
@@ -163,16 +178,24 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
                         X_image = X_image.bfloat16()
                     pred = model(X_text, X_audio, X_image)
                     batch_loss += loss_fn(pred, y_sample)
+
                 optimizer.zero_grad()
                 batch_loss.backward()
                 optimizer.step()
-                batch_loss, current = batch_loss.item(), batch * len(X)
-                if batch % 10 == 0 or batch == num_iterations-1:
-                    batch_loss_current = batch_loss / batch_size
+
+                batch_loss, current = batch_loss.item(), batch_id * batch_size + len(X)
+                batch_loss_current = batch_loss / len(X)
+
+                if batch_id % 10 == 0 or batch_id == num_iterations-1:
+                    # # Log the current batch loss in Tensorboard
+                    # writer.add_scalar("Training loss", batch_loss_current, epoch * train_size + current)
+                    # Print every 10 batch losses on the terminal
                     print(f"Batch training loss: {batch_loss_current:>7f} [{current:>5d}/{train_size:>5d}]")
+
                 train_loss += batch_loss
                 bar()
         train_loss /= train_size
+
 
         # Model evaluation on validation data
         model.eval()
@@ -193,8 +216,12 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
         valid_loss = valid_loss.item()
         valid_loss /= valid_size
 
+        # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
+        writer.add_scalar("Training loss", train_loss, epoch)
+        writer.add_scalar("Validation loss", valid_loss, epoch)
+
         print("---------------------------------------------------------------------------------------")
-        print(f"Epoch {epoch:>3d} - Training loss {train_loss:>5f}, Validation loss {valid_loss:>5f}")
+        print(f"Epoch {epoch:>3d} - Avg training loss {train_loss:>5f}, Avg validation loss {valid_loss:>5f}")
         print("---------------------------------------------------------------------------------------")
 
         # Display and save history plot
@@ -214,5 +241,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     model_folder = os.path.join('results', model_name)
     plot_history(history_train, history_valid, model_id, val_metric,
                  history_folder="history", root_folder=model_folder, display_fig=display_fig)
+
+    writer.close()
 
     return 0

@@ -73,6 +73,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
 - torch 1.13.1
 - torchvision 0.14.1
 - torchaudio 0.13.1
+- TensorBoard 2.8.0
 - NumPy 1.20.3
 - pydot 1.4.2
 - graphviz 0.20.1
@@ -181,6 +182,15 @@ for each emotion
 - **dominant** is to assign a single emotion (the dominant one) to the sample
 
 `--predict_neutral_class`: Whether we predict neutral class 
+
+
+### How to use Tensorboard
+
+    ```commandline
+    tensorboard --logdir=runs
+    ```
+
+It will show the localhost address where you can see the model plots, the training graphs and some evaluation metrics. 
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
 
