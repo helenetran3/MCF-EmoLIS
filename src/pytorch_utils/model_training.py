@@ -6,24 +6,35 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchinfo import summary
+from torchviz import make_dot
+import subprocess
 from torch.utils.tensorboard import SummaryWriter
 from alive_progress import alive_bar
 
 from matplotlib import pyplot as plt
 
 
-def inspect_model_tensorboard(writer, train_dataloader, model):
+def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name):
     dataiter = iter(train_dataloader)
     data, labels = next(dataiter)
     data_text, data_audio, data_image = data[0]
     data_text, data_audio, data_image = data_text.bfloat16(), data_audio.bfloat16(), data_image.bfloat16()
     writer.add_graph(model, (data_text, data_audio, data_image))
+    #
+    # print("hello")
+    # # torchviz
+    # y = model(data_text, data_audio, data_image)
+    # model_path_torchviz = os.path.join('results', model_name, 'models', "model_{}".format(model_id))
+    # make_dot(y, params=dict(model.named_parameters())).render(model_path_torchviz, format="dot")
+    # print("hello here")
+    # p = subprocess.run(["dot", "-Tpng", model_path_torchviz, ">", model_path_torchviz+".png"])
+    # print("hello back")
 
 
 def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, train_loss,
                      model_name, model_id):
 
-    model_folder = os.path.join('results', model_name, '../models')
+    model_folder = os.path.join('results', model_name, 'models')
 
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
@@ -121,7 +132,7 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
                      num_nodes, dropout_rate, final_activ).to(device)
 
     # Inspect model using Tensorboard
-    inspect_model_tensorboard(writer, train_dataloader, model)
+    inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name)
 
     # Optimizing the model parameters
     loss_fn = nn.L1Loss()  #TODO
@@ -153,9 +164,11 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     print("Optimizer:", optimizer_name)
     print("Loss function:", loss_function)
     print("Metric to monitor on validation data:", val_metric)
+    print("\n>>> Model parameters")
+    model.print_values()
+    print("\n")
     print("\n>>> Model summary (for a sequence of length 374)")
     summary(model, [(374, 300), (374, 35), (374, 74)], device='cpu', dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
-    # TODO does it plot the model?
 
     print("\n\n================================= Model Training =============================================\n")
 
@@ -188,7 +201,8 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
 
                 if batch_id % 10 == 0 or batch_id == num_iterations-1:
                     # # Log the current batch loss in Tensorboard
-                    # writer.add_scalar("Training loss", batch_loss_current, epoch * train_size + current)
+                    # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
+                    writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch * train_size + batch_id)
                     # Print every 10 batch losses on the terminal
                     print(f"Batch training loss: {batch_loss_current:>7f} [{current:>5d}/{train_size:>5d}]")
 

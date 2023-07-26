@@ -18,15 +18,13 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
     seg_test = test_list[2]
     num_classes = y_test[0].shape[1]
 
-    # TODO check values
     num_features_text = x_test[0][0].shape[1]
     num_features_image = x_test[0][1].shape[1]
     num_features_audio = x_test[0][2].shape[1]
 
     # Load best model
     model_folder = os.path.join('results', model_name)
-    model_path = os.path.join(model_folder, '../models', "model_{}.pt".format(model_id))
-    # TODO check load model
+    model_path = os.path.join(model_folder, 'models', "model_{}.pt".format(model_id))
     model = Model_ef(model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_layers,
                      num_nodes, dropout_rate, final_activ).to(device)
     checkpoint = torch.load(model_path)
@@ -43,7 +41,6 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
     # correct = 0
     pred_raw = []
 
-    # TODO re-check the code
     with torch.no_grad():
         with alive_bar(test_size, title='Model evaluation') as bar:
             for X, y in test_dataloader:
@@ -61,14 +58,13 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
                 test_loss += loss_fn(pred, y).item()
                 # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
                 bar()
-    test_loss /= test_size  # TODO verify if per batch or not
+    test_loss /= test_size
     # correct /= test_size
     # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
     print(f"Avg test loss: {test_loss:>8f} \n")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
-    # TODO check this line
     pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder)

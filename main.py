@@ -132,7 +132,7 @@ def main():
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                           model_id, args.display_fig, args.label_type, device)
 
-        # model_id = 6
+        # model_id = 28
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_torch_model(test_list, args.num_layers, args.num_nodes, args.dropout_rate, args.final_activ,

@@ -20,14 +20,14 @@ class Model_ef(nn.Module):
         self.concatenate = torch.cat
         self.batch_norm = nn.BatchNorm1d(self.num_features)
         self.bidir_lstm_layers = nn.LSTM(self.num_features, 64, self.num_layers, bidirectional=True).to(device="cpu", dtype=torch.bfloat16)
-        self.dropout = nn.Dropout(self.dropout_rate).to(device='cpu', dtype=torch.bfloat16)
+        self.dropout1 = nn.Dropout(self.dropout_rate).to(device='cpu', dtype=torch.bfloat16)
+        self.dropout2 = nn.Dropout(self.dropout_rate).to(device='cpu', dtype=torch.bfloat16)
         self.linear1 = nn.Linear(2*64, self.num_nodes).to(device='cpu', dtype=torch.bfloat16)
         self.linear2 = nn.Linear(self.num_nodes, self.num_classes).to(device='cpu', dtype=torch.bfloat16)
 
     def print_values(self):
         print("Model name:", self.model_name)
         print("Model id:", self.model_id)
-        print("Fixed number of steps:", self.num_steps)
         print("Number layers:", self.num_layers)
         print("Number nodes for the penultimate dense layer:", self.num_nodes)
         print("Dropout rate:", self.dropout_rate)
@@ -40,9 +40,9 @@ class Model_ef(nn.Module):
         x = self.concatenate((x_text, x_image, x_audio), 1)
         bnorm = self.batch_norm(x)
         blstm = self.bidir_lstm_layers(bnorm)[0][-1]  # takes the last output (-1) in the output sequence (0)
-        blstm = self.dropout(blstm)
+        blstm = self.dropout1(blstm)
         l1 = self.linear1(blstm)
-        l1 = self.dropout(l1)
+        l1 = self.dropout2(l1)
         out = self.linear2(l1)
         return out
 
