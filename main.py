@@ -4,6 +4,7 @@ from src.csv_functions import save_model_param_in_csv_file, get_header_and_data_
 from src.label_processing import get_available_presence_scores_arr, update_labels
 from src.model_metrics import compute_and_save_model_metrics
 import argparse
+import json
 
 parser = argparse.ArgumentParser(description="SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.")
 parser.add_argument('-pnd', '--pickle_name_dataset', type=str,
@@ -21,14 +22,6 @@ parser.add_argument('-c', '--with_custom_split', action='store_true',
                          "(2018) paper).")
 parser.add_argument('-mn', '--model_name', type=str, choices=['ef_williams'],
                     help="Name of the model currently tested. Values: ef_williams.")
-parser.add_argument('-l', '--num_layers', type=int,
-                    help="Number of bidirectional layers.")
-parser.add_argument('-n', '--num_nodes', type=int,
-                    help="Number of nodes in the penultimate dense layer.")
-parser.add_argument('-d', '--dropout_rate', type=float,
-                    help="Dropout rate")
-parser.add_argument('-a', '--final_activ', type=str,
-                    help="Activation function of the final layer.")
 parser.add_argument('-e', '--num_epochs', type=int,
                     help="Maximum number of epochs")
 parser.add_argument('-p', '--patience', type=int,
@@ -84,6 +77,19 @@ def main():
                                                                       train_ids, valid_ids, test_ids,
                                                                       args.image_feature, args.pickle_name_fold)
 
+    with open("hyperparameters.json") as json_file:
+        hyperparam = json.load(json_file)
+
+    list_available_models = list(hyperparam.keys())
+
+    if args.model_name in list_available_models:
+        is_tf = hyperparam[args.model_name]["is_TensorFlow"]
+        param_archi = hyperparam[args.model_name]["architecture"]
+        param_training = hyperparam[args.model_name]["training"]
+    else:
+        raise ValueError("Model name '{}' not valid. Please choose among {}.".format(args.model_name,
+                                                                                     list_available_models))
+
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
     max_steps = get_maximum_sequence_length_dataset(train_list, valid_list, test_list)
 
@@ -99,8 +105,6 @@ def main():
                                             args.batch_size, args.optimizer, args.loss_function,
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,
                                             args.label_type, args.model_name)
-
-    is_tf = False  #TODO
 
     # Model training
     if is_tf:
@@ -127,17 +131,15 @@ def main():
         print(f"\nUsing {device} device")
 
         train_torch_model(train_list, valid_list, test_list,
-                          args.batch_size, args.num_epochs, args.num_layers, args.num_nodes,
-                          args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
+                          args.batch_size, args.num_epochs, param_archi, args.learning_rate, args.optimizer,
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                           model_id, args.display_fig, args.label_type, device)
 
         # model_id = 28
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, args.num_layers, args.num_nodes, args.dropout_rate, args.final_activ,
-                                 args.model_name, model_id, all_scores, args.predict_neutral_class,
-                                 args.threshold_emo_present, args.save_predictions, device)
+            evaluate_torch_model(test_list, param_archi, args.model_name, model_id, all_scores,
+                                 args.predict_neutral_class, args.threshold_emo_present, args.save_predictions, device)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,

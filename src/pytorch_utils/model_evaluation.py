@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
 
-def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_activ, model_name, model_id, all_scores,
+def evaluate_torch_model(test_list, param_archi, model_name, model_id, all_scores,
                          predict_neutral_class, threshold_emo_pres, save_pred, device):
 
     x_test = test_list[0]  # list of lists of 3 arrays
@@ -25,8 +25,8 @@ def evaluate_torch_model(test_list, num_layers, num_nodes, dropout_rate, final_a
     # Load best model
     model_folder = os.path.join('results', model_name)
     model_path = os.path.join(model_folder, 'models', "model_{}.pt".format(model_id))
-    model = Model_ef(model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_layers,
-                     num_nodes, dropout_rate, final_activ).to(device)
+    model = Model_ef(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                     num_classes).to(device)
     checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()

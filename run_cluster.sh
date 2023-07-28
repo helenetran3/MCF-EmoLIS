@@ -20,18 +20,14 @@ python3 main.py \
 --append_label_to_data \
 --image_feature facet \
 --model_name ef_williams \
---num_layers 1 \
---num_nodes 100 \
---dropout_rate 0.1 \
---final_activ linear \
 --num_epochs 1000 \
 --patience 10 \
 --batch_size 64 \
---label_type all \
 --optimizer adam \
 --loss_function mean_absolute_error \
 --learning_rate 0.001 \
 --val_metric loss \
+--label_type all \
 --threshold_emo_present 0 0.25 0.5 \
 --round_decimals 3 \
 --plot_confusion_matrix \

@@ -96,8 +96,7 @@ def plot_history(history_train, history_valid, model_id, val_metric, history_fol
         plt.show()
 
 
-def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs, num_layers,
-                      num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
+def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs, param_archi, learning_rate, optimizer_name, loss_function,
                       val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type,
                       device):
 
@@ -128,8 +127,8 @@ def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs,
     num_features_text = x_train[0][0].shape[1]
     num_features_image = x_train[0][1].shape[1]
     num_features_audio = x_train[0][2].shape[1]
-    model = Model_ef(model_id, num_features_text, num_features_image, num_features_audio, num_classes, num_layers,
-                     num_nodes, dropout_rate, final_activ).to(device)
+    model = Model_ef(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                     num_classes).to(device)
 
     # Inspect model using Tensorboard
     inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name)

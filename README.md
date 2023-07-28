@@ -50,10 +50,10 @@ Recognition.
 
 ### SDK for data retrieval
 
------------
-UPDATE: The link provided below does not exist anymore. The CMU MultiComp Lab provides a new link here : https://github.com/CMU-MultiComp-Lab/CMU-MultimodalSDK.
+*UPDATE: The link provided below does not exist anymore. The CMU MultiComp Lab provides a new link here : https://github.com/CMU-MultiComp-Lab/CMU-MultimodalSDK.
 We did not test yet if this code is able to retrieve the data from this repository, and if the data structure stays the
-same as the previous one. These will be tested later, and the README will be updated once they are verified.
+same as the previous one. These will be tested later, and the README will be updated once they are verified.*
+
 -----------
 
 The authors provide an SDK that can be found here: [CMU-Multimodal SDK](https://github.com/A2Zadeh/CMU-MultimodalSDK). 
@@ -124,14 +124,6 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             details, cf. Williams et al. (2018) paper).
       -mn MODEL_NAME, --model_name MODEL_NAME
                             Name of the model currently tested. Values: ef_williams.
-      -l NUM_LAYERS, --num_layers NUM_LAYERS
-                            Number of bidirectional layers.
-      -n NUM_NODES, --num_nodes NUM_NODES
-                            Number of nodes in the penultimate dense layer.
-      -d DROPOUT_RATE, --dropout_rate DROPOUT_RATE
-                            Dropout rate
-      -a FINAL_ACTIV, --final_activ FINAL_ACTIV
-                            Activation function of the final layer.
       -e NUM_EPOCHS, --num_epochs NUM_EPOCHS
                             Maximum number of epochs
       -p PATIENCE, --patience PATIENCE
@@ -186,9 +178,9 @@ for each emotion
 
 ### How to use Tensorboard
 
-    ```commandline
-    tensorboard --logdir=runs
-    ```
+```commandline
+tensorboard --logdir=runs
+```
 
 It will show the localhost address where you can see the model plots, the training graphs and some evaluation metrics. 
 
