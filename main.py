@@ -80,12 +80,12 @@ def main():
     with open("hyperparameters.json") as json_file:
         hyperparam = json.load(json_file)
 
-    list_available_models = list(hyperparam.keys())
+    list_available_models = list(hyperparam['models'].keys())
 
     if args.model_name in list_available_models:
-        is_tf = hyperparam[args.model_name]["is_TensorFlow"]
-        param_archi = hyperparam[args.model_name]["architecture"]
-        param_training = hyperparam[args.model_name]["training"]
+        is_tf = bool(hyperparam['models'][args.model_name]["is_TensorFlow"])
+        param_archi = hyperparam['models'][args.model_name]["architecture"]
+        param_training = hyperparam['models'][args.model_name]["training"]
     else:
         raise ValueError("Model name '{}' not valid. Please choose among {}.".format(args.model_name,
                                                                                      list_available_models))
@@ -99,8 +99,7 @@ def main():
                       args.predict_neutral_class, args.threshold_emo_present, ext_name)
 
     # Save model parameters and return model id
-    model_header, model_data = get_header_and_data_model(args.model_name, args.num_layers, args.num_nodes,
-                                                         args.dropout_rate, args.final_activ)
+    model_header, model_data = get_header_and_data_model(args.model_name, param_archi)
     model_id = save_model_param_in_csv_file(model_data, model_header, args.num_epochs, args.patience,
                                             args.batch_size, args.optimizer, args.loss_function,
                                             args.learning_rate, args.val_metric, args.predict_neutral_class,

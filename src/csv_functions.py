@@ -62,16 +62,16 @@ def write_csv(csv_path, header, data_to_save):
             writer.writerow(data_to_save)
             
             
-def get_header_and_data_model(model_str, num_layers, num_nodes, dropout_rate, final_activ):
+def get_header_and_data_model(model_str, param_archi):
 
     model_dict = {
         'ef_williams': ef_williams_torch
     }
 
     if model_str.lower() in model_dict.keys():
-        header, data = model_dict[model_str].get_data_for_csv(model_str, num_layers, num_nodes, dropout_rate, final_activ)
+        header, data = model_dict[model_str].get_data_for_csv(model_str, param_archi)
     else:
-        raise ValueError("Model name '{}' not valid. Please choose among ef_williams.".format(model_str))
+        raise ValueError("Model name '{}' not valid. Please choose among ef_williams.".format(model_str)) #TODO replace ef_williams
 
     return header, data
 

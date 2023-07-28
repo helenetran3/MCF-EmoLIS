@@ -46,9 +46,10 @@ class Model_ef(nn.Module):
         return out
 
 
-def get_data_for_csv(model_name, num_layers, num_nodes, dropout_rate, final_activ):
+def get_data_for_csv(model_name, param_archi):
 
-    data = [model_name, num_layers, num_nodes, dropout_rate, final_activ]
+    data = [model_name, param_archi['num_layers'], param_archi['num_nodes'], param_archi['dropout_rate'],
+            param_archi['final_activ']]
     header = ['model_name', 'num_layers', 'num_nodes', 'dropout_rate', 'final_activ']
 
     return header, data
