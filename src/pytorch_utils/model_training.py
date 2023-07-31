@@ -96,9 +96,16 @@ def plot_history(history_train, history_valid, model_id, val_metric, history_fol
         plt.show()
 
 
-def train_torch_model(train_list, valid_list, test_list, batch_size, num_epochs, param_archi, learning_rate, optimizer_name, loss_function,
-                      val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type,
-                      device):
+def train_torch_model(train_list, valid_list, test_list, param_archi, param_training, model_name, model_id,
+                      predict_neutral_class, display_fig, label_type, device):
+
+    num_epochs = param_training['num_epochs']
+    patience = param_training['patience']
+    batch_size = param_training['batch_size']
+    optimizer_name = param_training['optimizer']
+    loss_function = "mean_absolute_error"  #TODO
+    learning_rate = param_training['learning_rate']
+    val_metric = param_training['val_metric']
 
     writer_path = os.path.join('runs', model_name, 'model_{}'.format(model_id))
     writer = SummaryWriter(writer_path)

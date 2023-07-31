@@ -72,7 +72,8 @@ def get_header_and_data_model(model_str, param_archi):
     """
 
     model_dict = {
-        'ef_williams': ef_williams_torch
+        'ef_williams': ef_williams_torch,
+        'ef_williams_debug' : ef_williams_torch  # TODO remove after debug
     }
 
     if model_str.lower() in model_dict.keys():
@@ -94,6 +95,8 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
 
     if task == "regression":
         header_overall = ['mae', 'mse', 'r2']
+
+
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
         data = data_param + metrics

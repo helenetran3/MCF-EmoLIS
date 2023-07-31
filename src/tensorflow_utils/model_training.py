@@ -52,7 +52,9 @@ def get_model(model_str, model_id, param_archi, num_features_text, num_features_
 
     model_dict = {
         'ef_williams': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
-                                               num_features_audio, num_steps, num_classes)
+                                               num_features_audio, num_steps, num_classes),
+        'ef_williams_debug': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
+                                                     num_features_audio, num_steps, num_classes)  #TODO remove
     }
 
     if model_str.lower() in model_dict.keys():
@@ -110,9 +112,8 @@ def plot_history(history, model_id, val_metric, history_folder, root_folder, dis
         plt.show()
 
 
-def train_tf_model(train_list, valid_list, test_list, param_archi, batch_size, num_epochs, max_steps, learning_rate,
-                   optimizer_name, loss_function, val_metric, patience, model_name, predict_neutral_class, model_id,
-                   display_fig, label_type):
+def train_tf_model(train_list, valid_list, test_list, param_archi, param_training, max_steps, model_name, model_id,
+                   predict_neutral_class, display_fig, label_type):
     """
     Train the model using TensorFlow.
     Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
@@ -123,24 +124,22 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, batch_size, n
     :param valid_list: [x_valid, y_valid, seg_valid]
     :param test_list: [x_test, y_test, seg_test]
     :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :param batch_size: Batch size for training
-    :param num_epochs: Maximum number of epochs for training
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param max_steps: Maximum length for all sequences in the dataset
-    :param num_layers: Number of bidirectional layers for the model
-    :param num_nodes: Number of nodes for the penultimate dense layer
-    :param dropout_rate: Dropout rate before each dense layer
-    :param final_activ: Final activation function
-    :param learning_rate: Learning rate for training
-    :param optimizer_name: optimizer name
-    :param loss_function: Loss function
-    :param val_metric: Metric on validation data to monitor
-    :param patience: Number of epochs with no improvement after which the training will be stopped
     :param model_name: Name of the model currently tested
     :param predict_neutral_class: Whether we predict the neutral class
     :param model_id: Model id (int)
     :param display_fig: Whether we display the figures
     :param label_type: Type of labels used for model training and evaluation.
     """
+
+    num_epochs = param_training['num_epochs']
+    patience = param_training['patience']
+    batch_size = param_training['batch_size']
+    optimizer_name = param_training['optimizer']
+    loss_function = "mean_absolute_error"  #TODO
+    learning_rate = param_training['learning_rate']
+    val_metric = param_training['val_metric']
 
     x_train = train_list[0]  # list of lists of 3 arrays
     y_train = train_list[1]

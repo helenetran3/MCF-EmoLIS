@@ -29,15 +29,14 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
     return pred_raw
 
 
-def evaluate_tf_model(test_list, batch_size, max_steps, loss_function, model_name, model_id, all_scores,
+def evaluate_tf_model(test_list, param_training, max_steps, model_name, model_id, all_scores,
                       predict_neutral_class, threshold_emo_pres, round_decimals, save_pred):
     """
     Evaluate the performance of the best model.
 
     :param test_list: [x_test, y_test, seg_test]
-    :param batch_size: Batch size for training
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param max_steps: Maximum length for all sequences in the dataset
-    :param loss_function: Loss function
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
     :param all_scores: list of available presence scores
@@ -48,6 +47,9 @@ def evaluate_tf_model(test_list, batch_size, max_steps, loss_function, model_nam
 
     :returns loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
+
+    batch_size = param_training['batch_size']
+    loss_function = "mean_absolute_error"  #TODO
 
     # Load best model
     model_folder = os.path.join('results', model_name)

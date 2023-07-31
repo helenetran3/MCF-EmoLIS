@@ -20,26 +20,12 @@ parser.add_argument('-f', '--image_feature', type=str, choices=['facet', 'openfa
 parser.add_argument('-c', '--with_custom_split', action='store_true',
                     help="Perform custom split on training and validation sets (for more details, cf. Williams et al. "
                          "(2018) paper).")
-parser.add_argument('-mn', '--model_name', type=str, choices=['ef_williams'],
+parser.add_argument('-mn', '--model_name', type=str, choices=['ef_williams', 'ef_williams_debug'],
                     help="Name of the model currently tested. Values: ef_williams.")
-parser.add_argument('-e', '--num_epochs', type=int,
-                    help="Maximum number of epochs")
-parser.add_argument('-p', '--patience', type=int,
-                    help="Number of epochs with no improvement after which the training will be stopped.")
-parser.add_argument('-b', '--batch_size', type=int,
-                    help="Batch size")
 parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', 'present', 'dominant'],
                     help="Type of labels used for model training and evaluation. Possible values: all (for all presence"
                          "scores provided by the dataset), coarse (presence score for each emotion among "
                          "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-class classification)")
-parser.add_argument('-opt', '--optimizer', type=str, choices=['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop'],
-                    help="Optimizer for model training. Values: adam, sgd, adagrad, adadelta, rmsprop.")
-parser.add_argument('-lf', '--loss_function', type=str,
-                    help="Loss function")
-parser.add_argument('-lr', '--learning_rate', type=float,
-                    help="Learning rate")
-parser.add_argument('-v', '--val_metric', type=str, choices=['loss', 'acc'],
-                    help="Metric to monitor for validation set. Values: loss or acc.")
 parser.add_argument('-nc', '--predict_neutral_class', action='store_true',
                     help="Predict neutral class.")
 parser.add_argument('-tp', '--threshold_emo_present', type=float, nargs='+',
@@ -98,14 +84,15 @@ def main():
         from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
         train_tf_model(train_list, valid_list, test_list,
-                       param_archi, args.batch_size, args.num_epochs, max_steps, args.learning_rate, args.optimizer,
-                       args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
-                       model_id, args.display_fig, args.label_type)
+                       param_archi, param_training, max_steps, args.model_name, model_id, args.predict_neutral_class,
+                       args.display_fig, args.label_type)
+
+        # model_id = 52
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_tf_model(test_list, args.batch_size, max_steps, args.loss_function,
-                              args.model_name, model_id, all_scores, args.predict_neutral_class, args.threshold_emo_present,
-                              args.round_decimals, args.save_predictions)
+            evaluate_tf_model(test_list, param_training, max_steps, args.model_name, model_id, all_scores,
+                              args.predict_neutral_class, args.threshold_emo_present, args.round_decimals,
+                              args.save_predictions)
 
     else:
         import torch
@@ -116,9 +103,8 @@ def main():
         print(f"\nUsing {device} device")
 
         train_torch_model(train_list, valid_list, test_list,
-                          args.batch_size, args.num_epochs, param_archi, args.learning_rate, args.optimizer,
-                          args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
-                          model_id, args.display_fig, args.label_type, device)
+                          param_archi, param_training, args.model_name, model_id, args.predict_neutral_class,
+                          args.display_fig, args.label_type, device)
 
         # model_id = 38
 

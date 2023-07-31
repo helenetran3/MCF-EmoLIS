@@ -17,7 +17,29 @@
                 "patience": 10,
                 "batch_size": 64,
                 "optimizer": "adam",
-                "loss_function": "mae",
+                "loss_function": "mean_absolute_error",
+                "learning_rate": 0.001,
+                "val_metric": "loss"
+            }
+        },
+
+        "ef_williams_debug":
+        {
+            "is_TensorFlow": 1,
+            "architecture":
+            {
+                "num_layers": 1,
+                "num_nodes": 100,
+                "dropout_rate": 0.1,
+                "final_activ": "linear"
+            },
+            "training":
+            {
+                "num_epochs": 1,
+                "patience": 1,
+                "batch_size": 128,
+                "optimizer": "adam",
+                "loss_function": "mean_absolute_error",
                 "learning_rate": 0.001,
                 "val_metric": "loss"
             }

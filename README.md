@@ -124,28 +124,12 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             details, cf. Williams et al. (2018) paper).
       -mn MODEL_NAME, --model_name MODEL_NAME
                             Name of the model currently tested. Values: ef_williams.
-      -e NUM_EPOCHS, --num_epochs NUM_EPOCHS
-                            Maximum number of epochs
-      -p PATIENCE, --patience PATIENCE
-                            Number of epochs with no improvement after which the training
-                            will be stopped.
-      -b BATCH_SIZE, --batch_size BATCH_SIZE
-                            Batch size
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
                             Type of labels used for model training and evaluation.
                             Possible values: all (for all presence scores provided by
                             the dataset), coarse (presence score for each emotion among
                             [0, 1, 2, 3]), present (multi-label classification),
                             dominant (multi-class one-label classification)
-      -opt {adam,sgd,adagrad,adadelta,rmsprop}, --optimizer {adam,sgd,adagrad,adadelta,rmsprop}
-                            Optimizer for model training. Values: adam, sgd, adagrad,
-                            adadelta, rmsprop.
-      -lf LOSS_FUNCTION, --loss_function LOSS_FUNCTION
-                            Loss function
-      -lr LEARNING_RATE, --learning_rate LEARNING_RATE
-                            Learning rate
-      -v {loss,acc}, --val_metric {loss,acc}
-                            Metric to monitor for validation set. Values: loss or acc.
       -nc, --predict_neutral_class
                             Predict neutral class.
       -tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...], --threshold_emo_present 
