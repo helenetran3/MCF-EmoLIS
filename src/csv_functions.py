@@ -184,21 +184,13 @@ def save_results_in_csv_file(model_name, model_id,
     write_csv(csv_path_dominant, header_dominant, data_dominant)
 
 
-def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epochs, patience, batch_size,
-                                 optimizer_name, loss_function, learning_rate, val_metric,
+def save_model_param_in_csv_file(param_archi, param_training,
                                  predict_neutral_class, label_type, model_name):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
-    :param model_archi_param: List of parameters for model architecture
-    :param model_archi_header: List of strings giving the headers for model architecture
-    :param num_epochs: Maximum number of epochs for training
-    :param patience: Number of epochs with no improvement after which the training will be stopped
-    :param batch_size: Batch size for training
-    :param optimizer_name: optimizer name
-    :param loss_function: Loss function
-    :param learning_rate: Learning rate for training
-    :param val_metric: Metric on validation data to monitor
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param predict_neutral_class: Whether we predict the neutral class
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
                          scores provided by the dataset), coarse (presence score for each emotion among "
@@ -209,8 +201,12 @@ def save_model_param_in_csv_file(model_archi_param, model_archi_header, num_epoc
     csv_path = create_csv_path(model_name, "model_ids")
 
     model_id = get_current_model_id(csv_path)
-    model_training_param = [num_epochs, patience, batch_size, optimizer_name, loss_function,
-                            learning_rate, val_metric, predict_neutral_class, label_type]
+
+    model_archi_header, model_archi_param = get_header_and_data_model(model_name, param_archi)
+    model_training_param = [param_training['num_epochs'], param_training['patience'], param_training['batch_size'],
+                            param_training['optimizer'], param_training['loss_function'],
+                            param_training['learning_rate'], param_training['val_metric'], predict_neutral_class,
+                            label_type]
     model_training_header = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function',
                              'learning_rate', 'val_metric', 'predict_neutral_class', 'label_type']
     header_all = ['model_id'] + model_archi_header + model_training_header

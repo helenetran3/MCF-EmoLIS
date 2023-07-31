@@ -1,10 +1,10 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_maximum_sequence_length_dataset
+from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import save_model_param_in_csv_file, get_header_and_data_model
 from src.label_processing import get_available_presence_scores_arr, update_labels
 from src.model_metrics import compute_and_save_model_metrics
 import argparse
-import json
 
 parser = argparse.ArgumentParser(description="SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.")
 parser.add_argument('-pnd', '--pickle_name_dataset', type=str,
@@ -77,18 +77,8 @@ def main():
                                                                       train_ids, valid_ids, test_ids,
                                                                       args.image_feature, args.pickle_name_fold)
 
-    with open("hyperparameters.json") as json_file:
-        hyperparam = json.load(json_file)
-
-    list_available_models = list(hyperparam['models'].keys())
-
-    if args.model_name in list_available_models:
-        is_tf = bool(hyperparam['models'][args.model_name]["is_TensorFlow"])
-        param_archi = hyperparam['models'][args.model_name]["architecture"]
-        param_training = hyperparam['models'][args.model_name]["training"]
-    else:
-        raise ValueError("Model name '{}' not valid. Please choose among {}.".format(args.model_name,
-                                                                                     list_available_models))
+    # Get hyperparameters for model architecture and model training + if model available in TensorFlow (tf) or PyTorch
+    is_tf, param_archi, param_training = get_hyperparam_from_json(args.model_name)
 
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
     max_steps = get_maximum_sequence_length_dataset(train_list, valid_list, test_list)
@@ -99,10 +89,7 @@ def main():
                       args.predict_neutral_class, args.threshold_emo_present, ext_name)
 
     # Save model parameters and return model id
-    model_header, model_data = get_header_and_data_model(args.model_name, param_archi)
-    model_id = save_model_param_in_csv_file(model_data, model_header, args.num_epochs, args.patience,
-                                            args.batch_size, args.optimizer, args.loss_function,
-                                            args.learning_rate, args.val_metric, args.predict_neutral_class,
+    model_id = save_model_param_in_csv_file(param_archi, param_training, args.predict_neutral_class,
                                             args.label_type, args.model_name)
 
     # Model training
