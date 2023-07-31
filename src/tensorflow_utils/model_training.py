@@ -73,7 +73,7 @@ def create_model_folder_and_path(model_name, model_id):
     :return: model_folder, model_save_path
     """
 
-    model_folder = os.path.join('results', model_name, '../models')
+    model_folder = os.path.join('results', model_name, 'models')
     if not os.path.isdir('results'):
         os.makedirs(model_folder)
     model_save_name = "model_{}.h5".format(model_id)

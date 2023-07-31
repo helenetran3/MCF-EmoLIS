@@ -390,7 +390,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 def compute_and_save_model_metrics(test_list,
                                    loss_function_val,
                                    pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                   loss_function, label_type, model_name, model_id, all_scores,
+                                   param_training, label_type, model_name, model_id, all_scores,
                                    predict_neutral_class, threshold_emo_pres, round_decimals, ext_name,
                                    plot_confusion_matrix, display_fig):
     """
@@ -403,7 +403,7 @@ def compute_and_save_model_metrics(test_list,
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by threshold_emo_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
-    :param loss_function: Loss function
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param label_type: Type of labels used for model training and evaluation.
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
@@ -415,6 +415,8 @@ def compute_and_save_model_metrics(test_list,
     :param plot_confusion_matrix: Whether we save confusion matrices with pickle
     :param display_fig: Whether we display figures
     """
+
+    loss_function = param_training['loss_function'] #TODO
 
     model_folder = os.path.join('results', model_name)
 

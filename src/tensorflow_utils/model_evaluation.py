@@ -53,7 +53,7 @@ def evaluate_tf_model(test_list, param_training, max_steps, model_name, model_id
 
     # Load best model
     model_folder = os.path.join('results', model_name)
-    model_path = os.path.join(model_folder, '../models', "model_{}.h5".format(model_id))
+    model_path = os.path.join(model_folder, 'models', "model_{}.h5".format(model_id))
     model = load_model(model_path)
 
     # Extract x, y and seg_ids for test set
