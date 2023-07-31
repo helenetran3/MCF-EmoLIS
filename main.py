@@ -111,8 +111,7 @@ def main():
         from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
         train_tf_model(train_list, valid_list, test_list,
-                       args.batch_size, args.num_epochs, max_steps, args.num_layers, args.num_nodes,
-                       args.dropout_rate, args.final_activ, args.learning_rate, args.optimizer,
+                       param_archi, args.batch_size, args.num_epochs, max_steps, args.learning_rate, args.optimizer,
                        args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                        model_id, args.display_fig, args.label_type)
 
@@ -134,7 +133,7 @@ def main():
                           args.loss_function, args.val_metric, args.patience, args.model_name, args.predict_neutral_class,
                           model_id, args.display_fig, args.label_type, device)
 
-        # model_id = 28
+        # model_id = 38
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_torch_model(test_list, param_archi, args.model_name, model_id, all_scores,

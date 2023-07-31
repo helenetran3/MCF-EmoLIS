@@ -9,23 +9,19 @@ class Model_ef:
     (Challenge-HML) (pp. 11-19).
     """
 
-    def __init__(self, model_id, num_features_text, num_features_image, num_features_audio, num_steps, num_classes,
-                 num_layers, num_nodes, dropout_rate, final_activ):
+    def __init__(self, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_steps,
+                 num_classes):
         """
         Build the model described in the paper (cf. README for the reference).
         Works only when the number of steps is the same for all datapoints.
 
         :param model_id: Model id (int)
+        :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
         :param num_features_text: size of text feature vector (it should be the same at each step)
         :param num_features_image: size of image feature vector (it should be the same at each step)
         :param num_features_audio: size of audio feature vector (it should be the same at each step)
         :param num_steps: total number of timesteps
         :param num_classes: number of classes to predict
-        :param num_steps: number of steps in the sequence
-        :param num_layers: number of bidirectional layers
-        :param num_nodes: number of nodes for the penultimate dense layer
-        :param dropout_rate: dropout rate before each dense layer
-        :param final_activ: final activation function
         """
 
         self.model_name = 'ef_williams'
@@ -36,10 +32,10 @@ class Model_ef:
         self.num_steps = num_steps
         self.num_classes = num_classes
         self.num_steps = num_steps
-        self.num_layers = num_layers
-        self.num_nodes = num_nodes
-        self.dropout_rate = dropout_rate
-        self.final_activ = final_activ
+        self.num_layers = param_archi['num_layers']
+        self.num_nodes = param_archi['num_nodes']
+        self.dropout_rate = param_archi['dropout_rate']
+        self.final_activ = param_archi['final_activ']
 
     def build(self):
         """
@@ -83,6 +79,13 @@ class Model_ef:
 
 
 def get_data_for_csv(model_name, param_archi):
+    """
+    Get header and data to save model hyperparameters in csv file (ie. number of layers, nodes, dropout rate).
+
+    :param model_name: Model name (string)
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :return: two lists of strings (one for header, one for data) to save in csv
+    """
 
     data = [model_name, param_archi['num_layers'], param_archi['num_nodes'], param_archi['dropout_rate'],
             param_archi['final_activ']]

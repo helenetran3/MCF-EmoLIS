@@ -34,28 +34,25 @@ def get_optimizer(optimizer_str):
                          .format(optimizer_str))
 
 
-def get_model(model_str, model_id, num_features_text, num_features_image, num_features_audio, num_steps, num_classes,
-              num_layers, num_nodes, dropout_rate, final_activ):
+def get_model(model_str, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_steps,
+              num_classes):
     """
     Get model class from string.
 
     :param model_str: string
     :param model_id: Model id (int)
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param num_features_text: size of text feature vector (it should be the same at each step)
     :param num_features_image: size of image feature vector (it should be the same at each step)
     :param num_features_audio: size of audio feature vector (it should be the same at each step)
     :param num_steps: total number of timesteps
     :param num_classes: Number of classes
-    :param num_layers: Number of bidirectional layers for the model
-    :param num_nodes: Number of nodes for the penultimate dense layer
-    :param dropout_rate: Dropout rate before each dense layer
-    :param final_activ: Final activation function
     :return: Model class
     """
 
     model_dict = {
-        'ef_williams': ef_williams_tf.Model_ef(model_id, num_features_text, num_features_image, num_features_audio,
-                                               num_steps, num_classes, num_layers, num_nodes, dropout_rate, final_activ)
+        'ef_williams': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
+                                               num_features_audio, num_steps, num_classes)
     }
 
     if model_str.lower() in model_dict.keys():
@@ -113,9 +110,9 @@ def plot_history(history, model_id, val_metric, history_folder, root_folder, dis
         plt.show()
 
 
-def train_tf_model(train_list, valid_list, test_list, batch_size, num_epochs, max_steps, num_layers,
-                   num_nodes, dropout_rate, final_activ, learning_rate, optimizer_name, loss_function,
-                   val_metric, patience, model_name, predict_neutral_class, model_id, display_fig, label_type):
+def train_tf_model(train_list, valid_list, test_list, param_archi, batch_size, num_epochs, max_steps, learning_rate,
+                   optimizer_name, loss_function, val_metric, patience, model_name, predict_neutral_class, model_id,
+                   display_fig, label_type):
     """
     Train the model using TensorFlow.
     Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
@@ -125,6 +122,7 @@ def train_tf_model(train_list, valid_list, test_list, batch_size, num_epochs, ma
     (ex: 'zk2jTlAtvSU[1]')
     :param valid_list: [x_valid, y_valid, seg_valid]
     :param test_list: [x_test, y_test, seg_test]
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param batch_size: Batch size for training
     :param num_epochs: Maximum number of epochs for training
     :param max_steps: Maximum length for all sequences in the dataset
@@ -185,8 +183,8 @@ def train_tf_model(train_list, valid_list, test_list, batch_size, num_epochs, ma
     num_features_audio = x_train[0][2].shape[1]
     optimizer_tf = get_optimizer(optimizer_name)
     optimizer_lr = optimizer_tf(learning_rate=learning_rate)
-    model_class = get_model(model_name, model_id, num_features_text, num_features_image, num_features_audio,
-                            max_steps, num_classes, num_layers, num_nodes, dropout_rate, final_activ)
+    model_class = get_model(model_name, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                            max_steps, num_classes)
     model = model_class.build()
     model.compile(loss=loss_function, optimizer=optimizer_lr)
 

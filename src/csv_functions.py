@@ -63,6 +63,13 @@ def write_csv(csv_path, header, data_to_save):
             
             
 def get_header_and_data_model(model_str, param_archi):
+    """
+    Get header and data to save model hyperparameters in csv file (ie. number of layers, nodes, dropout rate).
+
+    :param model_str: Model name (string)
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :return: two lists of strings (one for header, one for data) to save in csv
+    """
 
     model_dict = {
         'ef_williams': ef_williams_torch

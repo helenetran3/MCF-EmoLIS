@@ -4,6 +4,17 @@ from torch import nn
 
 class Model_ef(nn.Module):
     def __init__(self, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_classes):
+        """
+        Build the model described in the paper (cf. README for the reference).
+        Works only when the number of steps is the same for all datapoints.
+
+        :param model_id: Model id (int)
+        :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+        :param num_features_text: size of text feature vector (it should be the same at each step)
+        :param num_features_image: size of image feature vector (it should be the same at each step)
+        :param num_features_audio: size of audio feature vector (it should be the same at each step)
+        :param num_classes: number of classes to predict
+        """
         super().__init__()
         self.model_name = 'ef_williams'
         self.model_id = model_id
@@ -47,6 +58,13 @@ class Model_ef(nn.Module):
 
 
 def get_data_for_csv(model_name, param_archi):
+    """
+    Get header and data to save model hyperparameters in csv file (ie. number of layers, nodes, dropout rate).
+
+    :param model_name: Model name (string)
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :return: two lists of strings (one for header, one for data) to save in csv
+    """
 
     data = [model_name, param_archi['num_layers'], param_archi['num_nodes'], param_archi['dropout_rate'],
             param_archi['final_activ']]
