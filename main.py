@@ -83,11 +83,11 @@ def main():
         from src.tensorflow_utils.model_training import train_tf_model
         from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
-        # train_tf_model(train_list, valid_list, test_list,
-        #                param_archi, param_training, max_steps, args.model_name, model_id, args.predict_neutral_class,
-        #                args.display_fig, args.label_type)
+        train_tf_model(train_list, valid_list, test_list,
+                       param_archi, param_training, max_steps, args.model_name, model_id, args.predict_neutral_class,
+                       args.display_fig, args.label_type)
 
-        model_id = 66
+        # model_id = 66
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_tf_model(test_list, param_training, max_steps, args.model_name, model_id, all_scores,
