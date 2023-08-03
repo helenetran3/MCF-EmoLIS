@@ -1,4 +1,5 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, my_collate_fn
+from src.pytorch_utils.loss_functions import get_loss_function_torch
 from src.models.ef_williams_torch import Model_ef
 
 import os
@@ -103,7 +104,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     patience = param_training['patience']
     batch_size = param_training['batch_size']
     optimizer_name = param_training['optimizer']
-    loss_function = "mean_absolute_error"  #TODO
+    loss_function_str = param_training['loss_function']
     learning_rate = param_training['learning_rate']
     val_metric = param_training['val_metric']
 
@@ -141,7 +142,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name)
 
     # Optimizing the model parameters
-    loss_fn = nn.L1Loss()  #TODO
+    loss_fn = get_loss_function_torch(loss_function_str)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  #TODO
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks

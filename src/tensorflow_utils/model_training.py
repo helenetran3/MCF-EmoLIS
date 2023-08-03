@@ -2,6 +2,7 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
+from src.tensorflow_utils.loss_functions import get_loss_function_tf
 from src.models import ef_williams_tf
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -137,7 +138,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     patience = param_training['patience']
     batch_size = param_training['batch_size']
     optimizer_name = param_training['optimizer']
-    loss_function = "mean_absolute_error"  #TODO
+    loss_function_str = param_training['loss_function']
     learning_rate = param_training['learning_rate']
     val_metric = param_training['val_metric']
 
@@ -182,6 +183,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     num_features_audio = x_train[0][2].shape[1]
     optimizer_tf = get_optimizer(optimizer_name)
     optimizer_lr = optimizer_tf(learning_rate=learning_rate)
+    loss_function = get_loss_function_tf(loss_function_str)
     model_class = get_model(model_name, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
                             max_steps, num_classes)
     model = model_class.build()

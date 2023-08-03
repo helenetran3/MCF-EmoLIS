@@ -1,4 +1,6 @@
 import json
+from src.pytorch_utils.loss_functions import possible_loss_fn_torch
+from src.tensorflow_utils.loss_functions import possible_loss_fn_tf
 
 
 def check_model_name_and_structure(hyperparam_dict, model_name):
@@ -59,6 +61,10 @@ def get_hyperparam_from_json(model_name):
     check_value_is_number('patience', param_training['patience'])
     check_value_is_number('batch_size', param_training['batch_size'])
     check_value_is_number('learning_rate', param_training['learning_rate'])
-    # check_value_is_in_list()
+
+    if is_tf:
+        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn_tf)
+    else:
+        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn_torch)
 
     return is_tf, param_archi, param_training
