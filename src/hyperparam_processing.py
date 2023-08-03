@@ -1,6 +1,73 @@
 import json
-from src.pytorch_utils.loss_functions import possible_loss_fn_torch
-from src.tensorflow_utils.loss_functions import possible_loss_fn_tf
+
+possible_loss_fn = ['mae', 'mse']
+possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
+
+
+def get_loss_function(loss_function_str, is_tf):
+    """
+    Get TensorFlow or PyTorch loss function from string.
+
+    :param loss_function_str: string
+    :param is_tf: bool (whether it is TensorFlow or PyTorch)
+    :return: TensorFlow or Pytorch loss function
+    """
+    if is_tf:  # TensorFlow
+        loss_fn_dict = {
+            'mae': 'mean_absolute_error',
+            'mse': 'mean_squared_error'
+        }
+
+    else:  # PyTorch
+        from torch import nn
+        loss_fn_dict = {
+            'mae': nn.L1Loss(),
+            'mse': nn.MSELoss()
+        }
+
+    if loss_function_str.lower() in loss_fn_dict.keys():
+        return loss_fn_dict[loss_function_str]
+    else:
+        raise ValueError("'{}' assigned to key 'loss_function' in 'hyperparameters.json' is invalid."
+                         " Please choose among {}.".format(loss_function_str, possible_loss_fn))
+
+
+def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):
+    """
+    Get TensorFlow or PyTorch optimizer from string.
+
+    :param optimizer_str: string
+    :param learning_rate: float
+    :param is_tf: bool (whether it is TensorFlow or PyTorch)
+    :param model: a Model object from PyTorch. Let it None if is_tf is True
+    :return: TensorFlow or Pytorch optimizer
+    """
+
+    if is_tf:  # TensorFlow
+        from tensorflow.keras.optimizers import Adam, SGD, Adagrad, Adadelta, RMSprop
+        opt_dict = {
+            'adam': Adam(learning_rate=learning_rate),
+            'sgd': SGD(learning_rate=learning_rate),
+            'adagrad': Adagrad(learning_rate=learning_rate),
+            'adadelta': Adadelta(learning_rate=learning_rate),
+            'rmsprop': RMSprop(learning_rate=learning_rate)
+        }
+
+    else:  # PyTorch
+        from torch import optim
+        opt_dict = {
+            'adam': optim.Adam(model.parameters(), lr=learning_rate),
+            'sgd': optim.SGD(model.parameters(), lr=learning_rate),
+            'adagrad': optim.Adagrad(model.parameters(), lr=learning_rate),
+            'adadelta': optim.Adadelta(model.parameters(), lr=learning_rate),
+            'rmsprop': optim.RMSprop(model.parameters(), lr=learning_rate)
+        }
+
+    if optimizer_str.lower() in opt_dict.keys():
+        return opt_dict[optimizer_str]
+    else:
+        raise ValueError("'{}' assigned to key 'optimizer' in 'hyperparameters.json' is invalid."
+                         " Please choose among {}.".format(optimizer_str, possible_optimizers))
 
 
 def check_model_name_and_structure(hyperparam_dict, model_name):
@@ -63,8 +130,8 @@ def get_hyperparam_from_json(model_name):
     check_value_is_number('learning_rate', param_training['learning_rate'])
 
     if is_tf:
-        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn_tf)
+        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
     else:
-        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn_torch)
+        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
 
     return is_tf, param_archi, param_training

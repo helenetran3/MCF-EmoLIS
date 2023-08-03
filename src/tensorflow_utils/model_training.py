@@ -2,37 +2,13 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.tensorflow_utils.loss_functions import get_loss_function_tf
+from src.hyperparam_processing import get_loss_function, get_optimizer
 from src.models import ef_williams_tf
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-from tensorflow.keras.optimizers import Adam, SGD, Adagrad, Adadelta, RMSprop
 from tensorflow.keras.utils import plot_model
 
 from matplotlib import pyplot as plt
-
-
-def get_optimizer(optimizer_str):
-    """
-    Get TensorFlow optimizer from string.
-
-    :param optimizer_str: string
-    :return: TensorFlow optimizer
-    """
-
-    opt_dict = {
-        'adam': Adam,
-        'sgd': SGD,
-        'adagrad': Adagrad,
-        'adadelta': Adadelta,
-        'rmsprop': RMSprop
-    }
-
-    if optimizer_str.lower() in opt_dict.keys():
-        return opt_dict[optimizer_str]
-    else:
-        raise ValueError("Optimizer name '{}' not valid. Please choose among Adam, SGD, Adagrad, Adadelta and RMSprop."
-                         .format(optimizer_str))
 
 
 def get_model(model_str, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_steps,
@@ -181,13 +157,12 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     num_features_text = x_train[0][0].shape[1]
     num_features_image = x_train[0][1].shape[1]
     num_features_audio = x_train[0][2].shape[1]
-    optimizer_tf = get_optimizer(optimizer_name)
-    optimizer_lr = optimizer_tf(learning_rate=learning_rate)
-    loss_function = get_loss_function_tf(loss_function_str)
+    loss_function = get_loss_function(loss_function_str, is_tf=True)
+    optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
     model_class = get_model(model_name, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
                             max_steps, num_classes)
     model = model_class.build()
-    model.compile(loss=loss_function, optimizer=optimizer_lr)
+    model.compile(loss=loss_function, optimizer=optimizer_tf)
 
     print("\n\n============================== Training Parameters ===========================================")
     print("\n>>> Dataset")

@@ -1,5 +1,5 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, my_collate_fn
-from src.pytorch_utils.loss_functions import get_loss_function_torch
+from src.hyperparam_processing import get_loss_function, get_optimizer
 from src.models.ef_williams_torch import Model_ef
 
 import os
@@ -142,8 +142,8 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name)
 
     # Optimizing the model parameters
-    loss_fn = get_loss_function_torch(loss_function_str)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  #TODO
+    loss_fn = get_loss_function(loss_function_str, is_tf=False)
+    optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
     valid_loss_best = None
@@ -169,7 +169,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     print("Patience:", patience)
     print("Learning rate:", learning_rate)
     print("Optimizer:", optimizer_name)
-    print("Loss function:", loss_function)
+    print("Loss function:", loss_function_str)
     print("Metric to monitor on validation data:", val_metric)
     print("\n>>> Model parameters")
     model.print_values()
