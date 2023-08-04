@@ -30,7 +30,7 @@ def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_n
     # print("hello back")
 
 
-def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch, train_loss,
+def model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train_loss,
                      model_name, model_id):
 
     model_folder = os.path.join('results', model_name, 'models')
@@ -38,9 +38,7 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
 
-    if epoch == 0 \
-            or (best_is_smallest and valid_loss < valid_loss_best) \
-            or (not best_is_smallest and valid_loss > valid_loss_best):
+    if epoch == 0 or valid_loss < valid_loss_best:
 
         valid_loss_best = valid_loss
 
@@ -56,8 +54,8 @@ def model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optim
     return valid_loss_best
 
 
-def model_early_stopping(valid_loss, valid_loss_best, best_is_smallest, num_epochs_without_improvement):
-    if (best_is_smallest and valid_loss > valid_loss_best) or (not best_is_smallest and valid_loss < valid_loss_best):
+def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improvement):
+    if valid_loss > valid_loss_best:
         num_epochs_without_improvement += 1
     else:
         num_epochs_without_improvement = 0
@@ -145,7 +143,6 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
     valid_loss_best = None
-    best_is_smallest = True  # TODO infer it from the type of loss
     num_epochs_without_improvement = 0
 
     # Parameters for history
@@ -215,7 +212,6 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                 bar()
         train_loss /= train_size
 
-
         # Model evaluation on validation data
         model.eval()
         with alive_bar(valid_size, title='Model validation') as bar:
@@ -248,11 +244,11 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         history_valid += [valid_loss]
 
         # For model checkpoint
-        valid_loss_best = model_checkpoint(valid_loss, valid_loss_best, best_is_smallest, model, optimizer, epoch,
-                                           train_loss, model_name, model_id)
+        valid_loss_best = model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train_loss, model_name,
+                                           model_id)
 
         # For early stopping
-        num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best, best_is_smallest,
+        num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best,
                                                               num_epochs_without_improvement)
         if patience == num_epochs_without_improvement-1:
             break

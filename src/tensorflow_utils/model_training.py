@@ -105,20 +105,16 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     # Parameters to save model
     model_save_path = create_model_folder_and_path(model_name, model_id)
 
-    # Parameters for metric monitoring
-    val_monitor = 'val_loss' if val_metric == 'loss' else 'val_accuracy'
-    mode_monitor = 'min' if val_metric == 'loss' else 'max'
-
     # Initialize callbacks
     checkpoint = ModelCheckpoint(filepath=model_save_path,
                                  verbose=1,
-                                 monitor=val_monitor,
-                                 mode=mode_monitor,
+                                 monitor='val_loss',
+                                 mode='min',
                                  save_best_only=True)
 
-    early_stopping = EarlyStopping(monitor=val_monitor,
+    early_stopping = EarlyStopping(monitor='val_loss',
                                    patience=patience,
-                                   mode=mode_monitor,
+                                   mode='min',
                                    restore_best_weights=True)
 
     # Build model
@@ -148,7 +144,6 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     print("Learning rate:", learning_rate)
     print("Optimizer:", optimizer_name)
     print("Loss function:", loss_function)
-    print("Metric to monitor on validation data:", val_metric)
     print("\n>>> Model parameters")
     model_class.print_values()
     print("\n")

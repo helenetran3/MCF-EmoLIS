@@ -131,7 +131,6 @@ def check_model_name_and_structure(hyperparam_dict, model_name):
     check_if_key_is_in_list_actual_keys('optimizer', list_keys_from_training, "training' in '{}".format(model_name))
     check_if_key_is_in_list_actual_keys('loss_function', list_keys_from_training, "training' in '{}".format(model_name))
     check_if_key_is_in_list_actual_keys('learning_rate', list_keys_from_training, "training' in '{}".format(model_name))
-    check_if_key_is_in_list_actual_keys('val_metric', list_keys_from_training, "training' in '{}".format(model_name))
 
 
 def check_value_is_number(hp_name, hp_value):
@@ -168,6 +167,5 @@ def get_hyperparam_from_json(model_name):
     check_value_is_number('learning_rate', param_training['learning_rate'])
     check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
     check_value_is_in_list('optimizer', param_training['optimizer'], possible_optimizers)
-    check_value_is_in_list('val_metric', param_training['val_metric'], ['loss', 'acc'])
 
     return is_tf, param_archi, param_training
