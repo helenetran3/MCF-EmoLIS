@@ -1,7 +1,45 @@
 import json
+from src.models import ef_williams_tf, ef_williams_torch
 
+possible_models = ['ef_williams', 'ef_williams_debug']
 possible_loss_fn = ['mae', 'mse']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
+
+
+def get_model(model_str, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+              num_classes, is_tf, max_steps=None, device=None):
+    """
+    Get model class from string.
+
+    :param model_str: string
+    :param model_id: Model id (int)
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param num_features_text: size of text feature vector (it should be the same at each step)
+    :param num_features_image: size of image feature vector (it should be the same at each step)
+    :param num_features_audio: size of audio feature vector (it should be the same at each step)
+    :param num_classes: Number of classes
+    :param is_tf: whether it is TensorFlow or not (boolean)
+    :param max_steps: maximum length of sequences (only for TensorFlow)
+    :param device: device used, either 'gpu' or 'cpu', only for PyTorch (string)
+    :return: Model class
+    """
+
+    model_dict = {
+        'ef_williams': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
+                                               num_features_audio, max_steps, num_classes) if is_tf else
+                       ef_williams_torch.Model_ef(model_id, param_archi, num_features_text, num_features_image,
+                                                  num_features_audio, num_classes).to(device),
+        'ef_williams_debug': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
+                                                     num_features_audio, max_steps, num_classes) if is_tf else
+                       ef_williams_torch.Model_ef(model_id, param_archi, num_features_text, num_features_image,
+                                                  num_features_audio, num_classes).to(device)  #TODO remove
+    }
+
+    if model_str.lower() in model_dict.keys():
+        return model_dict[model_str]
+
+    else:
+        raise ValueError("Model name '{}' not valid. Please choose among {}.".format(model_str, possible_models))
 
 
 def get_loss_function(loss_function_str, is_tf):
@@ -128,10 +166,8 @@ def get_hyperparam_from_json(model_name):
     check_value_is_number('patience', param_training['patience'])
     check_value_is_number('batch_size', param_training['batch_size'])
     check_value_is_number('learning_rate', param_training['learning_rate'])
-
-    if is_tf:
-        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
-    else:
-        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
+    check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
+    check_value_is_in_list('optimizer', param_training['optimizer'], possible_optimizers)
+    check_value_is_in_list('val_metric', param_training['val_metric'], ['loss', 'acc'])
 
     return is_tf, param_archi, param_training

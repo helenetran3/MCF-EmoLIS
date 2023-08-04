@@ -2,43 +2,12 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.hyperparam_processing import get_loss_function, get_optimizer
-from src.models import ef_williams_tf
+from src.hyperparam_processing import get_model, get_loss_function, get_optimizer
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.utils import plot_model
 
 from matplotlib import pyplot as plt
-
-
-def get_model(model_str, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_steps,
-              num_classes):
-    """
-    Get model class from string.
-
-    :param model_str: string
-    :param model_id: Model id (int)
-    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :param num_features_text: size of text feature vector (it should be the same at each step)
-    :param num_features_image: size of image feature vector (it should be the same at each step)
-    :param num_features_audio: size of audio feature vector (it should be the same at each step)
-    :param num_steps: total number of timesteps
-    :param num_classes: Number of classes
-    :return: Model class
-    """
-
-    model_dict = {
-        'ef_williams': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
-                                               num_features_audio, num_steps, num_classes),
-        'ef_williams_debug': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
-                                                     num_features_audio, num_steps, num_classes)  #TODO remove
-    }
-
-    if model_str.lower() in model_dict.keys():
-        return model_dict[model_str]
-
-    else:
-        raise ValueError("Model name '{}' not valid. Please choose among ef_williams.".format(model_str))
 
 
 def create_model_folder_and_path(model_name, model_id):
@@ -47,16 +16,15 @@ def create_model_folder_and_path(model_name, model_id):
 
     :param model_name: Name of the model
     :param model_id: Model id (int)
-    :return: model_folder, model_save_path
+    :return: model_save_path
     """
 
     model_folder = os.path.join('results', model_name, 'models')
     if not os.path.isdir('results'):
         os.makedirs(model_folder)
-    model_save_name = "model_{}.h5".format(model_id)
-    model_save_path = os.path.join(model_folder, model_save_name)
+    model_save_path = os.path.join(model_folder, "model_{}.h5".format(model_id))
 
-    return model_folder, model_save_path
+    return model_save_path
 
 
 def plot_history(history, model_id, val_metric, history_folder, root_folder, display_fig):
@@ -135,7 +103,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     valid_dataset = DatasetTf(x_valid, y_valid, seg_valid, max_steps, num_classes, batch_size, train_mode=True).build()
 
     # Parameters to save model
-    model_folder, model_save_path = create_model_folder_and_path(model_name, model_id)
+    model_save_path = create_model_folder_and_path(model_name, model_id)
 
     # Parameters for metric monitoring
     val_monitor = 'val_loss' if val_metric == 'loss' else 'val_accuracy'
@@ -160,7 +128,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     loss_function = get_loss_function(loss_function_str, is_tf=True)
     optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
     model_class = get_model(model_name, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-                            max_steps, num_classes)
+                            num_classes, is_tf=True, max_steps=max_steps)
     model = model_class.build()
     model.compile(loss=loss_function, optimizer=optimizer_tf)
 
@@ -199,7 +167,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     save_with_pickle(history, "history_{}".format(model_id), pickle_folder="history", root_folder=model_folder)
 
     # Save model plot
-    plot_model(model, to_file=os.path.join(model_folder, "../models", "model_{}.png".format(model_id)), show_shapes=True,
+    plot_model(model, to_file=os.path.join(model_folder, "models", "model_{}.png".format(model_id)), show_shapes=True,
                show_layer_activations=True)
 
     # Display and save history plot
