@@ -2,7 +2,7 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.hyperparam_processing import get_model, get_loss_function, get_optimizer
+from src.hyperparam_processing import get_model_class, get_loss_function, get_optimizer
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.utils import plot_model
@@ -123,9 +123,9 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     num_features_audio = x_train[0][2].shape[1]
     loss_function = get_loss_function(loss_function_str, is_tf=True)
     optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
-    model_class = get_model(model_name, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-                            num_classes, is_tf=True, max_steps=max_steps)
-    model = model_class.build()
+    model_class = get_model_class(model_name, is_tf=True)
+    model = model_class.Model(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                              max_steps, num_classes).build()
     model.compile(loss=loss_function, optimizer=optimizer_tf)
 
     print("\n\n============================== Training Parameters ===========================================")

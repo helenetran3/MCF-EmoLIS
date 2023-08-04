@@ -76,7 +76,7 @@ def main():
 
     # Save model parameters and return model id
     model_id = save_model_param_in_csv_file(param_archi, param_training, args.predict_neutral_class,
-                                            args.label_type, args.model_name)
+                                            args.label_type, args.model_name, is_tf)
 
     # Model training
     if is_tf:
@@ -109,7 +109,7 @@ def main():
         # model_id = 38
 
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, param_archi, args.model_name, model_id, all_scores,
+            evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, all_scores,
                                  args.predict_neutral_class, args.threshold_emo_present, args.save_predictions, device)
 
     # Compute and save metrics

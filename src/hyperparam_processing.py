@@ -6,33 +6,18 @@ possible_loss_fn = ['mae', 'mse']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
 
-def get_model(model_str, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-              num_classes, is_tf, max_steps=None, device=None):
+def get_model_class(model_str, is_tf):
     """
     Get model class from string.
 
     :param model_str: string
-    :param model_id: Model id (int)
-    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :param num_features_text: size of text feature vector (it should be the same at each step)
-    :param num_features_image: size of image feature vector (it should be the same at each step)
-    :param num_features_audio: size of audio feature vector (it should be the same at each step)
-    :param num_classes: Number of classes
     :param is_tf: whether it is TensorFlow or not (boolean)
-    :param max_steps: maximum length of sequences (only for TensorFlow)
-    :param device: device used, either 'gpu' or 'cpu', only for PyTorch (string)
     :return: Model class
     """
 
     model_dict = {
-        'ef_williams': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
-                                               num_features_audio, max_steps, num_classes) if is_tf else
-                       ef_williams_torch.Model_ef(model_id, param_archi, num_features_text, num_features_image,
-                                                  num_features_audio, num_classes).to(device),
-        'ef_williams_debug': ef_williams_tf.Model_ef(model_id, param_archi, num_features_text, num_features_image,
-                                                     num_features_audio, max_steps, num_classes) if is_tf else
-                       ef_williams_torch.Model_ef(model_id, param_archi, num_features_text, num_features_image,
-                                                  num_features_audio, num_classes).to(device)  #TODO remove
+        'ef_williams': ef_williams_tf if is_tf else ef_williams_torch,
+        'ef_williams_debug': ef_williams_tf if is_tf else ef_williams_torch  # TODO remove after debug
     }
 
     if model_str.lower() in model_dict.keys():

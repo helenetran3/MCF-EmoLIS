@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 
-class Model_ef(nn.Module):
+class Model(nn.Module):
     def __init__(self, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_classes):
         """
         Build the model described in the paper (cf. README for the reference).

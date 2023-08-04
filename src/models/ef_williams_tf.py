@@ -2,7 +2,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Concatenate, BatchNormalization, Bidirectional, Dropout, Dense, LSTM
 
 
-class Model_ef:
+class Model:
     """
     Williams, J., Kleinegesse, S., Comanescu, R., & Radu, O. (2018, July). Recognizing Emotions in Video Using
     Multimodal DNN Feature Fusion. In Proceedings of Grand Challenge and Workshop on Human Multimodal Language

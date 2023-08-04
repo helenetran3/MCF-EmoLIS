@@ -1,6 +1,6 @@
 import os
 import csv
-from src.models import ef_williams_tf, ef_williams_torch
+from hyperparam_processing import get_model_class
 
 
 def create_csv_path(model_name, filename, extension_name=""):
@@ -60,28 +60,6 @@ def write_csv(csv_path, header, data_to_save):
             writer = csv.writer(f)
             writer.writerow(header)
             writer.writerow(data_to_save)
-            
-            
-def get_header_and_data_model(model_str, param_archi):
-    """
-    Get header and data to save model hyperparameters in csv file (ie. number of layers, nodes, dropout rate).
-
-    :param model_str: Model name (string)
-    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :return: two lists of strings (one for header, one for data) to save in csv
-    """
-
-    model_dict = {
-        'ef_williams': ef_williams_torch,
-        'ef_williams_debug': ef_williams_torch  # TODO remove after debug
-    }
-
-    if model_str.lower() in model_dict.keys():
-        header, data = model_dict[model_str].get_data_for_csv(model_str, param_archi)
-    else:
-        raise ValueError("Model name '{}' not valid. Please choose among ef_williams.".format(model_str)) #TODO replace ef_williams
-
-    return header, data
 
 
 def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutral_class, task):
@@ -95,8 +73,6 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
 
     if task == "regression":
         header_overall = ['mae', 'mse', 'r2']
-
-
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
         data = data_param + metrics
@@ -188,7 +164,7 @@ def save_results_in_csv_file(model_name, model_id,
 
 
 def save_model_param_in_csv_file(param_archi, param_training,
-                                 predict_neutral_class, label_type, model_name):
+                                 predict_neutral_class, label_type, model_name, is_tf):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
@@ -199,19 +175,25 @@ def save_model_param_in_csv_file(param_archi, param_training,
                          scores provided by the dataset), coarse (presence score for each emotion among "
                          [0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)
     :param model_name: Name of the model
+    :param is_tf: whether it is TensorFlow or not (boolean)
     :return: model id of the current model
     """
     csv_path = create_csv_path(model_name, "model_ids")
 
     model_id = get_current_model_id(csv_path)
 
-    model_archi_header, model_archi_param = get_header_and_data_model(model_name, param_archi)
+    # Save hyperparameters for model architecture
+    model_class = get_model_class(model_name, is_tf)
+    model_archi_header, model_archi_param = model_class.get_data_for_csv(model_name, param_archi)
+
+    # Save hyperparameters for model training
     model_training_param = [param_training['num_epochs'], param_training['patience'], param_training['batch_size'],
                             param_training['optimizer'], param_training['loss_function'],
                             param_training['learning_rate'], param_training['val_metric'], predict_neutral_class,
                             label_type]
     model_training_header = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function',
                              'learning_rate', 'val_metric', 'predict_neutral_class', 'label_type']
+
     header_all = ['model_id'] + model_archi_header + model_training_header
     param_all = [model_id] + model_archi_param + model_training_param
 

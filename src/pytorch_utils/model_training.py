@@ -1,5 +1,5 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, my_collate_fn
-from src.hyperparam_processing import get_model, get_loss_function, get_optimizer
+from src.hyperparam_processing import get_model_class, get_loss_function, get_optimizer
 
 import os
 import torch
@@ -131,8 +131,9 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     num_features_text = x_train[0][0].shape[1]
     num_features_image = x_train[0][1].shape[1]
     num_features_audio = x_train[0][2].shape[1]
-    model = get_model(model_name, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-                      num_classes, is_tf=False, device=device)
+    model_class = get_model_class(model_name, is_tf=False)
+    model = model_class.Model(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                              num_classes).to(device)
 
     # Inspect model using Tensorboard
     inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name)

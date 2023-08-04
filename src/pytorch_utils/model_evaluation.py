@@ -1,7 +1,6 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
-from src.models.ef_williams_torch import Model_ef
 from src.label_processing import compute_pred_labels
-from src.hyperparam_processing import get_loss_function
+from src.hyperparam_processing import get_model_class, get_loss_function
 
 import os
 import numpy as np
@@ -10,7 +9,7 @@ from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
 
-def evaluate_torch_model(test_list, param_archi, model_name, model_id, all_scores,
+def evaluate_torch_model(test_list, param_archi, param_training, model_name, model_id, all_scores,
                          predict_neutral_class, threshold_emo_pres, save_pred, device):
 
     x_test = test_list[0]  # list of lists of 3 arrays
@@ -25,8 +24,9 @@ def evaluate_torch_model(test_list, param_archi, model_name, model_id, all_score
     # Load best model
     model_folder = os.path.join('results', model_name)
     model_path = os.path.join(model_folder, 'models', "model_{}.pt".format(model_id))
-    model = Model_ef(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-                     num_classes).to(device)
+    model_class = get_model_class(model_name, is_tf=False)
+    model = model_class.Model(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                              num_classes).to(device)
     checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
@@ -36,7 +36,7 @@ def evaluate_torch_model(test_list, param_archi, model_name, model_id, all_score
     test_dataloader = DataLoader(test_data)
 
     test_size = len(test_dataloader.dataset)
-    loss_fn = get_loss_function(param_archi['loss_function'], is_tf=False)
+    loss_fn = get_loss_function(param_training['loss_function'], is_tf=False)
     test_loss = 0
     # correct = 0
     pred_raw = []
