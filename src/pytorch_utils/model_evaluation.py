@@ -1,11 +1,11 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
 from src.models.ef_williams_torch import Model_ef
 from src.label_processing import compute_pred_labels
+from src.hyperparam_processing import get_loss_function
 
 import os
 import numpy as np
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
@@ -36,7 +36,7 @@ def evaluate_torch_model(test_list, param_archi, model_name, model_id, all_score
     test_dataloader = DataLoader(test_data)
 
     test_size = len(test_dataloader.dataset)
-    loss_fn = nn.L1Loss()  # TODO
+    loss_fn = get_loss_function(param_archi['loss_function'], is_tf=False)
     test_loss = 0
     # correct = 0
     pred_raw = []

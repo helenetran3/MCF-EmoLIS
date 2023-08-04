@@ -1,7 +1,7 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_maximum_sequence_length_dataset
 from src.hyperparam_processing import get_hyperparam_from_json
-from src.csv_functions import save_model_param_in_csv_file, get_header_and_data_model
+from src.csv_functions import save_model_param_in_csv_file
 from src.label_processing import get_available_presence_scores_arr, update_labels
 from src.model_metrics import compute_and_save_model_metrics
 import argparse

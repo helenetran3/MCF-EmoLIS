@@ -73,7 +73,7 @@ def get_header_and_data_model(model_str, param_archi):
 
     model_dict = {
         'ef_williams': ef_williams_torch,
-        'ef_williams_debug' : ef_williams_torch  # TODO remove after debug
+        'ef_williams_debug': ef_williams_torch  # TODO remove after debug
     }
 
     if model_str.lower() in model_dict.keys():

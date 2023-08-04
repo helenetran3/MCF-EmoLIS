@@ -143,7 +143,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     print("Patience:", patience)
     print("Learning rate:", learning_rate)
     print("Optimizer:", optimizer_name)
-    print("Loss function:", loss_function)
+    print("Loss function:", loss_function_str)
     print("\n>>> Model parameters")
     model_class.print_values()
     print("\n")

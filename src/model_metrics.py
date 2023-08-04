@@ -416,7 +416,7 @@ def compute_and_save_model_metrics(test_list,
     :param display_fig: Whether we display figures
     """
 
-    loss_function = param_training['loss_function'] #TODO
+    loss_function = param_training['loss_function']
 
     model_folder = os.path.join('results', model_name)
 

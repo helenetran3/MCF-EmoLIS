@@ -1,6 +1,7 @@
 import os
 
 from tensorflow.keras.models import load_model
+from src.hyperparam_processing import get_loss_function
 from src.tensorflow_utils.dataset_loader import DatasetTf
 from src.pickle_functions import save_with_pickle
 from src.model_metrics import compute_loss_value
@@ -49,7 +50,7 @@ def evaluate_tf_model(test_list, param_training, max_steps, model_name, model_id
     """
 
     batch_size = param_training['batch_size']
-    loss_function = "mean_absolute_error"  #TODO
+    loss_function = get_loss_function(param_training['loss_function'], is_tf=True)
 
     # Load best model
     model_folder = os.path.join('results', model_name)
