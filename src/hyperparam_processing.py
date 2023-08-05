@@ -6,7 +6,7 @@ possible_loss_fn = ['mae', 'mse']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
 
-def get_model_class(model_str, is_tf):
+def get_model_module(model_str, is_tf):
     """
     Get model class from string.
 

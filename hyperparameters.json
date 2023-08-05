@@ -24,7 +24,7 @@
 
         "ef_williams_debug":
         {
-            "is_TensorFlow": 1,
+            "is_TensorFlow": 0,
             "architecture":
             {
                 "num_layers": 1,

@@ -1,6 +1,6 @@
 import os
 import csv
-from hyperparam_processing import get_model_class
+from src.hyperparam_processing import get_model_module
 
 
 def create_csv_path(model_name, filename, extension_name=""):
@@ -183,7 +183,7 @@ def save_model_param_in_csv_file(param_archi, param_training,
     model_id = get_current_model_id(csv_path)
 
     # Save hyperparameters for model architecture
-    model_class = get_model_class(model_name, is_tf)
+    model_class = get_model_module(model_name, is_tf)
     model_archi_header, model_archi_param = model_class.get_data_for_csv(model_name, param_archi)
 
     # Save hyperparameters for model training

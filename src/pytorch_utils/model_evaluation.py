@@ -1,6 +1,6 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
 from src.label_processing import compute_pred_labels
-from src.hyperparam_processing import get_model_class, get_loss_function
+from src.hyperparam_processing import get_model_module, get_loss_function
 
 import os
 import numpy as np
@@ -24,9 +24,9 @@ def evaluate_torch_model(test_list, param_archi, param_training, model_name, mod
     # Load best model
     model_folder = os.path.join('results', model_name)
     model_path = os.path.join(model_folder, 'models', "model_{}.pt".format(model_id))
-    model_class = get_model_class(model_name, is_tf=False)
-    model = model_class.Model(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-                              num_classes).to(device)
+    model_module = get_model_module(model_name, is_tf=False)
+    model = model_module.MModel(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                                num_classes).to(device)
     checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()

@@ -2,7 +2,7 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.hyperparam_processing import get_model_class, get_loss_function, get_optimizer
+from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.utils import plot_model
@@ -123,10 +123,10 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     num_features_audio = x_train[0][2].shape[1]
     loss_function = get_loss_function(loss_function_str, is_tf=True)
     optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
-    model_class = get_model_class(model_name, is_tf=True)
-    model = model_class.Model(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-                              max_steps, num_classes).build()
-    model.compile(loss=loss_function, optimizer=optimizer_tf)
+    model_module = get_model_module(model_name, is_tf=True)
+    model_class = model_module.MModel(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+                                      max_steps, num_classes)
+    model_tf = model_class.build()
 
     print("\n\n============================== Training Parameters ===========================================")
     print("\n>>> Dataset")
@@ -147,10 +147,11 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     print("\n>>> Model parameters")
     model_class.print_values()
     print("\n")
-    print(model.summary())
+    print(model_tf.summary())
 
     print("\n\n================================= Model Training =============================================\n")
-    history = model.fit(x=train_dataset,
+    model_tf.compile(loss=loss_function, optimizer=optimizer_tf)
+    history = model_tf.fit(x=train_dataset,
                         epochs=num_epochs,
                         verbose=1,
                         steps_per_epoch=num_train_samples // batch_size,
@@ -162,8 +163,8 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     save_with_pickle(history, "history_{}".format(model_id), pickle_folder="history", root_folder=model_folder)
 
     # Save model plot
-    plot_model(model, to_file=os.path.join(model_folder, "models", "model_{}.png".format(model_id)), show_shapes=True,
-               show_layer_activations=True)
+    plot_model(model_tf, to_file=os.path.join(model_folder, "models", "model_{}.png".format(model_id)),
+               show_shapes=True, show_layer_activations=True)
 
     # Display and save history plot
     plot_history(history, model_id, val_metric,
