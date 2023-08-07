@@ -183,8 +183,9 @@ def save_model_param_in_csv_file(param_archi, param_training,
     model_id = get_current_model_id(csv_path)
 
     # Save hyperparameters for model architecture
+    num_classes = 7 if predict_neutral_class else 6
     model_class = get_model_module(model_name, is_tf)
-    model_archi_header, model_archi_param = model_class.get_data_for_csv(model_name, param_archi)
+    model_archi_header, model_archi_param = model_class.get_data_for_csv(model_name, param_archi, num_classes)
 
     # Save hyperparameters for model training
     model_training_param = [param_training['num_epochs'], param_training['patience'], param_training['batch_size'],

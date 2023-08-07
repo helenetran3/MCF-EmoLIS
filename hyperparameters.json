@@ -6,7 +6,7 @@
             "is_TensorFlow": 1,
             "architecture":
             {
-                "num_layers": 2,
+                "num_layers": 3,
                 "num_nodes": 100,
                 "dropout_rate": 0.2,
                 "final_activ": "linear"

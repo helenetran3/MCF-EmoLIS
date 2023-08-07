@@ -23,6 +23,7 @@ class MModel(nn.Module):
         Construct a mult model.
         """
         super(MModel, self).__init__()
+        self.model_name = "mult"
         self.model_id = model_id
         self.orig_d_l, self.orig_d_a, self.orig_d_v = num_features_text, num_features_audio, num_features_image
         self.d_l, self.d_a, self.d_v = 30, 30, 30
@@ -47,8 +48,8 @@ class MModel(nn.Module):
             combined_dim = 2 * self.d_l   # assuming d_l == d_a == d_v
         else:
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
-        
-        output_dim = num_classes      # This is actually not a hyperparameter :-)
+
+        self.output_dim = num_classes      # This is actually not a hyperparameter :-)
 
         # 1. Temporal convolutional layers
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
@@ -75,7 +76,7 @@ class MModel(nn.Module):
         # Projection layers
         self.proj1 = nn.Linear(combined_dim, combined_dim)
         self.proj2 = nn.Linear(combined_dim, combined_dim)
-        self.out_layer = nn.Linear(combined_dim, output_dim)
+        self.out_layer = nn.Linear(combined_dim, self.output_dim)
 
     def get_network(self, self_type='l', layers=-1):
         if self_type in ['l', 'al', 'vl']:
@@ -158,18 +159,37 @@ class MModel(nn.Module):
         output = self.out_layer(last_hs_proj)
         return output, last_hs
 
+    def print_values(self):
+        print("Model name:", self.model_name)
+        print("Model id:", self.model_id)
+        print("Number layers:", self.layers)
+        print("Number of heads for the transformer network:", self.num_heads)
+        print("Use attention mask for Transformer:", bool(self.attn_mask))
+        print("Attention dropout:", self.attn_dropout)
+        print("Attention dropout (for audio):", self.attn_dropout_a)
+        print("Attention dropout (for visual):", self.attn_dropout_v)
+        print("Relu dropout:", self.relu_dropout)
+        print("Embedding dropout:", self.embed_dropout)
+        print("Residual block dropout:", self.res_dropout)
+        print("Output layer dropout:", self.out_dropout)
+        print("Output dimension:", self.output_dim)
 
-def get_data_for_csv(model_name, param_archi):
+
+def get_data_for_csv(model_name, param_archi, num_classes):
     """
     Get header and data to save model hyperparameters in csv file (ie. number of layers, nodes, dropout rate).
 
     :param model_name: Model name (string)
     :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param num_classes: number of emotion classes (7 with neutral class, else 6)
     :return: two lists of strings (one for header, one for data) to save in csv
     """
 
     data = [model_name, param_archi['nlevels'], param_archi['num_heads'], param_archi['attn_mask'],
-            param_archi['attn_dropout']]
-    header = ['model_name', 'nlevels', 'num_heads', 'attn_mask', 'attn_dropout']
+            param_archi['attn_dropout'], param_archi['attn_dropout_a'], param_archi['attn_dropout_v'],
+            param_archi['relu_dropout'], param_archi['embed_dropout'], param_archi['res_dropout'],
+            param_archi['out_dropout'], num_classes]
+    header = ['model_name', 'nlevels', 'num_heads', 'attn_mask', 'attn_dropout', 'attn_dropout_a', 'attn_dropout_v',
+              'relu_dropout', 'embed_dropout', 'res_dropout', 'out_dropout', 'num_classes']
 
     return header, data
