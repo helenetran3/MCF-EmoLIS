@@ -62,14 +62,13 @@ def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improve
     return num_epochs_without_improvement
 
 
-def plot_history(history_train, history_valid, model_id, val_metric, history_folder, root_folder, display_fig):
+def plot_history(history_train, history_valid, model_id, history_folder, root_folder, display_fig):
     """
     Plot history, display and save figures
 
     :param history_train: List of training losses
     :param history_valid: List of validation losses
     :param model_id: Model id (int)
-    :param val_metric: Metric used to monitor validation data
     :param history_folder: Name of the folder where the history plot will be saved
     :param root_folder: Name of the root folder where the history folder is created
     :param display_fig: Whether we display the figures
@@ -83,11 +82,11 @@ def plot_history(history_train, history_valid, model_id, val_metric, history_fol
     # summarize history for training and validation metric used to monitor
     plt.plot(history_train)
     plt.plot(history_valid)
-    plt.title('Model {}'.format(val_metric))
-    plt.ylabel(val_metric)
+    plt.title('Model loss')
+    plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'val'])
-    history_plot_path = os.path.join(full_path_folder, 'history_{}_{}.png'.format(model_id, val_metric))
+    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(model_id))
     plt.savefig(history_plot_path, bbox_inches='tight')
     if display_fig:
         plt.show()
@@ -253,8 +252,8 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
             break
 
     model_folder = os.path.join('results', model_name)
-    plot_history(history_train, history_valid, model_id, val_metric,
-                 history_folder="history", root_folder=model_folder, display_fig=display_fig)
+    plot_history(history_train, history_valid, model_id, history_folder="history", root_folder=model_folder,
+                 display_fig=display_fig)
 
     writer.close()
 

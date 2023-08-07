@@ -27,13 +27,12 @@ def create_model_folder_and_path(model_name, model_id):
     return model_save_path
 
 
-def plot_history(history, model_id, val_metric, history_folder, root_folder, display_fig):
+def plot_history(history, model_id, history_folder, root_folder, display_fig):
     """
     Plot history, display and save figures
 
     :param history: TensorFlow history object
     :param model_id: Model id (int)
-    :param val_metric: Metric used to monitor validation data
     :param history_folder: Name of the folder where the history plot will be saved
     :param root_folder: Name of the root folder where the history folder is created
     :param display_fig: Whether we display the figures
@@ -45,13 +44,13 @@ def plot_history(history, model_id, val_metric, history_folder, root_folder, dis
         os.makedirs(full_path_folder)
 
     # summarize history for training and validation metric used to monitor
-    plt.plot(history.history[val_metric])
-    plt.plot(history.history['val_' + val_metric])
-    plt.title('Model {}'.format(val_metric))
-    plt.ylabel(val_metric)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'val'])
-    history_plot_path = os.path.join(full_path_folder, 'history_{}_{}.png'.format(model_id, val_metric))
+    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(model_id))
     plt.savefig(history_plot_path, bbox_inches='tight')
     if display_fig:
         plt.show()
@@ -84,7 +83,6 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     optimizer_name = param_training['optimizer']
     loss_function_str = param_training['loss_function']
     learning_rate = param_training['learning_rate']
-    val_metric = param_training['val_metric']
 
     x_train = train_list[0]  # list of lists of 3 arrays
     y_train = train_list[1]
@@ -167,5 +165,4 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
                show_shapes=True, show_layer_activations=True)
 
     # Display and save history plot
-    plot_history(history, model_id, val_metric,
-                 history_folder="history", root_folder=model_folder, display_fig=display_fig)
+    plot_history(history, model_id, history_folder="history", root_folder=model_folder, display_fig=display_fig)

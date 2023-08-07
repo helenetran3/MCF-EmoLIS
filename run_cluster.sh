@@ -24,7 +24,6 @@ python3 main.py \
 --threshold_emo_present 0 0.25 0.5 \
 --round_decimals 3 \
 --plot_confusion_matrix \
---display_fig \
 --save_predictions
 #--predict_neutral_class \ #Do not use this parameter for the moment
 #--with_custom_split \
