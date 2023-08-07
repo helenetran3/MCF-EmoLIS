@@ -102,7 +102,6 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     optimizer_name = param_training['optimizer']
     loss_function_str = param_training['loss_function']
     learning_rate = param_training['learning_rate']
-    val_metric = param_training['val_metric']
 
     writer_path = os.path.join('runs', model_name, 'model_{}'.format(model_id))
     writer = SummaryWriter(writer_path)
@@ -166,7 +165,6 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     print("Learning rate:", learning_rate)
     print("Optimizer:", optimizer_name)
     print("Loss function:", loss_function_str)
-    print("Metric to monitor on validation data:", val_metric)
     print("\n>>> Model parameters")
     model.print_values()
     print("\n")

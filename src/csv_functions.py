@@ -189,10 +189,10 @@ def save_model_param_in_csv_file(param_archi, param_training,
     # Save hyperparameters for model training
     model_training_param = [param_training['num_epochs'], param_training['patience'], param_training['batch_size'],
                             param_training['optimizer'], param_training['loss_function'],
-                            param_training['learning_rate'], param_training['val_metric'], predict_neutral_class,
+                            param_training['learning_rate'], predict_neutral_class,
                             label_type]
     model_training_header = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function',
-                             'learning_rate', 'val_metric', 'predict_neutral_class', 'label_type']
+                             'learning_rate', 'predict_neutral_class', 'label_type']
 
     header_all = ['model_id'] + model_archi_header + model_training_header
     param_all = [model_id] + model_archi_param + model_training_param
