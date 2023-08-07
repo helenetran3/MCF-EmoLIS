@@ -96,24 +96,20 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
 
     ```commandline
      usage: main.py [-h] [-pnd PICKLE_NAME_DATASET] [-pnf PICKLE_NAME_FOLD] [-t] [-al]
-               [-f {facet,openface}] [-c] [-mn MODEL_NAME] [-l NUM_LAYERS]
-               [-n NUM_NODES] [-d DROPOUT_RATE] [-a FINAL_ACTIV] [-e NUM_EPOCHS]
-               [-p PATIENCE] [-b BATCH_SIZE] [-lt {all,coarse,present,dominant}]
-               [-opt {adam,sgd,adagrad,adadelta,rmsprop}] [-lf LOSS_FUNCTION]
-               [-lr LEARNING_RATE] [-v {loss,acc}] [-nc]
-               [-tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]]
-               [-rd ROUND_DECIMALS] [-sp] [-pcm] [-df]
+               [-f {facet,openface}] [-c] [-mn {ef_williams,ef_williams_debug,mult}]
+               [-lt {all,coarse,present,dominant}] [-nc]
+               [-tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]] [-rd ROUND_DECIMALS]
+               [-sp] [-pcm] [-df]
 
     SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.
     
     optional arguments:
       -h, --help            show this help message and exit
       -pnd PICKLE_NAME_DATASET, --pickle_name_dataset PICKLE_NAME_DATASET
-                            Name of the pickle object that will contain the CMU-MOSEI
-                            mmdataset.
+                            Name of the pickle object that will contain the CMU-MOSEI mmdataset.
       -pnf PICKLE_NAME_FOLD, --pickle_name_fold PICKLE_NAME_FOLD
-                            Name of the pickle object that will contain the training,
-                            validation and test folds.
+                            Name of the pickle object that will contain the training, validation
+                            and test folds.
       -t, --align_to_text   Data will be aligned to the textual modality.
       -al, --append_label_to_data
                             Append annotations to the dataset.
@@ -122,23 +118,21 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
       -c, --with_custom_split
                             Perform custom split on training and validation sets (for more
                             details, cf. Williams et al. (2018) paper).
-      -mn MODEL_NAME, --model_name MODEL_NAME
-                            Name of the model currently tested. Values: ef_williams.
+      -mn {ef_williams,ef_williams_debug,mult}, --model_name {ef_williams,ef_williams_debug,mult}
+                            Name of the model currently tested. Values: ['ef_williams',
+                            'ef_williams_debug', 'mult'].
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
-                            Type of labels used for model training and evaluation.
-                            Possible values: all (for all presence scores provided by
-                            the dataset), coarse (presence score for each emotion among
-                            [0, 1, 2, 3]), present (multi-label classification),
-                            dominant (multi-class one-label classification)
+                            Type of labels used for model training and evaluation. Possible
+                            values: all (for all presencescores provided by the dataset), coarse
+                            (presence score for each emotion among [0, 1, 2, 3]), present (multi-
+                            label classification), dominant (multi-class classification)
       -nc, --predict_neutral_class
                             Predict neutral class.
-      -tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...], --threshold_emo_present 
-          THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]
-                            Threshold at which emotions are considered to be present.
-                            Values must be between 0 and 3. Note that setting thresholds
-                            greater than 0 might lead to no positive true and predicted
-                            classes and skew classification metrics (F1, precision,
-                            recall).
+      -tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...], --threshold_emo_present THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]
+                            Threshold at which emotions are considered to be present. Values must
+                            be between 0 and 3. Note that setting thresholds greater than 0 might
+                            lead to no positive true and predicted classes and skew
+                            classification metrics (F1, precision, recall).
       -rd ROUND_DECIMALS, --round_decimals ROUND_DECIMALS
                             Number of decimals to be rounded for metrics.
       -sp, --save_predictions
@@ -146,7 +140,6 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
       -pcm, --plot_confusion_matrix
                             Plot confusion matrix
       -df, --display_fig    Whether we display the figures
-
     ```
 
 ### Useful parameters to set

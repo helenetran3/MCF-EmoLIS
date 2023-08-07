@@ -3,12 +3,12 @@
     {
         "ef_williams":
         {
-            "is_TensorFlow": 0,
+            "is_TensorFlow": 1,
             "architecture":
             {
-                "num_layers": 1,
+                "num_layers": 2,
                 "num_nodes": 100,
-                "dropout_rate": 0.1,
+                "dropout_rate": 0.2,
                 "final_activ": "linear"
             },
             "training":
@@ -24,7 +24,7 @@
 
         "ef_williams_debug":
         {
-            "is_TensorFlow": 0,
+            "is_TensorFlow": 1,
             "architecture":
             {
                 "num_layers": 1,
@@ -40,6 +40,38 @@
                 "optimizer": "adam",
                 "loss_function": "mae",
                 "learning_rate": 0.001
+            }
+        },
+
+        "mult":
+        {
+            "is_TensorFlow": 0,
+            "architecture":
+            {
+                "vonly": 0,
+                "aonly": 0,
+                "lonly": 0,
+                "attn_dropout": 0.1,
+                "attn_dropout_a": 0.0,
+                "attn_dropout_v": 0.0,
+                "relu_dropout": 0.1,
+                "embed_dropout": 0.25,
+                "res_dropout": 0.1,
+                "out_dropout": 0.0,
+
+                "nlevels": 5,
+                "num_heads": 5,
+                "attn_mask": 1
+            },
+            "training":
+            {
+                "num_epochs": 40,
+                "patience": 1,
+                "batch_size": 24,
+                "optimizer": "adam",
+                "loss_function": "mae",
+                "learning_rate": 0.001,
+                "aligned": 0
             }
         }
     }

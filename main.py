@@ -1,6 +1,6 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_maximum_sequence_length_dataset
-from src.hyperparam_processing import get_hyperparam_from_json
+from src.hyperparam_processing import get_hyperparam_from_json, possible_models
 from src.csv_functions import save_model_param_in_csv_file
 from src.label_processing import get_available_presence_scores_arr, update_labels
 from src.model_metrics import compute_and_save_model_metrics
@@ -20,8 +20,8 @@ parser.add_argument('-f', '--image_feature', type=str, choices=['facet', 'openfa
 parser.add_argument('-c', '--with_custom_split', action='store_true',
                     help="Perform custom split on training and validation sets (for more details, cf. Williams et al. "
                          "(2018) paper).")
-parser.add_argument('-mn', '--model_name', type=str, choices=['ef_williams', 'ef_williams_debug'],
-                    help="Name of the model currently tested. Values: ef_williams.")
+parser.add_argument('-mn', '--model_name', type=str, choices=possible_models,
+                    help="Name of the model currently tested. Values: {}.".format(possible_models))
 parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', 'present', 'dominant'],
                     help="Type of labels used for model training and evaluation. Possible values: all (for all presence"
                          "scores provided by the dataset), coarse (presence score for each emotion among "
