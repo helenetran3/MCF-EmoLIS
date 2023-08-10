@@ -73,6 +73,26 @@
                 "learning_rate": 0.001,
                 "aligned": 0
             }
+        },
+
+        "ef_from_mfn":
+        {
+            "is_TensorFlow": 0,
+            "architecture":
+            {
+                "dropout_rate": 0.2,
+                "h": 64,
+                "num_layers": 2
+            },
+            "training":
+            {
+                "num_epochs": 1000,
+                "patience": 10,
+                "batch_size": 64,
+                "optimizer": "adam",
+                "loss_function": "mae",
+                "learning_rate": 0.001
+            }
         }
     }
 }

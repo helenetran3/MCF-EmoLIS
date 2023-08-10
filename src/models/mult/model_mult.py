@@ -103,14 +103,17 @@ class MModel(nn.Module):
                                   embed_dropout=self.embed_dropout,
                                   attn_mask=self.attn_mask)
             
-    def forward(self, x_l, x_a, x_v):
+    def forward(self, x_l, x_v, x_a):  # inverted x_v and x_a to fit the current code
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
+        #print("x_l.size():", x_l.size())
+        #print("x_v.size():", x_v.size())
+        #print("x_a.size():", x_a.size())
         x_l = F.dropout(x_l.transpose(1, 2), p=self.embed_dropout, training=self.training)
         x_a = x_a.transpose(1, 2)
         x_v = x_v.transpose(1, 2)
-       
+
         # Project the textual/visual/audio features
         proj_x_l = x_l if self.orig_d_l == self.d_l else self.proj_l(x_l)
         proj_x_a = x_a if self.orig_d_a == self.d_a else self.proj_a(x_a)
