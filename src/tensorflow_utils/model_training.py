@@ -129,7 +129,8 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     print("\n\n============================== Training Parameters ===========================================")
     print("\n>>> Dataset")
     print("Number training datapoints: {} ({:.2f}%)".format(num_train_samples, 100 * (num_train_samples / total_data)))
-    print("Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
+    print(
+        "Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
     print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
     print("Number of output cells:", num_classes)
     print("Predict neutral class:", predict_neutral_class)
@@ -150,12 +151,12 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     print("\n\n================================= Model Training =============================================\n")
     model_tf.compile(loss=loss_function, optimizer=optimizer_tf)
     history = model_tf.fit(x=train_dataset,
-                        epochs=num_epochs,
-                        verbose=1,
-                        steps_per_epoch=num_train_samples // batch_size,
-                        validation_data=valid_dataset,
-                        validation_steps=num_valid_samples // batch_size,
-                        callbacks=[checkpoint, early_stopping])
+                           epochs=num_epochs,
+                           verbose=1,
+                           steps_per_epoch=num_train_samples // batch_size,
+                           validation_data=valid_dataset,
+                           validation_steps=num_valid_samples // batch_size,
+                           callbacks=[checkpoint, early_stopping])
 
     model_folder = os.path.join("results", model_name)
     save_with_pickle(history, "history_{}".format(model_id), pickle_folder="history", root_folder=model_folder)

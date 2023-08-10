@@ -71,7 +71,9 @@
                 "optimizer": "adam",
                 "loss_function": "mae",
                 "learning_rate": 0.001,
-                "aligned": 0
+                "aligned": 0,
+                "clip": 0.8,
+                "when": 20
             }
         },
 

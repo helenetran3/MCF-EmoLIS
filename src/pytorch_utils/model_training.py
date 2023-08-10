@@ -5,6 +5,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from torchinfo import summary
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 # from torchviz import make_dot
 # import subprocess
 from torch.utils.tensorboard import SummaryWriter
@@ -139,6 +140,8 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     # Optimizing the model parameters
     loss_fn = get_loss_function(loss_function_str, is_tf=False)
     optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
+    if "when" in param_training.keys():
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
     valid_loss_best = None
@@ -194,6 +197,8 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
 
                 optimizer.zero_grad()
                 batch_loss.backward()
+                if "clip" in param_training.keys():
+                    torch.nn.utils.clip_grad_norm(model.parameters(), param_archi["clip"])
                 optimizer.step()
 
                 batch_loss, current = batch_loss.item(), batch_id * batch_size + len(X)
@@ -232,6 +237,10 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
         writer.add_scalar("Training loss", train_loss, epoch)
         writer.add_scalar("Validation loss", valid_loss, epoch)
+
+        # Reduce learning rate when valid_loss stops improving
+        if "when" in param_training.keys():
+            scheduler.step(valid_loss)
 
         print("---------------------------------------------------------------------------------------")
         print(f"Epoch {epoch:>3d} - Avg training loss {train_loss:>5f}, Avg validation loss {valid_loss:>5f}")
