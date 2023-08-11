@@ -111,7 +111,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     x_valid = valid_list[0]  # list of lists of 3 arrays
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
-    num_classes = y_train[0].shape[1]
+    num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
     num_train_samples = len(y_train)
     num_valid_samples = len(y_valid)
     num_test_samples = len(test_list[1])

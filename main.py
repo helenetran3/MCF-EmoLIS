@@ -87,12 +87,10 @@ def main():
                        param_archi, param_training, max_steps, args.model_name, model_id, args.predict_neutral_class,
                        args.display_fig, args.label_type)
 
-        # model_id = 66
-
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_tf_model(test_list, param_training, max_steps, args.model_name, model_id, all_scores,
-                              args.predict_neutral_class, args.threshold_emo_present, args.round_decimals,
-                              args.save_predictions)
+                              args.predict_neutral_class, args.threshold_emo_present, args.label_type,
+                              args.round_decimals, args.save_predictions)
 
     else:
         import torch
@@ -106,11 +104,10 @@ def main():
                           param_archi, param_training, args.model_name, model_id, args.predict_neutral_class,
                           args.display_fig, args.label_type, device)
 
-        # model_id = 38
-
         loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, all_scores,
-                                 args.predict_neutral_class, args.threshold_emo_present, args.save_predictions, device)
+                                 args.predict_neutral_class, args.threshold_emo_present, args.label_type,
+                                 args.save_predictions, device)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,

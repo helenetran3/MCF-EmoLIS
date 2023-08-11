@@ -54,7 +54,7 @@ def get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes,
 def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, num_classes, only_dominant=False):
     """
     Get the dominant emotion class(es) for each test segment based on the presence scores of emotions.
-    If only_dominant, return a binary array, else return a list of 7 binary arrays for the 7 thresholds [0, 0.5, 1, 1.5, 2, 2.5, 3].
+    If only_dominant, return a binary array, else return a list of len(threshold_emo_pres) binary arrays.
     Column indexes: 0:happy, 1:sad, 2:anger, 3:surprise, 4:disgust, 5:fear, (6:neutral)
 
     :param score_array: array of shape (test_size, num_classes) containing the presence score of 6 emotions (+ neutral)
@@ -66,6 +66,13 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
     """
 
     def get_list_emotions_for_each_seg(thres=None):
+        """
+        Get the list of all emotion ids for each segment.
+        For example, if sad is index 1 and i-th segment only shows sadness, then the i-th element of the list is [1].
+        If j-th segment shows no emotion, then j-th element of the list is [6] if we predict neutral class else [].
+        :param thres: Threshold above which the emotion is considered as being present.
+        :return: list of lists of emotion ids. The number of elements of this list is the number of segments.
+        """
         list_emotions = []
         test_size = score_array.shape[0]
 
@@ -180,9 +187,9 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
 
 
 def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
-                        num_classes, model_folder):
+                        num_classes, model_folder, label_type):
     """
-    Compute the prediction labels (all arrays of shape (test_size, 6), pred_classes_pres is a list of arrays of this type))
+    Compute the prediction labels (all arrays of shape (test_size, 6), pred_classes_pres is a list of arrays of this type)
     pred_scores_all: Closest predicted score among [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     pred_scores_coa: Closest predicted score among [0, 1, 2, 3]
     pred_classes_pres: Emotions present predicted by the model (varying thresholds for presence score given by threshold_emo_pres)
@@ -199,25 +206,44 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     :return: pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
 
+    # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
+    pred_scores_all, pred_scores_coa, pred_classes_pres = None, None, None
+    if label_type == 'all':
+        compute_all, compute_coa, compute_pres = True, True, True
+    elif label_type == 'coarse':
+        compute_all, compute_coa, compute_pres = False, True, True
+    elif label_type == 'present':
+        compute_all, compute_coa, compute_pres = False, False, True
+    else:  # dominant
+        compute_all, compute_coa, compute_pres = False, False, False
+
     # Get presence scores from raw predictions
     pred_scores_all = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes)
-    pred_scores_coa = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes, coarse=True)
+    if compute_all and save_pred:
+        save_with_pickle(pred_scores_all, "pred_scores_all_{}".format(model_id), pickle_folder="predictions",
+                         root_folder=model_folder)
 
-    # Compute predicted classes from presence scores (useful for classification metrics including confusion matrix)
-    pred_classes_pres = get_class_from_presence_score(pred_scores_all, predict_neutral_class,
-                                                      threshold_emo_pres, num_classes)
-    pred_classes_dom = get_class_from_presence_score(pred_scores_all, predict_neutral_class,
-                                                     threshold_emo_pres, num_classes, only_dominant=True)
+    # Get coarse presence scores from raw predictions
+    if compute_coa:
+        pred_scores_coa = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes, coarse=True)
+        if save_pred:
+            save_with_pickle(pred_scores_coa, "pred_scores_coa_{}".format(model_id), pickle_folder="predictions",
+                             root_folder=model_folder)
 
+    # Get present emotion classes predicted by the model, based on thresholds
+    if compute_pres:
+        pred_classes_pres = get_class_from_presence_score(pred_scores_all, predict_neutral_class, threshold_emo_pres,
+                                                          num_classes)
+        if save_pred:
+            save_with_pickle(pred_classes_pres, "pred_classes_pres_{}".format(model_id), pickle_folder="predictions",
+                             root_folder=model_folder)
+
+    # Get dominant emotion classes predicted by the model
+    pred_classes_dom = get_class_from_presence_score(pred_scores_all, predict_neutral_class, threshold_emo_pres,
+                                                         num_classes, only_dominant=True)
     if save_pred:
-        save_with_pickle(pred_scores_all, "pred_scores_all_{}".format(model_id),
-                         pickle_folder="predictions", root_folder=model_folder)
-        save_with_pickle(pred_scores_coa, "pred_scores_coa_{}".format(model_id),
-                         pickle_folder="predictions", root_folder=model_folder)
-        save_with_pickle(pred_classes_pres, "pred_classes_pres_{}".format(model_id),
-                         pickle_folder="predictions", root_folder=model_folder)
-        save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id),
-                         pickle_folder="predictions", root_folder=model_folder)
+        save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
+                         root_folder=model_folder)
 
     return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
