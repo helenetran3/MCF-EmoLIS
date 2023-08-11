@@ -27,7 +27,7 @@ parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', '
                          "scores provided by the dataset), coarse (presence score for each emotion among "
                          "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-class classification)")
 parser.add_argument('-nc', '--predict_neutral_class', action='store_true',
-                    help="Predict neutral class.")
+                    help="Predict neutral class. Only useful for label_type 'present' or 'dominant'.")
 parser.add_argument('-tp', '--threshold_emo_present', type=float, nargs='+',
                     help="Threshold at which emotions are considered to be present. Values must be between 0 and 3. "
                          "Note that setting thresholds greater than 0 might lead to no positive true and predicted "
@@ -87,12 +87,10 @@ def main():
                        param_archi, param_training, max_steps, args.model_name, model_id, args.predict_neutral_class,
                        args.display_fig, args.label_type)
 
-        # model_id = 66
-
-        loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_tf_model(test_list, param_training, max_steps, args.model_name, model_id, all_scores,
-                              args.predict_neutral_class, args.threshold_emo_present, args.round_decimals,
-                              args.save_predictions)
+                              args.predict_neutral_class, args.threshold_emo_present, args.label_type,
+                              args.round_decimals, args.save_predictions)
 
     else:
         import torch
@@ -106,11 +104,10 @@ def main():
                           param_archi, param_training, args.model_name, model_id, args.predict_neutral_class,
                           args.display_fig, args.label_type, device)
 
-        # model_id = 38
-
-        loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, all_scores,
-                                 args.predict_neutral_class, args.threshold_emo_present, args.save_predictions, device)
+                                 args.predict_neutral_class, args.threshold_emo_present, args.label_type,
+                                 args.save_predictions, device)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,

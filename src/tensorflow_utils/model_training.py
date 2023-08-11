@@ -90,7 +90,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     x_valid = valid_list[0]  # list of lists of 3 arrays
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
-    num_classes = y_train[0].shape[1]
+    num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
     num_train_samples = len(y_train)
     num_valid_samples = len(y_valid)
     num_test_samples = len(test_list[1])
@@ -133,9 +133,10 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
         "Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
     print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
     print("Number of output cells:", num_classes)
-    print("Predict neutral class:", predict_neutral_class)
     print("\n>>> Model training")
     print("Task:", label_type)
+    if label_type == 'dominant' or label_type == 'present':
+        print("Predict neutral class:", predict_neutral_class)
     print("Library: TensorFlow")
     print("Batch size:", batch_size)
     print("Number epochs:", num_epochs)
