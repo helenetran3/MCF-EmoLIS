@@ -154,9 +154,10 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     print("Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
     print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
     print("Number of output cells:", num_classes)
-    print("Predict neutral class:", predict_neutral_class)
     print("\n>>> Model training")
     print("Task:", label_type)
+    if label_type == 'dominant' or label_type == 'present':
+        print("Predict neutral class:", predict_neutral_class)
     print("Library: PyTorch")
     print("Batch size:", batch_size)
     print("Number epochs:", num_epochs)

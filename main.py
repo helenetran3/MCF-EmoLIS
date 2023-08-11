@@ -27,7 +27,7 @@ parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', '
                          "scores provided by the dataset), coarse (presence score for each emotion among "
                          "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-class classification)")
 parser.add_argument('-nc', '--predict_neutral_class', action='store_true',
-                    help="Predict neutral class.")
+                    help="Predict neutral class. Only useful for label_type 'present' or 'dominant'.")
 parser.add_argument('-tp', '--threshold_emo_present', type=float, nargs='+',
                     help="Threshold at which emotions are considered to be present. Values must be between 0 and 3. "
                          "Note that setting thresholds greater than 0 might lead to no positive true and predicted "
