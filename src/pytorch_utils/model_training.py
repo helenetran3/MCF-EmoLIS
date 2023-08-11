@@ -186,12 +186,20 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         with alive_bar(num_iterations, title='Model training') as bar:
             for batch_id, (X, y) in enumerate(train_dataloader):
                 batch_loss = 0
+                # X_text_batch, X_audio_batch, X_image_batch = [], [], []
                 for X_sample, y_sample in zip(X, y):
                     X_text, X_audio, X_image = X_sample
                     if device == 'cpu':
                         X_text = X_text.bfloat16()
                         X_audio = X_audio.bfloat16()
                         X_image = X_image.bfloat16()
+                #         X_text_batch += X_text
+                #         X_audio_batch += X_audio
+                #         X_image_batch += X_image
+                # X_text = torch.stack(X_text_batch)
+                # X_audio = torch.stack(X_audio_batch)
+                # X_image = torch.stack(X_image_batch)
+                # print("X_text.size():", X_text.size())
                     pred = model(X_text, X_audio, X_image)
                     batch_loss += loss_fn(pred, y_sample)
 
