@@ -10,7 +10,7 @@ from alive_progress import alive_bar
 
 
 def evaluate_torch_model(test_list, param_archi, param_training, model_name, model_id, all_scores,
-                         predict_neutral_class, threshold_emo_pres, save_pred, device):
+                         predict_neutral_class, threshold_emo_pres, label_type, save_pred, device):
 
     x_test = test_list[0]  # list of lists of 3 arrays
     y_test = test_list[1]
@@ -65,8 +65,8 @@ def evaluate_torch_model(test_list, param_archi, param_training, model_name, mod
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
-    pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+    pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
-                            num_classes, model_folder)
+                            num_classes, model_folder, label_type)
 
-    return test_loss, pred_raw_array, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom

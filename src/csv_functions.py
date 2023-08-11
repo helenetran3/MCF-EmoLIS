@@ -116,6 +116,7 @@ def save_results_in_csv_file(model_name, model_id,
     Save results of a single model to a csv file.
 
     :param model_name: Name of the model currently tested
+    :param model_id: Model id (int)
     :param loss_function: Loss function
     :param loss_function_val: Loss function obtained by the model
     :param metrics_regression: List of metrics for regression (w.r.t the presence scores)
@@ -140,27 +141,35 @@ def save_results_in_csv_file(model_name, model_id,
     header_param = ['model_id', loss_function]
     data_param = [model_id, loss_function_val]
 
-    header_regression, data_regression = get_header_and_data_metrics(metrics_regression, header_param, data_param,
-                                                                     predict_neutral_class, task="regression")
-    header_score_coa, data_score_coa = get_header_and_data_metrics(metrics_score_coa, header_param, data_param,
-                                                                   predict_neutral_class, task="score_coa")
-    header_presence, data_presence = get_header_and_data_metrics(metrics_presence, header_param, data_param,
-                                                                 predict_neutral_class, task="presence")
+    # Regression metrics
+    if metrics_regression is not None:
+        header_regression, data_regression = get_header_and_data_metrics(metrics_regression, header_param, data_param,
+                                                                         predict_neutral_class, task="regression")
+        write_csv(csv_path_regression, header_regression, data_regression)
+
+    # Coarse presence score metrics
+    if metrics_score_coa is not None:
+        header_score_coa, data_score_coa = get_header_and_data_metrics(metrics_score_coa, header_param, data_param,
+                                                                       predict_neutral_class, task="score_coa")
+        write_csv(csv_path_score_coa, header_score_coa, data_score_coa)
+
+    # Present emotion metrics
+    if metrics_presence is not None:
+        header_presence, data_presence = get_header_and_data_metrics(metrics_presence, header_param, data_param,
+                                                                     predict_neutral_class, task="presence")
+        for path, data in zip(csv_path_presence, data_presence):
+            write_csv(path, header_presence, data)
+
+    # Dominant emotion metrics
     header_dominant, data_dominant = get_header_and_data_metrics(metrics_dominant, header_param, data_param,
                                                                  predict_neutral_class, task="dominant")
+    write_csv(csv_path_dominant, header_dominant, data_dominant)
 
     # print(len(header_regression), len(data_regression))
     # print(len(header_score_coa), len(data_score_coa))
     # print(len(header_dominant), len(data_dominant))
     # for i in range(len(metrics_presence)):
     #     print(len(header_presence), len(data_presence[i]))
-
-    # Write in csv files
-    write_csv(csv_path_regression, header_regression, data_regression)
-    write_csv(csv_path_score_coa, header_score_coa, data_score_coa)
-    for path, data in zip(csv_path_presence, data_presence):
-        write_csv(path, header_presence, data)
-    write_csv(csv_path_dominant, header_dominant, data_dominant)
 
 
 def save_model_param_in_csv_file(param_archi, param_training,

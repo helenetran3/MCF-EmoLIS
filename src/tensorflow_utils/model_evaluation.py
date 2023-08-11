@@ -31,7 +31,7 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
 
 
 def evaluate_tf_model(test_list, param_training, max_steps, model_name, model_id, all_scores,
-                      predict_neutral_class, threshold_emo_pres, round_decimals, save_pred):
+                      predict_neutral_class, threshold_emo_pres, label_type, round_decimals, save_pred):
     """
     Evaluate the performance of the best model.
 
@@ -72,8 +72,8 @@ def evaluate_tf_model(test_list, param_training, max_steps, model_name, model_id
 
     # Predicted labels
     pred_raw = model_prediction(model, test_dataset, num_test_samples, save_pred, model_id, model_folder)
-    pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+    pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
-                            num_classes, model_folder)
+                            num_classes, model_folder, label_type)
 
-    return loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
