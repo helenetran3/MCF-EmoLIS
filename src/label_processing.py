@@ -190,7 +190,6 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
                         num_classes, model_folder, label_type):
     """
     Compute the prediction labels (all arrays of shape (test_size, 6), pred_classes_pres is a list of arrays of this type)
-    pred_scores_all: Closest predicted score among [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     pred_scores_coa: Closest predicted score among [0, 1, 2, 3]
     pred_classes_pres: Emotions present predicted by the model (varying thresholds for presence score given by threshold_emo_pres)
     pred_classes_dom: Dominant emotions predicted by the model (highest presence score)
@@ -203,25 +202,23 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     :param model_id: Model id (int)
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param model_folder: The folder where the results will be saved
-    :return: pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    :param label_type: Type of labels used for model training and evaluation.
+    :return: pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
 
     # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
-    pred_scores_all, pred_scores_coa, pred_classes_pres = None, None, None
+    pred_scores_coa, pred_classes_pres = None, None
     if label_type == 'all':
-        compute_all, compute_coa, compute_pres = True, True, True
+        compute_coa, compute_pres = True, True
     elif label_type == 'coarse':
-        compute_all, compute_coa, compute_pres = False, True, True
+        compute_coa, compute_pres = True, True
     elif label_type == 'present':
-        compute_all, compute_coa, compute_pres = False, False, True
+        compute_coa, compute_pres = False, True
     else:  # dominant
-        compute_all, compute_coa, compute_pres = False, False, False
+        compute_coa, compute_pres = False, False
 
-    # Get presence scores from raw predictions
+    # Get presence scores from raw predictions (useful for getting the other metrics)
     pred_scores_all = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes)
-    if compute_all and save_pred:
-        save_with_pickle(pred_scores_all, "pred_scores_all_{}".format(model_id), pickle_folder="predictions",
-                         root_folder=model_folder)
 
     # Get coarse presence scores from raw predictions
     if compute_coa:
@@ -245,7 +242,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
         save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
                          root_folder=model_folder)
 
-    return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
 def update_labels(train_list, valid_list, test_list, label_type, all_scores,
