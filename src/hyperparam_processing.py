@@ -138,7 +138,7 @@ def check_value_is_in_list(hp_name, hp_value, list_possible_values):
 
 def get_hyperparam_from_json(model_name):
 
-    with open("hyperparameters.json") as json_file:
+    with open("config/hyperparameters.json") as json_file:
         hyperparam = json.load(json_file)
 
     check_model_name_and_structure(hyperparam, model_name)
