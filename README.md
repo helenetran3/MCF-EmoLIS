@@ -253,9 +253,18 @@ generate other graphs, please refer to `label_statistics.ipynb` file.
 
 Want to try one of the following models? Set `--model_name` parameter with the string value in bold.
 
-- **ef_williams**: Williams, J., Kleinegesse, S., Comanescu, R., & Radu, O. (2018, July). [Recognizing Emotions in Video Using Multimodal DNN Feature Fusion](http://www.aclweb.org/anthology/W18-3302). In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Challenge-HML)* (pp. 11-19). 
+- **ef_williams**: Williams, J., Kleinegesse, S., Comanescu, R., & Radu, O. (2018, July). 
+[Recognizing Emotions in Video Using Multimodal DNN Feature Fusion](http://www.aclweb.org/anthology/W18-3302). 
+In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Challenge-HML)* (pp. 11-19). 
    - Updated version of [Multimodal DNN](https://github.com/rhoposit/MultimodalDNN)
    - Use standard training, validation and test sets from CMU-MOSEI SDK (instead of using only training and validation sets 
 originally specified in the paper)
+
+- **mult** (the model does not work yet): Tsai, Y. H. H., Bai, S., Liang, P. P., Kolter, J. Z., Morency, L. P., & Salakhutdinov, R. (2019, July). 
+[Multimodal Transformer for Unaligned Multimodal Language Sequences](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7195022/). 
+In *Proceedings of the conference. Association for Computational Linguistics. Meeting* (Vol. 2019, p. 6558). NIH Public Access.
+  - Original repository: [Multimodal-Transformer](https://github.com/yaohungt/Multimodal-Transformer)
+
+- **ef\_williams\_debug**: the same model as **ef_williams** used for debugging.
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
