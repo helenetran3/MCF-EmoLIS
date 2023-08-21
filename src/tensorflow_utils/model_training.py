@@ -56,7 +56,7 @@ def plot_history(history, model_id, history_folder, root_folder, display_fig):
         plt.show()
 
 
-def train_tf_model(train_list, valid_list, test_list, param_archi, param_training, max_steps, model_name, model_id,
+def train_tf_model(train_list, valid_list, test_list, param_archi, param_training, num_steps, model_name, model_id,
                    predict_neutral_class, display_fig, label_type):
     """
     Train the model using TensorFlow.
@@ -69,7 +69,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     :param test_list: [x_test, y_test, seg_test]
     :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :param max_steps: Maximum length for all sequences in the dataset
+    :param num_steps: Fixed length for all sequences in the dataset
     :param model_name: Name of the model currently tested
     :param predict_neutral_class: Whether we predict the neutral class
     :param model_id: Model id (int)
@@ -97,8 +97,8 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
     # Create TensorFlow datasets for model training
-    train_dataset = DatasetTf(x_train, y_train, seg_train, max_steps, num_classes, batch_size, train_mode=True).build()
-    valid_dataset = DatasetTf(x_valid, y_valid, seg_valid, max_steps, num_classes, batch_size, train_mode=True).build()
+    train_dataset = DatasetTf(x_train, y_train, seg_train, num_steps, num_classes, batch_size, train_mode=True).build()
+    valid_dataset = DatasetTf(x_valid, y_valid, seg_valid, num_steps, num_classes, batch_size, train_mode=True).build()
 
     # Parameters to save model
     model_save_path = create_model_folder_and_path(model_name, model_id)
@@ -123,7 +123,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
     model_module = get_model_module(model_name, is_tf=True)
     model_class = model_module.MModel(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
-                                      max_steps, num_classes)
+                                      num_steps, num_classes)
     model_tf = model_class.build()
 
     print("\n\n============================== Training Parameters ===========================================")

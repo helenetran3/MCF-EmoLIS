@@ -1,5 +1,5 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
-from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_maximum_sequence_length_dataset
+from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset
 from src.hyperparam_processing import get_hyperparam_from_json, possible_models
 from src.csv_functions import save_model_param_in_csv_file
 from src.label_processing import get_available_presence_scores_arr, update_labels
@@ -26,6 +26,10 @@ parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', '
                     help="Type of labels used for model training and evaluation. Possible values: all (for all presence"
                          "scores provided by the dataset), coarse (presence score for each emotion among "
                          "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-class classification)")
+parser.add_argument('-l', '--set_length', type=str,
+                    help="Set fixed length for sequence data (padding/truncate), or keep variable length (set 'None', "
+                         "only for Pytorch). "
+                         "Possible values: 'avg', 'max', any strictly positive number, 'none'.")
 parser.add_argument('-nc', '--predict_neutral_class', action='store_true',
                     help="Predict neutral class. Only useful for label_type 'present' or 'dominant'.")
 parser.add_argument('-tp', '--threshold_emo_present', type=float, nargs='+',
@@ -67,7 +71,7 @@ def main():
     is_tf, param_archi, param_training = get_hyperparam_from_json(args.model_name)
 
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
-    max_steps = get_maximum_sequence_length_dataset(train_list, valid_list, test_list)
+    num_steps = get_length_dataset(args.set_length, train_list, valid_list, test_list, is_tf)
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
     train_list, valid_list, test_list = \
@@ -84,11 +88,11 @@ def main():
         from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
         train_tf_model(train_list, valid_list, test_list,
-                       param_archi, param_training, max_steps, args.model_name, model_id, args.predict_neutral_class,
-                       args.display_fig, args.label_type)
+                       param_archi, param_training, num_steps, args.model_name, model_id,
+                       args.predict_neutral_class, args.display_fig, args.label_type)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_tf_model(test_list, param_training, max_steps, args.model_name, model_id, all_scores,
+            evaluate_tf_model(test_list, param_training, num_steps, args.model_name, model_id, all_scores,
                               args.predict_neutral_class, args.threshold_emo_present, args.label_type,
                               args.round_decimals, args.save_predictions)
 

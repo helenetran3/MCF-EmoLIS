@@ -2,6 +2,7 @@ import re
 import numpy as np
 from mmsdk import mmdatasdk
 from src.pickle_functions import *
+from statistics import mean
 
 
 # CMU-MOSEI DATA DOWNLOAD FUNCTIONS
@@ -262,23 +263,58 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
 
 
 # BUILD TENSORFLOW DATASETS
-def get_maximum_sequence_length_dataset(train_list, valid_list, test_list):
+def get_length_dataset(set_length, train_list, valid_list, test_list, is_tf):
     """
-    Return the maximum sequence length over all the dataset. Used for creating batches in TensorFlow.
-
+    Return the desired length for creating batches. (None if we want to keep variable lengths)
+    :param set_length: Set length for all sequences in dataset (variable length, padding or truncate for fixed length)
     :param train_list: [X_train, y_train, seg_train]
     :param valid_list: [X_valid, y_valid, seg_valid]
     :param test_list: [X_test, y_test, seg_test]
-    :return: the maximum sequence length in all the dataset
+    :return:
     """
 
-    def get_maximum_sequence_length(x_list):
-        res = 0
-        # the length of the sequences for the three modalities should be the same (checked in process_and_split_dataset)
-        for x_i_text, _, _ in x_list:
-            l_text = x_i_text.shape[0]
-            res = max(l_text, res)
-        return res
+    def get_maximum_sequence_length_dataset():
+        def get_maximum_sequence_length(x_list):
+            res = 0
+            # the length of the sequences for the three modalities should be the same
+            # (checked in process_and_split_dataset)
+            for x_i_text, _, _ in x_list:
+                l_text = x_i_text.shape[0]
+                res = max(l_text, res)
+            return res
+        return max(get_maximum_sequence_length(train_list[0]), get_maximum_sequence_length(valid_list[0]),
+                   get_maximum_sequence_length(test_list[0]))
 
-    return max(get_maximum_sequence_length(train_list[0]), get_maximum_sequence_length(valid_list[0]),
-               get_maximum_sequence_length(test_list[0]))
+    def get_average_sequence_length_dataset():
+        def get_list_sequence_length(x_list):
+            length_x_list = []
+            # the length of the sequences for the three modalities should be the same
+            # (checked in process_and_split_dataset)
+            for x_i_text, _, _ in x_list:
+                l_text = x_i_text.shape[0]
+                length_x_list += [l_text]
+            return length_x_list
+        all_length = get_list_sequence_length(train_list[0]) + get_list_sequence_length(valid_list[0]) + \
+                     get_list_sequence_length(test_list[0])
+        return int(mean(all_length))
+
+    if set_length == 'none':
+        if is_tf:
+            return ValueError("Impossible to set set_length to 'none' for Tensorflow. Please choose value between: "
+                              "'avg', 'max', any strictly positive number")
+        return None
+    elif set_length == 'max':
+        return get_maximum_sequence_length_dataset()
+    elif set_length == 'avg':
+        return get_average_sequence_length_dataset()
+    elif set_length.is_digit() and int(set_length) > 0:
+        return int(set_length)
+    else:
+        raise ValueError("Invalid value for parameter set_length. Please choose value between: 'avg', 'max',"
+                         " any strictly positive number, 'none'")
+
+
+
+
+
+

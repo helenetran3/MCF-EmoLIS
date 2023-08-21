@@ -21,6 +21,7 @@ python3 main.py \
 --image_feature facet \
 --model_name ef_williams \
 --label_type all \
+--set_length avg \
 --threshold_emo_present 0 0.25 0.5 \
 --round_decimals 3 \
 --plot_confusion_matrix \
