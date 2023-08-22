@@ -25,7 +25,7 @@ class DatasetTorch(torch.utils.data.Dataset):
         return len(self.y_list)
 
 
-def my_collate_fn(batch):
+def collate_fn_for_variable_length(batch):
     data = [item[0] for item in batch]
     target = [item[1] for item in batch]
     target = torch.stack(target, 0)

@@ -1,4 +1,4 @@
-from src.pytorch_utils.dataset_loader import DatasetTorch, my_collate_fn
+from src.pytorch_utils.dataset_loader import DatasetTorch, collate_fn_for_variable_length
 from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
 
 import os
@@ -94,7 +94,7 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
 
 
 def train_torch_model(train_list, valid_list, test_list, param_archi, param_training, model_name, model_id,
-                      predict_neutral_class, display_fig, label_type, device):
+                      num_steps, predict_neutral_class, display_fig, label_type, device):
 
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
@@ -121,6 +121,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, device)
     valid_data = DatasetTorch(x_valid, y_valid, seg_valid, device)
+    my_collate_fn = None if num_steps is None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
     train_size = len(train_dataloader.dataset)

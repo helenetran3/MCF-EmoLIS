@@ -105,8 +105,8 @@ def main():
         print(f"\nUsing {device} device")
 
         train_torch_model(train_list, valid_list, test_list,
-                          param_archi, param_training, args.model_name, model_id, args.predict_neutral_class,
-                          args.display_fig, args.label_type, device)
+                          param_archi, param_training, args.model_name, model_id, num_steps,
+                          args.predict_neutral_class, args.display_fig, args.label_type, device)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, all_scores,
