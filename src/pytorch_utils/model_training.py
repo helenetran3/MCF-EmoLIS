@@ -119,8 +119,8 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
     # Create dataloaders for training and validation data
-    training_data = DatasetTorch(x_train, y_train, seg_train, device)
-    valid_data = DatasetTorch(x_valid, y_valid, seg_valid, device)
+    training_data = DatasetTorch(x_train, y_train, seg_train, num_steps, device)
+    valid_data = DatasetTorch(x_valid, y_valid, seg_valid, num_steps, device)
     my_collate_fn = None if num_steps is None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
