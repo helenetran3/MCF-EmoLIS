@@ -27,24 +27,27 @@ class DatasetTf:
         self.train_mode = train_mode
 
     @staticmethod
-    def seq_padding(seq_array, max_num_steps):
+    def seq_fixed_length(seq_array, fixed_num_steps):
         """
         Pad or truncate sequence data to a given length.
 
         :param seq_array: 1 array of shape (own number of steps, number features)
-        :param max_num_steps: max number of steps
+        :param fixed_num_steps: max number of steps
         :return: seq_array with the fixed number of steps
         """
         own_num_steps = seq_array.shape[0]
         num_features = seq_array.shape[1]
 
-        if max_num_steps >= own_num_steps:
-            diff = max_num_steps - own_num_steps
+        if fixed_num_steps > own_num_steps:  # padding
+            diff = fixed_num_steps - own_num_steps
             zeroes = np.zeros((diff, num_features))
             new_seq_array = np.concatenate((seq_array, zeroes))
 
-        else:
-            raise ValueError("The length of the current feature array should not exceed the maximum number of steps.")
+        elif fixed_num_steps < own_num_steps:  # truncate
+            new_seq_array = seq_array[:fixed_num_steps, :]
+
+        else:  # length seq_array equals to fixed_num_steps
+            new_seq_array = seq_array
 
         return new_seq_array
 
@@ -60,9 +63,9 @@ class DatasetTf:
 
         else:
             for x_list_i, y_list_i, seg_list_i in zip(self.x_list, self.y_list, self.seg_list):  # loop on each sample
-                x_list_i_0 = self.seq_padding(x_list_i[0], self.num_steps)  # Pad sequence data
-                x_list_i_1 = self.seq_padding(x_list_i[1], self.num_steps)
-                x_list_i_2 = self.seq_padding(x_list_i[2], self.num_steps)
+                x_list_i_0 = self.seq_fixed_length(x_list_i[0], self.num_steps)  # Fixed sequence data length
+                x_list_i_1 = self.seq_fixed_length(x_list_i[1], self.num_steps)
+                x_list_i_2 = self.seq_fixed_length(x_list_i[2], self.num_steps)
                 yield {"text": x_list_i_0, "image": x_list_i_1, "audio": x_list_i_2}, y_list_i  # , seg_list_i
 
     def build(self):

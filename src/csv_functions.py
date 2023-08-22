@@ -173,7 +173,7 @@ def save_results_in_csv_file(model_name, model_id,
 
 
 def save_model_param_in_csv_file(param_archi, param_training,
-                                 predict_neutral_class, label_type, model_name, is_tf):
+                                 predict_neutral_class, label_type, set_length, model_name, is_tf):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
@@ -183,6 +183,7 @@ def save_model_param_in_csv_file(param_archi, param_training,
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
                          scores provided by the dataset), coarse (presence score for each emotion among "
                          [0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)
+    :param set_length: Set length for all sequences in dataset (variable length, padding or truncate for fixed length)
     :param model_name: Name of the model
     :param is_tf: whether it is TensorFlow or not (boolean)
     :return: model id of the current model
@@ -200,9 +201,9 @@ def save_model_param_in_csv_file(param_archi, param_training,
     model_training_param = [param_training['num_epochs'], param_training['patience'], param_training['batch_size'],
                             param_training['optimizer'], param_training['loss_function'],
                             param_training['learning_rate'], predict_neutral_class,
-                            label_type]
+                            label_type, set_length]
     model_training_header = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function',
-                             'learning_rate', 'predict_neutral_class', 'label_type']
+                             'learning_rate', 'predict_neutral_class', 'label_type', 'set_length']
 
     header_all = ['model_id'] + model_archi_header + model_training_header
     param_all = [model_id] + model_archi_param + model_training_param

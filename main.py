@@ -27,7 +27,7 @@ parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', '
                          "scores provided by the dataset), coarse (presence score for each emotion among "
                          "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-class classification)")
 parser.add_argument('-l', '--set_length', type=str,
-                    help="Set fixed length for sequence data (padding/truncate), or keep variable length (set 'None', "
+                    help="Set fixed length for sequence data (padding/truncate), or keep variable length (set 'none', "
                          "only for Pytorch). "
                          "Possible values: 'avg', 'max', any strictly positive number, 'none'.")
 parser.add_argument('-nc', '--predict_neutral_class', action='store_true',
@@ -80,7 +80,7 @@ def main():
 
     # Save model parameters and return model id
     model_id = save_model_param_in_csv_file(param_archi, param_training, args.predict_neutral_class,
-                                            args.label_type, args.model_name, is_tf)
+                                            args.label_type, args.set_length, args.model_name, is_tf)
 
     # Model training
     if is_tf:
