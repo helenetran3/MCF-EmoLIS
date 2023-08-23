@@ -14,11 +14,16 @@ from alive_progress import alive_bar
 from matplotlib import pyplot as plt
 
 
-def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name):
+def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps):
     dataiter = iter(train_dataloader)
     data, labels = next(dataiter)
-    data_text, data_audio, data_image = data[0]
-    data_text, data_audio, data_image = data_text.bfloat16(), data_audio.bfloat16(), data_image.bfloat16()
+    if num_steps is None:
+        data_text, data_audio, data_image = data[0]
+        data_text, data_audio, data_image = data_text.bfloat16(), data_audio.bfloat16(), data_image.bfloat16()
+    else:
+        data_text, data_audio, data_image = data
+        data_text, data_audio, data_image = data_text.float(), data_audio.float(), data_image.float()
+
     writer.add_graph(model, (data_text, data_audio, data_image))
     #
     # print("hello")
@@ -136,7 +141,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                                num_classes).to(device)
 
     # Inspect model using Tensorboard
-    inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name)
+    inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
 
     # Optimizing the model parameters
     loss_fn = get_loss_function(loss_function_str, is_tf=False)
@@ -195,7 +200,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         with alive_bar(num_iterations, title='Model training') as bar:
             for batch_id, (X, y) in enumerate(train_dataloader):
                 batch_loss = 0
-                
+
                 if num_steps is None:  # Varying sequence length
                     for X_sample, y_sample in zip(X, y):
                         x_text, x_audio, x_image = X_sample

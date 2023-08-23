@@ -44,6 +44,11 @@ class MModel(nn.Module):
         combined_dim = self.d_l + self.d_a + self.d_v
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
+
+        if self.partial_mode == 0:
+            self.lonly = self.vonly = self.aonly = True
+            self.partial_mode = 3  # lonly + vonly + aonly
+
         if self.partial_mode == 1:
             combined_dim = 2 * self.d_l   # assuming d_l == d_a == d_v
         else:
