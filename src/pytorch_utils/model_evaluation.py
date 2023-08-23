@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
 
-def evaluate_torch_model(test_list, param_archi, param_training, model_name, model_id, all_scores,
+def evaluate_torch_model(test_list, param_archi, param_training, model_name, model_id, num_steps, all_scores,
                          predict_neutral_class, threshold_emo_pres, label_type, save_pred, device):
 
     x_test = test_list[0]  # list of lists of 3 arrays
@@ -32,7 +32,7 @@ def evaluate_torch_model(test_list, param_archi, param_training, model_name, mod
     model.eval()
 
     # Create dataloader for test data
-    test_data = DatasetTorch(x_test, y_test, seg_test, device)
+    test_data = DatasetTorch(x_test, y_test, seg_test, num_steps, device)
     test_dataloader = DataLoader(test_data)
 
     test_size = len(test_dataloader.dataset)
@@ -44,19 +44,32 @@ def evaluate_torch_model(test_list, param_archi, param_training, model_name, mod
     with torch.no_grad():
         with alive_bar(test_size, title='Model evaluation') as bar:
             for X, y in test_dataloader:
-                # X, y = X.to(device), y.to(device)
-                X_text, X_audio, X_image = X
-                # [0] to remove the 1st dimension (initially shape: (1, length, num_feat)
-                X_text, X_audio, X_image, y = X_text[0], X_audio[0], X_image[0], y[0]
-                if device == 'cpu':
-                    X_text = X_text.bfloat16()
-                    X_audio = X_audio.bfloat16()
-                    X_image = X_image.bfloat16()
-                    y = y.bfloat16()
-                pred = model(X_text, X_audio, X_image)
-                pred_raw += pred
-                test_loss += loss_fn(pred, y).item()
-                # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
+
+                if num_steps is None:  # Varying sequence length
+                    # X, y = X.to(device), y.to(device)
+                    x_text, x_audio, x_image = X
+                    # [0] to remove the 1st dimension (initially shape: (1, length, num_feat)
+                    x_text, x_audio, x_image, y = x_text[0], x_audio[0], x_image[0], y[0]
+                    if device == 'cpu':
+                        x_text = x_text.bfloat16()
+                        x_audio = x_audio.bfloat16()
+                        x_image = x_image.bfloat16()
+                        y = y.bfloat16()
+                    pred = model(x_text, x_audio, x_image)
+                    pred_raw += pred
+                    test_loss += loss_fn(pred, y).item()
+                    # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
+
+                else:  # Fixed sequence length
+                    x_text, x_audio, x_image = X
+                    if device == 'cpu':
+                        x_text = x_text.float()
+                        x_audio = x_audio.float()
+                        x_image = x_image.float()
+                    pred = model(x_text, x_audio, x_image)
+                    pred_raw += pred
+                    test_loss += loss_fn(pred[0], y).item()
+
                 bar()
     test_loss /= test_size
     # correct /= test_size

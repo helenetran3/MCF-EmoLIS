@@ -140,8 +140,8 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     model = model_class.MModel(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
                                num_classes).to(device)
 
-    # Inspect model using Tensorboard
-    inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
+    # # Inspect model using Tensorboard
+    # inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
 
     # Optimizing the model parameters
     loss_fn = get_loss_function(loss_function_str, is_tf=False)
@@ -178,14 +178,14 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     print("\n>>> Model parameters")
     model.print_values()
     print("\n")
-    if num_steps is not None:
-        print("\n>>> Model summary (for a sequence of length {})".format(num_steps))
-        summary(model, [(num_steps, 300), (num_steps, 35), (num_steps, 74)], device='cpu',
-                dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
-    else:
-        print("\n>>> Model summary (for a sequence of length 26)")
-        summary(model, [(26, 300), (26, 35), (26, 74)], device='cpu',
-                dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+    # if num_steps is not None:
+    #     print("\n>>> Model summary (for a sequence of length {})".format(num_steps))
+    #     summary(model, [(num_steps, 300), (num_steps, 35), (num_steps, 74)], device='cpu',
+    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+    # else:
+    #     print("\n>>> Model summary (for a sequence of length 26)")
+    #     summary(model, [(26, 300), (26, 35), (26, 74)], device='cpu',
+    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
     print("\n\n================================= Model Training =============================================\n")
 
@@ -214,9 +214,9 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X
                     if device == 'cpu':
-                        x_text = x_text.bfloat16()
-                        x_audio = x_audio.bfloat16()
-                        x_image = x_image.bfloat16()
+                        x_text = x_text.float()
+                        x_audio = x_audio.float()
+                        x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
                     batch_loss = loss_fn(pred[0], y)
 
@@ -224,7 +224,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                 batch_loss.backward()
 
                 if "clip" in param_training.keys():
-                    torch.nn.utils.clip_grad_norm(model.parameters(), param_training["clip"])
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
                 optimizer.step()
 
                 batch_loss, current = batch_loss.item(), batch_id * batch_size + len(X)
@@ -245,19 +245,30 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         model.eval()
         with alive_bar(valid_size, title='Model validation') as bar:
             for idx, (X, y) in enumerate(valid_dataloader):
-                for X_sample, y_sample in zip(X, y):
-                    x_text, x_audio, x_image = X_sample
+
+                if num_steps is None:  # Varying sequence length
+                    for X_sample, y_sample in zip(X, y):
+                        x_text, x_audio, x_image = X_sample
+                        if device == 'cpu':
+                            x_text = x_text.bfloat16()
+                            x_audio = x_audio.bfloat16()
+                            x_image = x_image.bfloat16()
+                        pred = model(x_text, x_audio, x_image)
+                        valid_loss += loss_fn(pred, y_sample)
+
+                else:  # Fixed sequence length
+                    x_text, x_audio, x_image = X
                     if device == 'cpu':
-                        x_text = x_text.bfloat16()
-                        x_audio = x_audio.bfloat16()
-                        x_image = x_image.bfloat16()
+                        x_text = x_text.float()
+                        x_audio = x_audio.float()
+                        x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
-                    valid_loss += loss_fn(pred, y_sample)
-                    bar()
-                    # if idx % 100 == 0 or idx == valid_size-1:
-                    #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
-                    #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
-        valid_loss = valid_loss.item()
+                    valid_loss += loss_fn(pred[0], y).item()
+
+                bar()
+                # if idx % 100 == 0 or idx == valid_size-1:
+                #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
+                #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
         valid_loss /= valid_size
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct

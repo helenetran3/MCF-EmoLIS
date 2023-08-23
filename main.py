@@ -109,8 +109,8 @@ def main():
                           args.predict_neutral_class, args.display_fig, args.label_type, device)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, all_scores,
-                                 args.predict_neutral_class, args.threshold_emo_present, args.label_type,
+            evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, num_steps,
+                                 all_scores, args.predict_neutral_class, args.threshold_emo_present, args.label_type,
                                  args.save_predictions, device)
 
     # Compute and save metrics
