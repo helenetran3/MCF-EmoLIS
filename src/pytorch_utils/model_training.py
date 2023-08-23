@@ -209,7 +209,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                             x_audio = x_audio.bfloat16()
                             x_image = x_image.bfloat16()
                         pred = model(x_text, x_audio, x_image)
-                        batch_loss += loss_fn(pred[0], y_sample)
+                        batch_loss += loss_fn(pred, y_sample)
 
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X
@@ -218,7 +218,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                         x_audio = x_audio.bfloat16()
                         x_image = x_image.bfloat16()
                     pred = model(x_text, x_audio, x_image)
-                    batch_loss = loss_fn(pred, y)
+                    batch_loss = loss_fn(pred[0], y)
 
                 optimizer.zero_grad()
                 batch_loss.backward()
