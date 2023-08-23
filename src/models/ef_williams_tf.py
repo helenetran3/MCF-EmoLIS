@@ -71,7 +71,6 @@ class MModel:
     def print_values(self):
         print("Model name:", self.model_name)
         print("Model id:", self.model_id)
-        print("Fixed number of steps:", self.num_steps)
         print("Number layers:", self.num_layers)
         print("Number nodes for the penultimate dense layer:", self.num_nodes)
         print("Dropout rate:", self.dropout_rate)

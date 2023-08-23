@@ -50,7 +50,7 @@ class DatasetTorch(torch.utils.data.Dataset):
             x_text_i = self.x_list[index][0]
             x_image_i = self.x_list[index][1]
             x_audio_i = self.x_list[index][2]
-            
+
         x_text_i = torch.from_numpy(x_text_i).to(self.device)
         x_image_i = torch.from_numpy(x_image_i).to(self.device)
         x_audio_i = torch.from_numpy(x_audio_i).to(self.device)

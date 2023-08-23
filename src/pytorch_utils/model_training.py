@@ -121,7 +121,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, num_steps, device)
     valid_data = DatasetTorch(x_valid, y_valid, seg_valid, num_steps, device)
-    my_collate_fn = None if num_steps is None else collate_fn_for_variable_length
+    my_collate_fn = None if num_steps is not None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
     train_size = len(train_dataloader.dataset)
@@ -169,11 +169,18 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     print("Learning rate:", learning_rate)
     print("Optimizer:", optimizer_name)
     print("Loss function:", loss_function_str)
+    print("Fixed number of steps:", num_steps)
     print("\n>>> Model parameters")
     model.print_values()
     print("\n")
-    print("\n>>> Model summary (for a sequence of length 374)")
-    summary(model, [(374, 300), (374, 35), (374, 74)], device='cpu', dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+    if num_steps is not None:
+        print("\n>>> Model summary (for a sequence of length {})".format(num_steps))
+        summary(model, [(num_steps, 300), (num_steps, 35), (num_steps, 74)], device='cpu',
+                dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+    else:
+        print("\n>>> Model summary (for a sequence of length 26)")
+        summary(model, [(26, 300), (26, 35), (26, 74)], device='cpu',
+                dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
     print("\n\n================================= Model Training =============================================\n")
 
@@ -188,25 +195,29 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         with alive_bar(num_iterations, title='Model training') as bar:
             for batch_id, (X, y) in enumerate(train_dataloader):
                 batch_loss = 0
-                # X_text_batch, X_audio_batch, X_image_batch = [], [], []
-                for X_sample, y_sample in zip(X, y):
-                    X_text, X_audio, X_image = X_sample
+                
+                if num_steps is None:  # Varying sequence length
+                    for X_sample, y_sample in zip(X, y):
+                        x_text, x_audio, x_image = X_sample
+                        if device == 'cpu':
+                            x_text = x_text.bfloat16()
+                            x_audio = x_audio.bfloat16()
+                            x_image = x_image.bfloat16()
+                        pred = model(x_text, x_audio, x_image)
+                        batch_loss += loss_fn(pred, y_sample)
+
+                else:  # Fixed sequence length
+                    x_text, x_audio, x_image = X
                     if device == 'cpu':
-                        X_text = X_text.bfloat16()
-                        X_audio = X_audio.bfloat16()
-                        X_image = X_image.bfloat16()
-                #         X_text_batch += X_text
-                #         X_audio_batch += X_audio
-                #         X_image_batch += X_image
-                # X_text = torch.stack(X_text_batch)
-                # X_audio = torch.stack(X_audio_batch)
-                # X_image = torch.stack(X_image_batch)
-                # print("X_text.size():", X_text.size())
-                    pred = model(X_text, X_audio, X_image)
-                    batch_loss += loss_fn(pred, y_sample)
+                        x_text = x_text.bfloat16()
+                        x_audio = x_audio.bfloat16()
+                        x_image = x_image.bfloat16()
+                    pred = model(x_text, x_audio, x_image)
+                    batch_loss = loss_fn(pred, y)
 
                 optimizer.zero_grad()
                 batch_loss.backward()
+
                 if "clip" in param_training.keys():
                     torch.nn.utils.clip_grad_norm(model.parameters(), param_archi["clip"])
                 optimizer.step()
@@ -230,12 +241,12 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         with alive_bar(valid_size, title='Model validation') as bar:
             for idx, (X, y) in enumerate(valid_dataloader):
                 for X_sample, y_sample in zip(X, y):
-                    X_text, X_audio, X_image = X_sample
+                    x_text, x_audio, x_image = X_sample
                     if device == 'cpu':
-                        X_text = X_text.bfloat16()
-                        X_audio = X_audio.bfloat16()
-                        X_image = X_image.bfloat16()
-                    pred = model(X_text, X_audio, X_image)
+                        x_text = x_text.bfloat16()
+                        x_audio = x_audio.bfloat16()
+                        x_image = x_image.bfloat16()
+                    pred = model(x_text, x_audio, x_image)
                     valid_loss += loss_fn(pred, y_sample)
                     bar()
                     # if idx % 100 == 0 or idx == valid_size-1:
