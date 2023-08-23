@@ -67,7 +67,7 @@ def evaluate_torch_model(test_list, param_archi, param_training, model_name, mod
                         x_audio = x_audio.float()
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
-                    pred_raw += pred
+                    pred_raw += pred[0]  # for MulT
                     test_loss += loss_fn(pred[0], y).item()
 
                 bar()
