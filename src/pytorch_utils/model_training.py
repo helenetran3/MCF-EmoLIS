@@ -209,7 +209,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                             x_audio = x_audio.bfloat16()
                             x_image = x_image.bfloat16()
                         pred = model(x_text, x_audio, x_image)
-                        batch_loss += loss_fn(pred, y_sample)
+                        batch_loss += loss_fn(pred[0], y_sample)
 
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X
@@ -224,7 +224,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                 batch_loss.backward()
 
                 if "clip" in param_training.keys():
-                    torch.nn.utils.clip_grad_norm(model.parameters(), param_archi["clip"])
+                    torch.nn.utils.clip_grad_norm(model.parameters(), param_training["clip"])
                 optimizer.step()
 
                 batch_loss, current = batch_loss.item(), batch_id * batch_size + len(X)
