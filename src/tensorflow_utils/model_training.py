@@ -115,6 +115,8 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
                                    mode='min',
                                    restore_best_weights=True)
 
+    callbacks = [checkpoint] if patience == -1 else [checkpoint, early_stopping]
+
     # Build model
     num_features_text = x_train[0][0].shape[1]
     num_features_image = x_train[0][1].shape[1]
@@ -158,7 +160,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
                            steps_per_epoch=num_train_samples // batch_size,
                            validation_data=valid_dataset,
                            validation_steps=num_valid_samples // batch_size,
-                           callbacks=[checkpoint, early_stopping])
+                           callbacks=callbacks)
 
     model_folder = os.path.join("results", model_name)
     save_with_pickle(history, "history_{}".format(model_id), pickle_folder="history", root_folder=model_folder)

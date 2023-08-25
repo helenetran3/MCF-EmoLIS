@@ -292,10 +292,11 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                                            model_id)
 
         # For early stopping
-        num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best,
-                                                              num_epochs_without_improvement)
-        if patience == num_epochs_without_improvement-1:
-            break
+        if patience != -1:
+            num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best,
+                                                                  num_epochs_without_improvement)
+            if patience == num_epochs_without_improvement-1:
+                break
 
     model_folder = os.path.join('results', model_name)
     plot_history(history_train, history_valid, model_id, history_folder="history", root_folder=model_folder,
