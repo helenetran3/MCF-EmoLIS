@@ -112,6 +112,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
 
     early_stopping = EarlyStopping(monitor='val_loss',
                                    patience=patience,
+                                   verbose=1,
                                    mode='min',
                                    restore_best_weights=True)
 

@@ -260,11 +260,12 @@ In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Ch
    - Use standard training, validation and test sets from CMU-MOSEI SDK (instead of using only training and validation sets 
 originally specified in the paper)
 
-- **mult** (the model does not work yet): Tsai, Y. H. H., Bai, S., Liang, P. P., Kolter, J. Z., Morency, L. P., & Salakhutdinov, R. (2019, July). 
+- **mult**: Tsai, Y. H. H., Bai, S., Liang, P. P., Kolter, J. Z., Morency, L. P., & Salakhutdinov, R. (2019, July). 
 [Multimodal Transformer for Unaligned Multimodal Language Sequences](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7195022/). 
 In *Proceedings of the conference. Association for Computational Linguistics. Meeting* (Vol. 2019, p. 6558). NIH Public Access.
   - Original repository: [Multimodal-Transformer](https://github.com/yaohungt/Multimodal-Transformer)
+  - 6 output cells (or 7 with the neutral class) instead of 1 
 
-- **ef\_williams\_debug**: the same model as **ef_williams** used for debugging.
+- **ef\_williams\_debug**: the same model as **ef_williams** used for debugging on PyTorch or TensorFlow.
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:

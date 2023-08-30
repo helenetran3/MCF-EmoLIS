@@ -60,9 +60,14 @@ def model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train
     return valid_loss_best
 
 
-def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improvement):
+def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improvement, patience):
     if valid_loss > valid_loss_best:
         num_epochs_without_improvement += 1
+        if patience == num_epochs_without_improvement - 1:
+            print("Early stopping: number of epochs without improvement reaches patience {}. Model training terminates."
+                  .format(patience))
+        else:
+            print("Early stopping: {} of epochs without improvement".format(num_epochs_without_improvement))
     else:
         num_epochs_without_improvement = 0
     return num_epochs_without_improvement
@@ -101,6 +106,7 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
 def train_torch_model(train_list, valid_list, test_list, param_archi, param_training, model_name, model_id,
                       num_steps, predict_neutral_class, display_fig, label_type, device):
 
+    num_training_prints = 0
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
     batch_size = param_training['batch_size']
@@ -230,7 +236,8 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                 batch_loss, current = batch_loss.item(), batch_id * batch_size + len(X)
                 batch_loss_current = batch_loss / len(X)
 
-                if batch_id % 10 == 0 or batch_id == num_iterations-1:
+                # if batch_id % 10 == 0 or batch_id == num_iterations-1:
+                if batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations-1:
                     # # Log the current batch loss in Tensorboard
                     # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
                     writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch * train_size + batch_id)
@@ -294,7 +301,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         # For early stopping
         if patience != -1:
             num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best,
-                                                                  num_epochs_without_improvement)
+                                                                  num_epochs_without_improvement, patience)
             if patience == num_epochs_without_improvement-1:
                 break
 

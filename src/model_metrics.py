@@ -137,14 +137,14 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     print("Weighted recall score (for each emotion):", rec_weighted_each)
     print("Unweighted precision score (for each emotion):", prec_macro_each)
     print("Weighted precision score (for each emotion):", prec_weighted_each)
-    print("F1 score (weighted mean):", f1_macro_uw_mean)
-    print("F1 score (unweighted mean):", f1_weighted_uw_mean)
-    print("Recall (weighted mean):", rec_macro_uw_mean)
-    print("Recall (unweighted mean):", rec_weighted_uw_mean)
-    print("Precision (weighted mean):", prec_macro_uw_mean)
-    print("Precision (unweighted mean):", prec_weighted_uw_mean)
-    # print("ROC AUC (weighted mean):", roc_auc_macro_uw_mean)
-    # print("ROC AUC (unweighted mean):", roc_auc_weighted_uw_mean)
+    print("F1 score (unweighted mean):", f1_macro_uw_mean)
+    print("F1 score (weighted mean):", f1_weighted_uw_mean)
+    print("Recall (unweighted mean):", rec_macro_uw_mean)
+    print("Recall (weighted mean):", rec_weighted_uw_mean)
+    print("Precision (unweighted mean):", prec_macro_uw_mean)
+    print("Precision (weighted mean):", prec_weighted_uw_mean)
+    # print("ROC AUC (unweighted mean):", roc_auc_macro_uw_mean)
+    # print("ROC AUC (weighted mean):", roc_auc_weighted_uw_mean)
 
     res = [acc, f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
            prec_weighted_uw_mean]  # , roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
