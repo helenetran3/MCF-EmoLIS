@@ -13,6 +13,7 @@ Feel free to open an issue on this repository if you have any question or remark
 4. [Output generated](#outputs-generated)
 5. [Data preprocessing and resulting statistics](#Data-preprocessing-and-resulting-statistics)
 6. [Models available](#models-available)
+7. [How to add a new model](#how-to-add-a-new-model)
 
 ## CMU-MOSEI Database
 
@@ -267,5 +268,78 @@ In *Proceedings of the conference. Association for Computational Linguistics. Me
   - 6 output cells (or 7 with the neutral class) instead of 1 
 
 - **ef\_williams\_debug**: the same model as **ef_williams** used for debugging on PyTorch or TensorFlow.
+
+[Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
+
+## How to add a new model
+
+*The instructions below give the guidelines for introducing a new model. Some issue might occur that is not covered 
+here. Before creating an issue, make sure you follow the instructions. If the problem persists, I will try to help as 
+soon as possible. Once your model runs, you can create a pull request. 
+Thank you for your contribution!*
+
+The three main steps to follow and are explained here are:
+- How to structure the code of your model (for both PyTorch and TensorFlow)
+- How to set the hyperparameters of your model
+- How to make it usable in this repository
+
+**How to structure the code of your model**
+
+For PyTorch:
+
+1. Create your model in a Python class and name it `MModel`: `class MModel(nn.Module)`.
+2. The class must at least contain the following functions:
+   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_archi, num_features_text, 
+   num_features_image, num_features_audio, num_classes)`. The parameter `param_archi` is a dictionary defined in 
+   `config/hyperparameters.json` (will be explained in the next subsection) 
+   2. `forward` which inputs the three feature arrays (text - image - audio, in this order) and returns the output(s): 
+   `def forward(self, x_text, x_image, x_audio)`. If you work with variable length, each array will have dimension 
+   [num_steps, num_features]. If you work with fixed length, it will be [batch_size, num_steps, num_features].
+   3. `print_values` which prints the model hyperparameters in the terminal before model training: 
+   `def print_values(self)` (in a future version, we will try to make it automatic)
+3. Outside the class, the main file must contain the following function (in a future version, we will also try to make 
+it automatic):
+   1. `get_data_for_csv` will save the hyperparameters of your model in a csv file by returning two lists of the same
+   length (*data* and *header*):
+   `def get_data_for_csv(model_name, param_archi, num_classes)`. You can find an example in 
+   `src/models/ef_williams_torch.py` file.
+
+For TensorFlow:
+1. Create your model in a Python class and name it `MModel`: `class MModel`.
+2. The class must at least contain the following functions:
+   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_archi, num_features_text, 
+   num_features_image, num_features_audio, num_steps, num_classes)`. The parameter `param_archi` is a dictionary defined
+   in `config/hyperparameters.json` (will be explained in the next subsection)
+   2. `build` which returns a `Model` object from `keras` library: `def build(self)`. Note that TensorFlow do 
+   not support variable input length (as far as I know).
+   3. `print_values` which prints the model hyperparameters in the terminal before model training: 
+   `def print_values(self)` (in a future version, we will try to make it automatic)
+3. Outside the class, the main file must contain the following function (in a future version, we will also try to make 
+it automatic):
+   1. `get_data_for_csv` will save the hyperparameters of your model in a csv file by returning two lists of the same
+   length (*data* and *header*):
+   `def get_data_for_csv(model_name, param_archi, num_classes)`. You can find an example in 
+   `src/models/ef_williams_tf.py` file.
+
+**How to set the hyperparameters of your model**
+
+[//]: # (Must list the compulsory hyperparameters and force it in the code.)
+
+**How to make it usable in this repository**
+
+1. Add the `.py` file containing the code of the model in `src/models/` folder. Choose wisely the name of your model: 
+it will help others to identify your model. 
+   - *If you have multiple files (like `mult`), create a folder with the name of your model.*
+2. In `src/hyperparam_processing.py`: 
+   1. Add the name of your model in the global variable `possible_models`
+   2. Import the `.py` file: `from src.models import your_model_name`
+      - *If you have multiple files, import the main file containing the class of the model:* 
+      `from src.models.your_model_name import main_file_of_your_model`
+   3. Add your model in `model_dict` of `get_model_module` function:
+      - key: name in `possible_models`
+      - value: name of imported file
+
+Now your model is ready to be trained!
+
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
