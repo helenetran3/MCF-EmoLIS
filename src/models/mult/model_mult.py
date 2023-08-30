@@ -165,7 +165,7 @@ class MModel(nn.Module):
         last_hs_proj += last_hs
         
         output = self.out_layer(last_hs_proj)
-        return output, last_hs
+        return output#, last_hs
 
     def print_values(self):
         print("Model name:", self.model_name)

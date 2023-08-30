@@ -1,7 +1,7 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset
 from src.hyperparam_processing import get_hyperparam_from_json, possible_models
-from src.csv_functions import save_model_param_in_csv_file
+from src.csv_functions import get_current_model_id, save_model_param_in_csv_file
 from src.label_processing import get_available_presence_scores_arr, update_labels, balance_dataset
 from src.model_metrics import compute_and_save_model_metrics
 import argparse
@@ -81,9 +81,8 @@ def main():
     balance_dataset(train_list, valid_list, test_list, args.label_type, all_scores,
                     args.predict_neutral_class, args.threshold_emo_present, ext_name)
 
-    # Save model parameters and return model id
-    model_id = save_model_param_in_csv_file(param_archi, param_training, args.predict_neutral_class,
-                                            args.label_type, args.set_length, args.model_name, is_tf)
+    # Return model id
+    model_id = get_current_model_id(args.model_name)
 
     # Model training
     if is_tf:
@@ -115,6 +114,10 @@ def main():
             evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, num_steps,
                                  all_scores, args.predict_neutral_class, args.threshold_emo_present, args.label_type,
                                  args.save_predictions, device)
+
+    # Save model parameters in csv file
+    save_model_param_in_csv_file(model_id, param_archi, param_training, args.predict_neutral_class,
+                                 args.label_type, args.set_length, args.model_name, is_tf)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,

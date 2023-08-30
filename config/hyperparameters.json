@@ -65,8 +65,8 @@
             },
             "training":
             {
-                "num_epochs": 1000,
-                "patience": 10,
+                "num_epochs": 20,
+                "patience": -1,
                 "batch_size": 32,
                 "optimizer": "adam",
                 "loss_function": "mae",
@@ -78,6 +78,26 @@
         },
 
         "ef_from_mfn":
+        {
+            "is_TensorFlow": 0,
+            "architecture":
+            {
+                "dropout_rate": 0.2,
+                "h": 64,
+                "num_layers": 2
+            },
+            "training":
+            {
+                "num_epochs": 1000,
+                "patience": 10,
+                "batch_size": 64,
+                "optimizer": "adam",
+                "loss_function": "mae",
+                "learning_rate": 0.001
+            }
+        },
+
+        "mfn":
         {
             "is_TensorFlow": 0,
             "architecture":

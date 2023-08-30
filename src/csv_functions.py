@@ -23,11 +23,11 @@ def create_csv_path(model_name, filename, extension_name=""):
     return csv_path
 
 
-def get_current_model_id(csv_path):
+def get_current_model_id(model_name):
     """
     Get the current model id based on the number of rows in csv file.
 
-    :param csv_path: Path to csv file
+    :param model_name: Name of the model currently tested
     :return: model_id
     """
 
@@ -36,6 +36,8 @@ def get_current_model_id(csv_path):
             reader = csv.reader(f)
             lines = len(list(reader))
         return lines
+
+    csv_path = create_csv_path(model_name, "model_ids")
 
     model_id = get_num_rows_csv() if os.path.exists(csv_path) else 1
 
@@ -172,11 +174,12 @@ def save_results_in_csv_file(model_name, model_id,
     #     print(len(header_presence), len(data_presence[i]))
 
 
-def save_model_param_in_csv_file(param_archi, param_training,
+def save_model_param_in_csv_file(model_id, param_archi, param_training,
                                  predict_neutral_class, label_type, set_length, model_name, is_tf):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
+    :param model_id: Model id (int)
     :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param predict_neutral_class: Whether we predict the neutral class
@@ -186,11 +189,8 @@ def save_model_param_in_csv_file(param_archi, param_training,
     :param set_length: Set length for all sequences in dataset (variable length, padding or truncate for fixed length)
     :param model_name: Name of the model
     :param is_tf: whether it is TensorFlow or not (boolean)
-    :return: model id of the current model
     """
     csv_path = create_csv_path(model_name, "model_ids")
-
-    model_id = get_current_model_id(csv_path)
 
     # Save hyperparameters for model architecture
     num_classes = 7 if predict_neutral_class else 6
@@ -209,5 +209,3 @@ def save_model_param_in_csv_file(param_archi, param_training,
     param_all = [model_id] + model_archi_param + model_training_param
 
     write_csv(csv_path, header_all, param_all)
-
-    return model_id

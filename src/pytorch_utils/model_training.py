@@ -106,7 +106,7 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
 def train_torch_model(train_list, valid_list, test_list, param_archi, param_training, model_name, model_id,
                       num_steps, predict_neutral_class, display_fig, label_type, device):
 
-    num_training_prints = 0
+    num_training_prints = 10
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
     batch_size = param_training['batch_size']
@@ -224,7 +224,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                         x_audio = x_audio.float()
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
-                    batch_loss = loss_fn(pred[0], y)
+                    batch_loss = loss_fn(pred, y)
 
                 optimizer.zero_grad()
                 batch_loss.backward()
@@ -270,7 +270,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                         x_audio = x_audio.float()
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
-                    valid_loss += loss_fn(pred[0], y).item()
+                    valid_loss += loss_fn(pred, y).item()
 
                 bar()
                 # if idx % 100 == 0 or idx == valid_size-1:

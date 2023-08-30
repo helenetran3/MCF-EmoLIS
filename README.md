@@ -292,9 +292,10 @@ For PyTorch:
    1. `__init__` with these exact parameters: `def __init__(self, model_id, param_archi, num_features_text, 
    num_features_image, num_features_audio, num_classes)`. The parameter `param_archi` is a dictionary defined in 
    `config/hyperparameters.json` (will be explained in the next subsection) 
-   2. `forward` which inputs the three feature arrays (text - image - audio, in this order) and returns the output(s): 
-   `def forward(self, x_text, x_image, x_audio)`. If you work with variable length, each array will have dimension 
-   [num_steps, num_features]. If you work with fixed length, it will be [batch_size, num_steps, num_features].
+   2. `forward` which inputs the three feature arrays (text - image - audio, in this order) and returns the output 
+   (the dimension must be *self.num_classes*): `def forward(self, x_text, x_image, x_audio)`. If you work with variable 
+   length, each array will have dimension [num_steps, num_features]. If you work with fixed length, it will be 
+   [batch_size, num_steps, num_features].
    3. `print_values` which prints the model hyperparameters in the terminal before model training: 
    `def print_values(self)` (in a future version, we will try to make it automatic)
 3. Outside the class, the main file must contain the following function (in a future version, we will also try to make 
@@ -310,8 +311,8 @@ For TensorFlow:
    1. `__init__` with these exact parameters: `def __init__(self, model_id, param_archi, num_features_text, 
    num_features_image, num_features_audio, num_steps, num_classes)`. The parameter `param_archi` is a dictionary defined
    in `config/hyperparameters.json` (will be explained in the next subsection)
-   2. `build` which returns a `Model` object from `keras` library: `def build(self)`. Note that TensorFlow do 
-   not support variable input length (as far as I know).
+   2. `build` which returns a `Model` object from `keras` library: `def build(self)`. The output of the model must be of
+   dimension *self.num_classes*. Note that TensorFlow do not support variable input length (as far as I know).
    3. `print_values` which prints the model hyperparameters in the terminal before model training: 
    `def print_values(self)` (in a future version, we will try to make it automatic)
 3. Outside the class, the main file must contain the following function (in a future version, we will also try to make 
