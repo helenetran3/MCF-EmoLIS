@@ -123,7 +123,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             'ef_williams_debug', 'mult'].
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
                             Type of labels used for model training and evaluation. Possible
-                            values: all (for all presencescores provided by the dataset), coarse
+                            values: all (for all presence scores provided by the dataset), coarse
                             (presence score for each emotion among [0, 1, 2, 3]), present (multi-
                             label classification), dominant (multi-class classification)
       -nc, --predict_neutral_class

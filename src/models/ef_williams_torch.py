@@ -62,7 +62,8 @@ def get_data_for_csv(model_name, param_archi, num_classes):
     Get header and data to save model hyperparameters in csv file (ie. number of layers, nodes, dropout rate).
 
     :param model_name: Model name (string)
-    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)    :param num_classes: number of emotion classes (7 with neutral class, else 6)
+    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param num_classes: number of emotion classes (7 with neutral class, else 6)
     :param num_classes: number of emotion classes (7 with neutral class, else 6)
     :return: two lists of strings (one for header, one for data) to save in csv
     """

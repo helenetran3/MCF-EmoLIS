@@ -2,7 +2,7 @@ from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset
 from src.hyperparam_processing import get_hyperparam_from_json, possible_models
 from src.csv_functions import save_model_param_in_csv_file
-from src.label_processing import get_available_presence_scores_arr, update_labels
+from src.label_processing import get_available_presence_scores_arr, update_labels, balance_dataset
 from src.model_metrics import compute_and_save_model_metrics
 import argparse
 
@@ -21,10 +21,10 @@ parser.add_argument('-c', '--with_custom_split', action='store_true',
                     help="Perform custom split on training and validation sets (for more details, cf. Williams et al. "
                          "(2018) paper).")
 parser.add_argument('-mn', '--model_name', type=str, choices=possible_models,
-                    help="Name of the model currently tested. Values: {}.".format(possible_models))
+                    help="Name of the models currently tested. Values: {}.".format(possible_models))
 parser.add_argument('-lt', '--label_type', type=str, choices=['all', 'coarse', 'present', 'dominant'],
                     help="Type of labels used for model training and evaluation. Possible values: all (for all presence"
-                         "scores provided by the dataset), coarse (presence score for each emotion among "
+                         " scores provided by the dataset), coarse (presence score for each emotion among "
                          "[0, 1, 2, 3]), present (multi-label classification), dominant (multi-class classification)")
 parser.add_argument('-l', '--set_length', type=str,
                     help="Set fixed length for sequence data (padding/truncate), or keep variable length (set 'none', "
@@ -77,6 +77,9 @@ def main():
     train_list, valid_list, test_list = \
         update_labels(train_list, valid_list, test_list, args.label_type, all_scores,
                       args.predict_neutral_class, args.threshold_emo_present, ext_name)
+
+    balance_dataset(train_list, valid_list, test_list, args.label_type, all_scores,
+                    args.predict_neutral_class, args.threshold_emo_present, ext_name)
 
     # Save model parameters and return model id
     model_id = save_model_param_in_csv_file(param_archi, param_training, args.predict_neutral_class,

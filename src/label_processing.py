@@ -296,3 +296,30 @@ def update_labels(train_list, valid_list, test_list, label_type, all_scores,
     new_test_list = [test_list[0], new_y_test, test_list[2]]
 
     return new_train_list, new_valid_list, new_test_list
+
+
+def balance_dataset(train_list, valid_list, test_list, label_type, all_scores, predict_neutral_class,
+                    threshold_emo_pres, ext_name):
+    num_classes = 7 if predict_neutral_class else 6
+
+    y_train = train_list[1]
+    y_valid = valid_list[1]
+    y_test = test_list[1]
+
+    # TODO Find a way to balance emotional profiles
+
+    # new_y_train = compute_true_labels(y_train, "train", all_scores, predict_neutral_class, threshold_emo_pres,
+    #                                   num_classes, ext_name, "dominant")
+    # new_y_valid = compute_true_labels(y_valid, "valid", all_scores, predict_neutral_class, threshold_emo_pres,
+    #                                   num_classes, ext_name, "dominant")
+    # new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
+    #                                  ext_name, "dominant")
+
+    # print("new_y_train dominant:", np.sum(new_y_train, axis=0))
+    # print("new_y_valid dominant:", np.sum(new_y_valid, axis=0))
+    # print("new_y_test dominant:", np.sum(new_y_test, axis=0))
+    # print("new_y_train", np.unique(np.sum(new_y_train, axis=1), return_counts=True))
+    # print("new_y_valid", np.unique(np.sum(new_y_valid, axis=1), return_counts=True))
+    # print("new_y_test", np.unique(np.sum(new_y_test, axis=1), return_counts=True))
+
+
