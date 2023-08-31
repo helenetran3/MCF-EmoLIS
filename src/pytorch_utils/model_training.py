@@ -1,5 +1,7 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, collate_fn_for_variable_length
 from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
+from src.tensorflow_utils.model_training import print_hyperparameters
+
 
 import os
 import torch
@@ -174,15 +176,10 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     if label_type == 'dominant' or label_type == 'present':
         print("Predict neutral class:", predict_neutral_class)
     print("Library: PyTorch")
-    print("Batch size:", batch_size)
-    print("Number epochs:", num_epochs)
-    print("Patience:", patience)
-    print("Learning rate:", learning_rate)
-    print("Optimizer:", optimizer_name)
-    print("Loss function:", loss_function_str)
+    print_hyperparameters(model_name, model_id, param_training, print_archi=False)
     print("Fixed number of steps:", num_steps)
     print("\n>>> Model parameters")
-    model.print_values()
+    print_hyperparameters(model_name, model_id, param_archi, print_archi=True)
     print("\n")
     # if num_steps is not None:
     #     print("\n>>> Model summary (for a sequence of length {})".format(num_steps))

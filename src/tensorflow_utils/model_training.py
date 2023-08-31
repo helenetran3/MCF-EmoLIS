@@ -2,7 +2,7 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
+from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer, get_hyperparam_from_json
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.utils import plot_model
@@ -25,6 +25,16 @@ def create_model_folder_and_path(model_name, model_id):
     model_save_path = os.path.join(model_folder, "model_{}.h5".format(model_id))
 
     return model_save_path
+
+
+def print_hyperparameters(model_name, model_id, param_value_to_print, print_archi):
+    if print_archi:
+        print("Model name:", model_name)
+        print("Model id:", model_id)
+    _, param_archi_def, param_training_def = get_hyperparam_from_json(model_name, "hyperparam_def")
+    param_def_to_print = param_archi_def if print_archi else param_training_def
+    for key, value in param_def_to_print.items():
+        print("{}: {}".format(param_def_to_print[key], param_value_to_print[key]))
 
 
 def plot_history(history, model_id, history_folder, root_folder, display_fig):
@@ -141,15 +151,10 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     if label_type == 'dominant' or label_type == 'present':
         print("Predict neutral class:", predict_neutral_class)
     print("Library: TensorFlow")
-    print("Batch size:", batch_size)
-    print("Number epochs:", num_epochs)
-    print("Patience:", patience)
-    print("Learning rate:", learning_rate)
-    print("Optimizer:", optimizer_name)
-    print("Loss function:", loss_function_str)
+    print_hyperparameters(model_name, model_id, param_training, print_archi=False)
     print("Fixed number of steps:", num_steps)
     print("\n>>> Model parameters")
-    model_class.print_values()
+    print_hyperparameters(model_name, model_id, param_archi, print_archi=True)
     print("\n")
     print(model_tf.summary())
 

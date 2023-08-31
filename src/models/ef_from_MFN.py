@@ -34,11 +34,6 @@ class MModel(nn.Module):
         self.linear2 = nn.Linear(self.h, num_classes).to(device='cpu', dtype=torch.bfloat16)
         self.dropout = nn.Dropout(self.dropout_rate)
 
-    def print_values(self):
-        print("Model name:", self.model_name)
-        print("Model id:", self.model_id)
-        print("Dropout rate:", self.dropout_rate)
-
     def forward(self, x_text, x_image, x_audio):
         # print("x_text.size():", x_text.size())
         # print("x_image.size():", x_image.size())

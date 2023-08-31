@@ -68,14 +68,6 @@ class MModel:
 
         return model
 
-    def print_values(self):
-        print("Model name:", self.model_name)
-        print("Model id:", self.model_id)
-        print("Number layers:", self.num_layers)
-        print("Number nodes for the penultimate dense layer:", self.num_nodes)
-        print("Dropout rate:", self.dropout_rate)
-        print("Final activation:", self.final_activ)
-
 
 def get_data_for_csv(model_name, param_archi, num_classes):
     """

@@ -167,21 +167,6 @@ class MModel(nn.Module):
         output = self.out_layer(last_hs_proj)
         return output#, last_hs
 
-    def print_values(self):
-        print("Model name:", self.model_name)
-        print("Model id:", self.model_id)
-        print("Number layers:", self.layers)
-        print("Number of heads for the transformer network:", self.num_heads)
-        print("Use attention mask for Transformer:", bool(self.attn_mask))
-        print("Attention dropout:", self.attn_dropout)
-        print("Attention dropout (for audio):", self.attn_dropout_a)
-        print("Attention dropout (for visual):", self.attn_dropout_v)
-        print("Relu dropout:", self.relu_dropout)
-        print("Embedding dropout:", self.embed_dropout)
-        print("Residual block dropout:", self.res_dropout)
-        print("Output layer dropout:", self.out_dropout)
-        print("Output dimension:", self.output_dim)
-
 
 def get_data_for_csv(model_name, param_archi, num_classes):
     """

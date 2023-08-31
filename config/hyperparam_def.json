@@ -1,0 +1,120 @@
+{
+    "models":
+    {
+        "ef_williams":
+        {
+            "is_TensorFlow": "Is TensorFlow",
+            "architecture":
+            {
+                "num_layers": "Number layers",
+                "num_nodes": "Number nodes for the penultimate dense layer",
+                "dropout_rate": "Dropout rate",
+                "final_activ": "Final activation"
+            },
+            "training":
+            {
+                "num_epochs": "Number epochs",
+                "patience": "Patience",
+                "batch_size": "Batch size",
+                "optimizer": "Optimizer",
+                "loss_function": "Loss function",
+                "learning_rate": "Learning rate"
+            }
+        },
+
+        "ef_williams_debug":
+        {
+            "is_TensorFlow": "Is TensorFlow",
+            "architecture":
+            {
+                "num_layers": "Number layers",
+                "num_nodes": "Number nodes for the penultimate dense layer",
+                "dropout_rate": "Dropout rate",
+                "final_activ": "Final activation"
+            },
+            "training":
+            {
+                "num_epochs": "Number epochs",
+                "patience": "Patience",
+                "batch_size": "Batch size",
+                "optimizer": "Optimizer",
+                "loss_function": "Loss function",
+                "learning_rate": "Learning rate"
+            }
+        },
+
+        "mult":
+        {
+            "is_TensorFlow": "Is TensorFlow",
+            "architecture":
+            {
+                "vonly": "With image",
+                "aonly": "With audio",
+                "lonly": "With text",
+                "attn_dropout": "Attention dropout",
+                "attn_dropout_a": "Attention dropout (for audio)",
+                "attn_dropout_v": "Attention dropout (for image)",
+                "relu_dropout": "Relu dropout",
+                "embed_dropout": "Embedding dropout",
+                "res_dropout": "Residual block dropout",
+                "out_dropout": "Output layer dropout",
+
+                "nlevels": "Number layers",
+                "num_heads": "Number of heads for the transformer network",
+                "attn_mask": "Use attention mask for Transformer"
+            },
+            "training":
+            {
+                "num_epochs": "Number epochs",
+                "patience": "Patience",
+                "batch_size": "Batch size",
+                "optimizer": "Optimizer",
+                "loss_function": "Loss function",
+                "learning_rate": "Learning rate",
+                "aligned": "Aligned data",
+                "clip": "Gradient clip value",
+                "when": "When to decay learning rate"
+            }
+        },
+
+        "ef_from_mfn":
+        {
+            "is_TensorFlow": "Is TensorFlow",
+            "architecture":
+            {
+                "dropout_rate": "Dropout rate",
+                "h": "Number of hidden cells",
+                "num_layers": "Number layers"
+            },
+            "training":
+            {
+                "num_epochs": "Number epochs",
+                "patience": "Patience",
+                "batch_size": "Batch size",
+                "optimizer": "Optimizer",
+                "loss_function": "Loss function",
+                "learning_rate": "Learning rate"
+            }
+        },
+
+        "mfn":
+        {
+            "is_TensorFlow": "Is TensorFlow",
+            "architecture":
+            {
+                "dropout_rate": "Dropout rate",
+                "h": "Number of hidden cells",
+                "num_layers": "Number layers"
+            },
+            "training":
+            {
+                "num_epochs": "Number epochs",
+                "patience": "Patience",
+                "batch_size": "Batch size",
+                "optimizer": "Optimizer",
+                "loss_function": "Loss function",
+                "learning_rate": "Learning rate"
+            }
+        }
+    }
+}

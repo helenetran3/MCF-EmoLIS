@@ -137,24 +137,26 @@ def check_value_is_in_list(hp_name, hp_value, list_possible_values):
                          "Please check 'hyperparameters.json' file.".format(hp_value, hp_name, list_possible_values))
 
 
-def get_hyperparam_from_json(model_name):
+def get_hyperparam_from_json(model_name, json_name):
 
-    with open("config/hyperparameters.json") as json_file:
+    with open("config/{}.json".format(json_name)) as json_file:
         hyperparam = json.load(json_file)
 
     check_model_name_and_structure(hyperparam, model_name)
     is_tf = (hyperparam['models'][model_name]["is_TensorFlow"])
-    check_value_is_in_list("is_TensorFlow", is_tf, [0, 1])
-    is_tf = bool(is_tf)
+    if json_name == "hyperparameters":
+        check_value_is_in_list("is_TensorFlow", is_tf, [0, 1])
+        is_tf = bool(is_tf)
     param_archi = hyperparam['models'][model_name]["architecture"]
     param_training = hyperparam['models'][model_name]["training"]
 
-    # Check hyperparameter values from model training
-    check_value_is_number('num_epochs', param_training['num_epochs'])
-    check_value_is_number('patience', param_training['patience'])
-    check_value_is_number('batch_size', param_training['batch_size'])
-    check_value_is_number('learning_rate', param_training['learning_rate'])
-    check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
-    check_value_is_in_list('optimizer', param_training['optimizer'], possible_optimizers)
+    if json_name == "hyperparameters":
+        # Check hyperparameter values from model training
+        check_value_is_number('num_epochs', param_training['num_epochs'])
+        check_value_is_number('patience', param_training['patience'])
+        check_value_is_number('batch_size', param_training['batch_size'])
+        check_value_is_number('learning_rate', param_training['learning_rate'])
+        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
+        check_value_is_in_list('optimizer', param_training['optimizer'], possible_optimizers)
 
     return is_tf, param_archi, param_training

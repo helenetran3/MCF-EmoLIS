@@ -68,7 +68,7 @@ def main():
                                                                       args.image_feature, args.pickle_name_fold)
 
     # Get hyperparameters for model architecture and model training + if model available in TensorFlow (tf) or PyTorch
-    is_tf, param_archi, param_training = get_hyperparam_from_json(args.model_name)
+    is_tf, param_archi, param_training = get_hyperparam_from_json(args.model_name, json_name="hyperparameters")
 
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
     num_steps = get_length_dataset(args.set_length, train_list, valid_list, test_list, is_tf)

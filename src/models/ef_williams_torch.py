@@ -35,14 +35,6 @@ class MModel(nn.Module):
         self.linear1 = nn.Linear(2*64, self.num_nodes).to(device='cpu', dtype=torch.bfloat16)
         self.linear2 = nn.Linear(self.num_nodes, self.num_classes).to(device='cpu', dtype=torch.bfloat16)
 
-    def print_values(self):
-        print("Model name:", self.model_name)
-        print("Model id:", self.model_id)
-        print("Number layers:", self.num_layers)
-        print("Number nodes for the penultimate dense layer:", self.num_nodes)
-        print("Dropout rate:", self.dropout_rate)
-        print("Final activation:", self.final_activ)
-
     def forward(self, x_text, x_image, x_audio):
         # print("x_text.size():", x_text.size())
         # print("x_image.size():", x_image.size())

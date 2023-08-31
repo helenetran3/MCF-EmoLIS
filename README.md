@@ -296,9 +296,7 @@ For PyTorch:
    (the dimension must be *self.num_classes*): `def forward(self, x_text, x_image, x_audio)`. If you work with variable 
    length, each array will have dimension [num_steps, num_features]. If you work with fixed length, it will be 
    [batch_size, num_steps, num_features].
-   3. `print_values` which prints the model hyperparameters in the terminal before model training: 
-   `def print_values(self)` (in a future version, we will try to make it automatic)
-3. Outside the class, the main file must contain the following function (in a future version, we will also try to make 
+3. Outside the class, the main file must contain the following function (in a future version, we will try to make 
 it automatic):
    1. `get_data_for_csv` will save the hyperparameters of your model in a csv file by returning two lists of the same
    length (*data* and *header*):
@@ -313,9 +311,7 @@ For TensorFlow:
    in `config/hyperparameters.json` (will be explained in the next subsection)
    2. `build` which returns a `Model` object from `keras` library: `def build(self)`. The output of the model must be of
    dimension *self.num_classes*. Note that TensorFlow do not support variable input length (as far as I know).
-   3. `print_values` which prints the model hyperparameters in the terminal before model training: 
-   `def print_values(self)` (in a future version, we will try to make it automatic)
-3. Outside the class, the main file must contain the following function (in a future version, we will also try to make 
+3. Outside the class, the main file must contain the following function (in a future version, we will try to make 
 it automatic):
    1. `get_data_for_csv` will save the hyperparameters of your model in a csv file by returning two lists of the same
    length (*data* and *header*):
