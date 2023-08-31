@@ -296,12 +296,6 @@ For PyTorch:
    (the dimension must be *self.num_classes*): `def forward(self, x_text, x_image, x_audio)`. If you work with variable 
    length, each array will have dimension [num_steps, num_features]. If you work with fixed length, it will be 
    [batch_size, num_steps, num_features].
-3. Outside the class, the main file must contain the following function (in a future version, we will try to make 
-it automatic):
-   1. `get_data_for_csv` will save the hyperparameters of your model in a csv file by returning two lists of the same
-   length (*data* and *header*):
-   `def get_data_for_csv(model_name, param_archi, num_classes)`. You can find an example in 
-   `src/models/ef_williams_torch.py` file.
 
 For TensorFlow:
 1. Create your model in a Python class and name it `MModel`: `class MModel`.
@@ -311,16 +305,10 @@ For TensorFlow:
    in `config/hyperparameters.json` (will be explained in the next subsection)
    2. `build` which returns a `Model` object from `keras` library: `def build(self)`. The output of the model must be of
    dimension *self.num_classes*. Note that TensorFlow do not support variable input length (as far as I know).
-3. Outside the class, the main file must contain the following function (in a future version, we will try to make 
-it automatic):
-   1. `get_data_for_csv` will save the hyperparameters of your model in a csv file by returning two lists of the same
-   length (*data* and *header*):
-   `def get_data_for_csv(model_name, param_archi, num_classes)`. You can find an example in 
-   `src/models/ef_williams_tf.py` file.
 
 **How to set the hyperparameters of your model**
 
-[//]: # (Must list the compulsory hyperparameters and force it in the code.)
+[//]: # (#TODO Must list the compulsory hyperparameters and force it in the code.)
 
 **How to make it usable in this repository**
 

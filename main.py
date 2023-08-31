@@ -117,7 +117,7 @@ def main():
 
     # Save model parameters in csv file
     save_model_param_in_csv_file(model_id, param_archi, param_training, args.predict_neutral_class,
-                                 args.label_type, args.set_length, args.model_name, is_tf)
+                                 args.label_type, args.set_length, args.model_name)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list,

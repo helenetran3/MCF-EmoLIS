@@ -54,19 +54,3 @@ class MModel(nn.Module):
         # l1 = self.dropout2(l1)
         # out = self.linear2(l1)
         # return out
-
-
-def get_data_for_csv(model_name, param_archi, num_classes):
-    """
-    Get header and data to save model hyperparameters in csv file (ie. number of layers, nodes, dropout rate).
-
-    :param model_name: Model name (string)
-    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :param num_classes: number of emotion classes (7 with neutral class, else 6)
-    :return: two lists of strings (one for header, one for data) to save in csv
-    """
-
-    data = [model_name, param_archi['num_layers'], param_archi['h'], param_archi['dropout_rate'], num_classes]
-    header = ['model_name', 'num_layers', 'h', 'dropout_rate', 'num_classes']
-
-    return header, data

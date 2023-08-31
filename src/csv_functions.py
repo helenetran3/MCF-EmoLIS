@@ -1,6 +1,5 @@
 import os
 import csv
-from src.hyperparam_processing import get_model_module
 
 
 def create_csv_path(model_name, filename, extension_name=""):
@@ -175,7 +174,7 @@ def save_results_in_csv_file(model_name, model_id,
 
 
 def save_model_param_in_csv_file(model_id, param_archi, param_training,
-                                 predict_neutral_class, label_type, set_length, model_name, is_tf):
+                                 predict_neutral_class, label_type, set_length, model_name):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
@@ -188,24 +187,21 @@ def save_model_param_in_csv_file(model_id, param_archi, param_training,
                          [0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)
     :param set_length: Set length for all sequences in dataset (variable length, padding or truncate for fixed length)
     :param model_name: Name of the model
-    :param is_tf: whether it is TensorFlow or not (boolean)
     """
+
     csv_path = create_csv_path(model_name, "model_ids")
-
-    # Save hyperparameters for model architecture
     num_classes = 7 if predict_neutral_class else 6
-    model_class = get_model_module(model_name, is_tf)
-    model_archi_header, model_archi_param = model_class.get_data_for_csv(model_name, param_archi, num_classes)
 
-    # Save hyperparameters for model training
-    model_training_param = [param_training['num_epochs'], param_training['patience'], param_training['batch_size'],
-                            param_training['optimizer'], param_training['loss_function'],
-                            param_training['learning_rate'], predict_neutral_class,
-                            label_type, set_length]
-    model_training_header = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function',
-                             'learning_rate', 'predict_neutral_class', 'label_type', 'set_length']
+    # Model architecture hyperparameters
+    data_archi = list(param_archi.values())
+    header_archi = list(param_archi.keys())
+    data = [model_id, model_name] + data_archi + [num_classes]
+    header = ['model_id', 'model_name'] + header_archi + ['num_classes']
 
-    header_all = ['model_id'] + model_archi_header + model_training_header
-    param_all = [model_id] + model_archi_param + model_training_param
+    # Model training hyperparameters
+    data_training = list(param_training.values())
+    header_training = list(param_training.keys())
+    data = data + data_training + [predict_neutral_class, label_type, set_length]
+    header = header + header_training + ['neutral_class', 'label_type', 'set_length']
 
-    write_csv(csv_path, header_all, param_all)
+    write_csv(csv_path, header, data)
