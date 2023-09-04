@@ -1,8 +1,8 @@
 import json
-from src.models import ef_williams_tf, ef_williams_torch, ef_from_MFN, mfn
+from src.models import ef_williams_tf, ef_williams_torch, late_fusion, ef_from_MFN, mfn
 from src.models.mult import model_mult
 
-possible_models = ['ef_williams', 'ef_williams_debug', 'mult', 'ef_from_mfn', 'mfn']
+possible_models = ['ef_williams', 'ef_williams_debug', 'late_fusion', 'mult', 'ef_from_mfn', 'mfn']
 possible_loss_fn = ['mae', 'mse']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
@@ -21,7 +21,8 @@ def get_model_module(model_str, is_tf):
         'ef_williams_debug': ef_williams_tf if is_tf else ef_williams_torch,  # TODO remove after debug
         'mult': model_mult,
         'ef_from_mfn': ef_from_MFN,
-        'mfn': mfn
+        'mfn': mfn,
+        'late_fusion': late_fusion
     }
 
     if model_str.lower() in model_dict.keys():
@@ -97,16 +98,17 @@ def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):
                          " Please choose among {}.".format(optimizer_str, possible_optimizers))
 
 
-def check_model_name_and_structure(hyperparam_dict, model_name):
+def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
 
     def check_if_key_is_in_list_actual_keys(key, list_actual_keys, root_key):
         if key not in list_actual_keys:
-            raise ValueError("'{}' does not have '{}' key. Please create one in 'hyperparameters.json' file."
-                              .format(root_key, key, list_actual_keys))
+            raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
+                              .format(root_key, key, json_name))
 
     list_available_models = list(hyperparam_dict['models'].keys())
     if model_name not in list_available_models:
-        raise ValueError("Model name '{}' not valid. Please choose among {}.".format(model_name, list_available_models))
+        raise ValueError("Model name '{}' not found. Please create a dictionary with '{}' key in {}.json file or"
+                         " choose among {}.".format(model_name, model_name, json_name, list_available_models))
 
     list_keys_from_model = list(hyperparam_dict['models'][model_name].keys())
     check_if_key_is_in_list_actual_keys('is_TensorFlow', list_keys_from_model, model_name)
@@ -142,7 +144,7 @@ def get_hyperparam_from_json(model_name, json_name):
     with open("config/{}.json".format(json_name)) as json_file:
         hyperparam = json.load(json_file)
 
-    check_model_name_and_structure(hyperparam, model_name)
+    check_model_name_and_structure(hyperparam, model_name, json_name)
     is_tf = (hyperparam['models'][model_name]["is_TensorFlow"])
     if json_name == "hyperparameters":
         check_value_is_in_list("is_TensorFlow", is_tf, [0, 1])

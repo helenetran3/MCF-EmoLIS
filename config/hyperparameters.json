@@ -43,6 +43,27 @@
             }
         },
 
+        "late_fusion":
+        {
+            "is_TensorFlow": 1,
+            "architecture":
+            {
+                "num_layers": 2,
+                "num_nodes": 100,
+                "dropout_rate": 0.2,
+                "final_activ": "linear"
+            },
+            "training":
+            {
+                "num_epochs": 1000,
+                "patience": 10,
+                "batch_size": 64,
+                "optimizer": "adam",
+                "loss_function": "mae",
+                "learning_rate": 0.001
+            }
+        },
+
         "mult":
         {
             "is_TensorFlow": 0,

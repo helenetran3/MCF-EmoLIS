@@ -285,7 +285,7 @@ The three main steps to follow and are explained here are:
 
 **How to structure the code of your model**
 
-For PyTorch:
+_For PyTorch:_
 
 1. Create your model in a Python class and name it `MModel`: `class MModel(nn.Module)`.
 2. The class must at least contain the following functions:
@@ -297,7 +297,7 @@ For PyTorch:
    length, each array will have dimension [num_steps, num_features]. If you work with fixed length, it will be 
    [batch_size, num_steps, num_features].
 
-For TensorFlow:
+_For TensorFlow:_
 1. Create your model in a Python class and name it `MModel`: `class MModel`.
 2. The class must at least contain the following functions:
    1. `__init__` with these exact parameters: `def __init__(self, model_id, param_archi, num_features_text, 
@@ -314,11 +314,14 @@ For TensorFlow:
 
 1. Add the `.py` file containing the code of the model in `src/models/` folder. Choose wisely the name of your model: 
 it will help others to identify your model. 
-   - *If you have multiple files (like `mult`), create a folder with the name of your model.*
+
+   :point_right: *If you have multiple files (like `mult`), create a folder with the name of your model.*
+   
 2. In `src/hyperparam_processing.py`: 
    1. Add the name of your model in the global variable `possible_models`
    2. Import the `.py` file: `from src.models import your_model_name`
-      - *If you have multiple files, import the main file containing the class of the model:* 
+
+      :point_right: *If you have multiple files, import the main file containing the class of the model:* 
       `from src.models.your_model_name import main_file_of_your_model`
    3. Add your model in `model_dict` of `get_model_module` function:
       - key: name in `possible_models`
