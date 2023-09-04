@@ -66,11 +66,12 @@ def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improve
     if valid_loss > valid_loss_best:
         num_epochs_without_improvement += 1
         if patience == num_epochs_without_improvement - 1:
-            print("Early stopping: number of epochs without improvement reaches patience {}. Model training terminates."
+            print("[Early stopping] Number epochs without improvement reaches patience {}. Model training terminates."
                   .format(patience))
         else:
-            print("Early stopping: {} of epochs without improvement".format(num_epochs_without_improvement))
+            print("[Early stopping]  {} epochs without improvement".format(num_epochs_without_improvement))
     else:
+        print("[Early stopping] Performance improved: model saved!")
         num_epochs_without_improvement = 0
     return num_epochs_without_improvement
 
