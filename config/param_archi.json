@@ -1,0 +1,58 @@
+{
+    "models":
+    {
+        "ef_williams":
+        {
+            "is_TensorFlow": 1,
+            "num_layers": 3,
+            "num_nodes": 100,
+            "dropout_rate": 0.2,
+            "final_activ": "linear"
+        },
+
+        "ef_williams_debug":
+        {
+            "is_TensorFlow": 1,
+            "num_layers": 1,
+            "num_nodes": 100,
+            "dropout_rate": 0.1,
+            "final_activ": "linear"
+        },
+
+        "mult":
+        {
+            "is_TensorFlow": 0,
+
+            "vonly": 0,
+            "aonly": 0,
+            "lonly": 0,
+            "attn_dropout": 0.25,
+            "attn_dropout_a": 0.0,
+            "attn_dropout_v": 0.0,
+            "relu_dropout": 0.1,
+            "embed_dropout": 0.3,
+            "res_dropout": 0.1,
+            "out_dropout": 0.1,
+
+            "nlevels": 4,
+            "num_heads": 10,
+            "attn_mask": 1
+        },
+
+        "ef_from_mfn":
+        {
+            "is_TensorFlow": 0,
+            "dropout_rate": 0.2,
+            "h": 64,
+            "num_layers": 2
+        },
+
+        "mfn":
+        {
+            "is_TensorFlow": 0,
+            "dropout_rate": 0.2,
+            "h": 64,
+            "num_layers": 2
+        }
+    }
+}

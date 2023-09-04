@@ -1,0 +1,11 @@
+{
+  "training":
+  {
+    "num_epochs": 1000,
+    "patience": 10,
+    "batch_size": 64,
+    "optimizer": "adam",
+    "loss_function": "mae",
+    "learning_rate": 0.001
+  }
+}
