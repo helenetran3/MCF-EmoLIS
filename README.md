@@ -97,7 +97,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
 
     ```commandline
      usage: main.py [-h] [-pnd PICKLE_NAME_DATASET] [-pnf PICKLE_NAME_FOLD] [-t] [-al]
-               [-f {facet,openface}] [-c] [-mn {ef_williams,ef_williams_debug,mult}]
+               [-f {facet,openface}] [-c] [-mn {ef_williams,mult}]
                [-lt {all,coarse,present,dominant}] [-nc]
                [-tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]] [-rd ROUND_DECIMALS]
                [-sp] [-pcm] [-df]
@@ -119,9 +119,10 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
       -c, --with_custom_split
                             Perform custom split on training and validation sets (for more
                             details, cf. Williams et al. (2018) paper).
-      -mn {ef_williams,ef_williams_debug,mult}, --model_name {ef_williams,ef_williams_debug,mult}
-                            Name of the model currently tested. Values: ['ef_williams',
-                            'ef_williams_debug', 'mult'].
+      -mn {ef_from_mfn, ef_williams, ef_williams_debug, late_fusion, mfn, mult}, --model_name 
+          {ef_from_mfn, ef_williams, ef_williams_debug, late_fusion, mfn, mult}
+                            Name of the model currently tested. Values: ['ef_from_mfn', 
+                            'ef_williams', 'ef_williams_debug', 'late_fusion', 'mfn', 'mult'].
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
                             Type of labels used for model training and evaluation. Possible
                             values: all (for all presence scores provided by the dataset), coarse
@@ -253,17 +254,17 @@ generate other graphs, please refer to `label_statistics.ipynb` file.
 Want to try one of the following models? Set `--model_name` parameter with the string value in bold. 
 For debugging, you can use **ef_williams_debug**.
 
+- **ef_from_mfn**: Early fusion model used by the authors of Memory Fusion Network (cf. model **mfn**).
+
 - **ef_williams**: Williams, J., Kleinegesse, S., Comanescu, R., & Radu, O. (2018, July). 
 [Recognizing Emotions in Video Using Multimodal DNN Feature Fusion](http://www.aclweb.org/anthology/W18-3302). 
 In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Challenge-HML)* (pp. 11-19). 
    - Updated version of [Multimodal DNN](https://github.com/rhoposit/MultimodalDNN)
    - Use standard training, validation and test sets from CMU-MOSEI SDK (instead of using only training and validation sets 
 originally specified in the paper)
-   - Available in TensorFlow and PyTorch
+   - Only model available in TensorFlow and PyTorch
 
 - **ef\_williams\_debug**: the same model as **ef_williams** used for debugging on PyTorch or TensorFlow.
-
-- **ef_from_mfn**: Early fusion model used by the authors of Memory Fusion Network (cf. model **mfn**).
   
 - **late_fusion**: We replicated the model **ef_williams** for the three inputs (text, image, audio) and averaged the 
 scores for each emotion.
@@ -320,6 +321,7 @@ _For TensorFlow:_
 **How to set the hyperparameters of your model**
 
 [//]: # (#TODO Must list the compulsory hyperparameters and force it in the code.)
+[//]: # (#[Optional] If you want to add a definition to each model parameter, you can add your model in param_def)
 
 **How to make it usable in this repository**
 

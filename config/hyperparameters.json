@@ -68,7 +68,7 @@
             "is_TensorFlow": 1,
             "architecture":
             {
-                "num_layers": 3,
+                "num_layers": 1,
                 "num_nodes": 100,
                 "dropout_rate": 0.2,
                 "final_activ": "linear"
@@ -89,9 +89,29 @@
             "is_TensorFlow": 0,
             "architecture":
             {
-                "dropout_rate": 0.2,
-                "h": 64,
-                "num_layers": 2
+                "memsize": 64,
+                "windowsize": 2,
+                "dim_h_text": 32,
+                "dim_h_image": 32,
+                "dim_h_audio": 32,
+                "nn1_layers": 1,
+                "nn1_shapes": 256,
+                "nn1_activation": "relu",
+                "nn1_drop": 0.5,
+                "nn2_layers": 1,
+                "nn2_shapes": 64,
+                "nn2_activation": "relu",
+                "nn2_drop": 0.5,
+                "gamma1_layers": 1,
+                "gamma1_shapes": 64,
+                "gamma1_activation": "relu",
+                "gamma1_drop": 0.5,
+                "gamma2_layers": 1,
+                "gamma2_shapes": 64,
+                "gamma2_activation": "relu",
+                "gamma2_drop": 0.5,
+                "out_shapes": 64,
+                "out_drop": 0.2
             },
             "training":
             {

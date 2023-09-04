@@ -144,6 +144,9 @@ def get_hyperparam_from_json(model_name, json_name):
     with open("config/{}.json".format(json_name)) as json_file:
         hyperparam = json.load(json_file)
 
+    if model_name not in list(hyperparam['models'].keys()):
+        return None, None, None
+
     check_model_name_and_structure(hyperparam, model_name, json_name)
     is_tf = (hyperparam['models'][model_name]["is_TensorFlow"])
     if json_name == "hyperparameters":

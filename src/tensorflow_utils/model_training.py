@@ -1,4 +1,5 @@
 import os.path
+import json
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
@@ -31,10 +32,14 @@ def print_hyperparameters(model_name, model_id, param_value_to_print, print_arch
     if print_archi:
         print("Model name:", model_name)
         print("Model id:", model_id)
-    _, param_archi_def, param_training_def = get_hyperparam_from_json(model_name, "param_def")
-    param_def_to_print = param_archi_def if print_archi else param_training_def
-    for key, value in param_def_to_print.items():
-        print("{}: {}".format(param_def_to_print[key], param_value_to_print[key]))
+        _, param_archi_def, param_training_def = get_hyperparam_from_json(model_name, "param_def")
+        param_def_to_print = param_archi_def if print_archi else param_training_def
+        if param_def_to_print is not None:
+            for key, value in param_def_to_print.items():
+                print("{}: {}".format(param_def_to_print[key], param_value_to_print[key]))
+        else:
+            for key, value in param_value_to_print.items():
+                print("{}: {}".format(key, value))
 
 
 def plot_history(history, model_id, history_folder, root_folder, display_fig):

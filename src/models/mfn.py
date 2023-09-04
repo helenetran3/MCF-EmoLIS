@@ -18,25 +18,26 @@ class MModel(nn.Module):
     # def __init__(self, config, NN1Config, NN2Config, gamma1Config, gamma2Config, outConfig):
     def __init__(self, model_id, param_archi, num_features_text,  num_features_image, num_features_audio, num_classes):
         super(MModel, self).__init__()
-        [self.d_l, self.d_a, self.d_v] = config["input_dims"]
-        [self.dh_l, self.dh_a, self.dh_v] = config["h_dims"]
+        [self.d_l, self.d_v, self.d_a] = [num_features_text,  num_features_image, num_features_audio]
+        [self.dh_l, self.dh_v, self.dh_a] = [param_archi['dim_h_text'], param_archi['dim_h_image'],
+                                             param_archi['dim_h_audio']]
         total_h_dim = self.dh_l + self.dh_a + self.dh_v
-        self.mem_dim = config["memsize"]
-        window_dim = config["windowsize"]
-        output_dim = 1
+        self.mem_dim = param_archi["memsize"]
+        window_dim = param_archi["windowsize"]
+        output_dim = num_classes  # We changed 1 to num_classes
         attInShape = total_h_dim * window_dim
         gammaInShape = attInShape + self.mem_dim
         final_out = total_h_dim + self.mem_dim
-        h_att1 = NN1Config["shapes"]
-        h_att2 = NN2Config["shapes"]
-        h_gamma1 = gamma1Config["shapes"]
-        h_gamma2 = gamma2Config["shapes"]
-        h_out = outConfig["shapes"]
-        att1_dropout = NN1Config["drop"]
-        att2_dropout = NN2Config["drop"]
-        gamma1_dropout = gamma1Config["drop"]
-        gamma2_dropout = gamma2Config["drop"]
-        out_dropout = outConfig["drop"]
+        h_att1 = param_archi['nn1_shapes']
+        h_att2 = param_archi['nn2_shapes']
+        h_gamma1 = param_archi['gamma1_shapes']
+        h_gamma2 = param_archi['gamma2_shapes']
+        h_out = param_archi['out_shapes']
+        att1_dropout = param_archi['nn1_drop']
+        att2_dropout = param_archi['nn2_drop']
+        gamma1_dropout = param_archi['gamma1_drop']
+        gamma2_dropout = param_archi['gamma2_drop']
+        out_dropout = param_archi['out_drop']
 
         self.lstm_l = nn.LSTMCell(self.d_l, self.dh_l)
         self.lstm_a = nn.LSTMCell(self.d_a, self.dh_a)
@@ -62,20 +63,24 @@ class MModel(nn.Module):
         self.out_fc2 = nn.Linear(h_out, output_dim)
         self.out_dropout = nn.Dropout(out_dropout)
 
-    def forward(self, x):
-        x_l = x[:, :, :self.d_l]
-        x_a = x[:, :, self.d_l:self.d_l + self.d_a]
-        x_v = x[:, :, self.d_l + self.d_a:]
+    def forward(self, x_l, x_v, x_a):
+        # x_l = x[:, :, :self.d_l]
+        # x_a = x[:, :, self.d_l:self.d_l + self.d_a]
+        # x_v = x[:, :, self.d_l + self.d_a:]
         # x is t x n x d
-        n = x.shape[1]
-        t = x.shape[0]
-        self.h_l = torch.zeros(n, self.dh_l).cuda()
-        self.h_a = torch.zeros(n, self.dh_a).cuda()
-        self.h_v = torch.zeros(n, self.dh_v).cuda()
-        self.c_l = torch.zeros(n, self.dh_l).cuda()
-        self.c_a = torch.zeros(n, self.dh_a).cuda()
-        self.c_v = torch.zeros(n, self.dh_v).cuda()
-        self.mem = torch.zeros(n, self.mem_dim).cuda()
+        ### the three following lines is to match with the required dimensions
+        x_l = x_l.transpose(0, 1)
+        x_a = x_a.transpose(0, 1)
+        x_v = x_v.transpose(0, 1)
+        n = x_l.shape[1]
+        t = x_l.shape[0]
+        self.h_l = torch.zeros(n, self.dh_l)#.cuda()
+        self.h_a = torch.zeros(n, self.dh_a)#.cuda()
+        self.h_v = torch.zeros(n, self.dh_v)#.cuda()
+        self.c_l = torch.zeros(n, self.dh_l)#.cuda()
+        self.c_a = torch.zeros(n, self.dh_a)#.cuda()
+        self.c_v = torch.zeros(n, self.dh_v)#.cuda()
+        self.mem = torch.zeros(n, self.mem_dim)#.cuda()
         all_h_ls = []
         all_h_as = []
         all_h_vs = []
@@ -98,10 +103,10 @@ class MModel(nn.Module):
             cStar = torch.cat([prev_cs, new_cs], dim=1)
             attention = F.softmax(self.att1_fc2(self.att1_dropout(F.relu(self.att1_fc1(cStar)))), dim=1)
             attended = attention * cStar
-            cHat = F.tanh(self.att2_fc2(self.att2_dropout(F.relu(self.att2_fc1(attended)))))
+            cHat = torch.tanh(self.att2_fc2(self.att2_dropout(F.relu(self.att2_fc1(attended)))))
             both = torch.cat([attended, self.mem], dim=1)
-            gamma1 = F.sigmoid(self.gamma1_fc2(self.gamma1_dropout(F.relu(self.gamma1_fc1(both)))))
-            gamma2 = F.sigmoid(self.gamma2_fc2(self.gamma2_dropout(F.relu(self.gamma2_fc1(both)))))
+            gamma1 = torch.sigmoid(self.gamma1_fc2(self.gamma1_dropout(F.relu(self.gamma1_fc1(both)))))
+            gamma2 = torch.sigmoid(self.gamma2_fc2(self.gamma2_dropout(F.relu(self.gamma2_fc1(both)))))
             self.mem = gamma1 * self.mem + gamma2 * cHat
             all_mems.append(self.mem)
             # update

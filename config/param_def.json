@@ -84,26 +84,6 @@
             }
         },
 
-        "mfn":
-        {
-            "is_TensorFlow": "Is TensorFlow",
-            "architecture":
-            {
-                "dropout_rate": "Dropout rate",
-                "h": "Number of hidden cells",
-                "num_layers": "Number layers"
-            },
-            "training":
-            {
-                "num_epochs": "Number epochs",
-                "patience": "Patience",
-                "batch_size": "Batch size",
-                "optimizer": "Optimizer",
-                "loss_function": "Loss function",
-                "learning_rate": "Learning rate"
-            }
-        },
-
         "mult":
         {
             "is_TensorFlow": "Is TensorFlow",
