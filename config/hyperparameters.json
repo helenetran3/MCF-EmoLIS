@@ -1,6 +1,26 @@
 {
     "models":
     {
+        "ef_from_mfn":
+        {
+            "is_TensorFlow": 0,
+            "architecture":
+            {
+                "dropout_rate": 0.2,
+                "h": 64,
+                "num_layers": 2
+            },
+            "training":
+            {
+                "num_epochs": 1000,
+                "patience": 10,
+                "batch_size": 64,
+                "optimizer": "adam",
+                "loss_function": "mae",
+                "learning_rate": 0.001
+            }
+        },
+
         "ef_williams":
         {
             "is_TensorFlow": 1,
@@ -24,10 +44,10 @@
 
         "ef_williams_debug":
         {
-            "is_TensorFlow": 1,
+            "is_TensorFlow": 0,
             "architecture":
             {
-                "num_layers": 1,
+                "num_layers": 3,
                 "num_nodes": 100,
                 "dropout_rate": 0.1,
                 "final_activ": "linear"
@@ -48,10 +68,30 @@
             "is_TensorFlow": 1,
             "architecture":
             {
-                "num_layers": 2,
+                "num_layers": 3,
                 "num_nodes": 100,
                 "dropout_rate": 0.2,
                 "final_activ": "linear"
+            },
+            "training":
+            {
+                "num_epochs": 1000,
+                "patience": 10,
+                "batch_size": 64,
+                "optimizer": "adam",
+                "loss_function": "mae",
+                "learning_rate": 0.001
+            }
+        },
+
+        "mfn":
+        {
+            "is_TensorFlow": 0,
+            "architecture":
+            {
+                "dropout_rate": 0.2,
+                "h": 64,
+                "num_layers": 2
             },
             "training":
             {
@@ -95,46 +135,6 @@
                 "aligned": 0,
                 "clip": 0.8,
                 "when": 20
-            }
-        },
-
-        "ef_from_mfn":
-        {
-            "is_TensorFlow": 0,
-            "architecture":
-            {
-                "dropout_rate": 0.2,
-                "h": 64,
-                "num_layers": 2
-            },
-            "training":
-            {
-                "num_epochs": 1000,
-                "patience": 10,
-                "batch_size": 64,
-                "optimizer": "adam",
-                "loss_function": "mae",
-                "learning_rate": 0.001
-            }
-        },
-
-        "mfn":
-        {
-            "is_TensorFlow": 0,
-            "architecture":
-            {
-                "dropout_rate": 0.2,
-                "h": 64,
-                "num_layers": 2
-            },
-            "training":
-            {
-                "num_epochs": 1000,
-                "patience": 10,
-                "batch_size": 64,
-                "optimizer": "adam",
-                "loss_function": "mae",
-                "learning_rate": 0.001
             }
         }
     }

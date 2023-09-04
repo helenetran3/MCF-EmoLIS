@@ -250,9 +250,8 @@ generate other graphs, please refer to `label_statistics.ipynb` file.
 
 ## Models available
 
-*The current code only runs the following model. We aim to add more models in this repository.*
-
-Want to try one of the following models? Set `--model_name` parameter with the string value in bold.
+Want to try one of the following models? Set `--model_name` parameter with the string value in bold. 
+For debugging, you can use **ef_williams_debug**.
 
 - **ef_williams**: Williams, J., Kleinegesse, S., Comanescu, R., & Radu, O. (2018, July). 
 [Recognizing Emotions in Video Using Multimodal DNN Feature Fusion](http://www.aclweb.org/anthology/W18-3302). 
@@ -260,14 +259,26 @@ In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Ch
    - Updated version of [Multimodal DNN](https://github.com/rhoposit/MultimodalDNN)
    - Use standard training, validation and test sets from CMU-MOSEI SDK (instead of using only training and validation sets 
 originally specified in the paper)
+   - Available in TensorFlow and PyTorch
+
+- **ef\_williams\_debug**: the same model as **ef_williams** used for debugging on PyTorch or TensorFlow.
+
+- **ef_from_mfn**: Early fusion model used by the authors of Memory Fusion Network (cf. model **mfn**).
+  
+- **late_fusion**: We replicated the model **ef_williams** for the three inputs (text, image, audio) and averaged the 
+scores for each emotion.
+
+- **mfn**: Zadeh, A., Liang, P. P., Mazumder, N., Poria, S., Cambria, E., & Morency, L. P. (2018, April). [Memory Fusion 
+Network for Multi-view Sequential Learning](https://ojs.aaai.org/index.php/AAAI/article/view/12021/11880). In 
+*Proceedings of the AAAI conference on artificial intelligence* (Vol. 32, No. 1).
+  - Original repository: [Memory Fusion Network](https://github.com/pliang279/MFN)
+  - 6 output cells (or 7 with the neutral class) instead of 1 
 
 - **mult**: Tsai, Y. H. H., Bai, S., Liang, P. P., Kolter, J. Z., Morency, L. P., & Salakhutdinov, R. (2019, July). 
 [Multimodal Transformer for Unaligned Multimodal Language Sequences](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7195022/). 
 In *Proceedings of the conference. Association for Computational Linguistics. Meeting* (Vol. 2019, p. 6558). NIH Public Access.
   - Original repository: [Multimodal-Transformer](https://github.com/yaohungt/Multimodal-Transformer)
   - 6 output cells (or 7 with the neutral class) instead of 1 
-
-- **ef\_williams\_debug**: the same model as **ef_williams** used for debugging on PyTorch or TensorFlow.
 
 [Go to top](#sota-models-for-multimodal-emotion-recognition) :arrow_up:
 

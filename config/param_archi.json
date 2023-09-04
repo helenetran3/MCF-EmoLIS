@@ -19,6 +19,14 @@
             "final_activ": "linear"
         },
 
+        "mfn":
+        {
+            "is_TensorFlow": 0,
+            "dropout_rate": 0.2,
+            "h": 64,
+            "num_layers": 2
+        },
+
         "mult":
         {
             "is_TensorFlow": 0,
@@ -37,22 +45,6 @@
             "nlevels": 4,
             "num_heads": 10,
             "attn_mask": 1
-        },
-
-        "ef_from_mfn":
-        {
-            "is_TensorFlow": 0,
-            "dropout_rate": 0.2,
-            "h": 64,
-            "num_layers": 2
-        },
-
-        "mfn":
-        {
-            "is_TensorFlow": 0,
-            "dropout_rate": 0.2,
-            "h": 64,
-            "num_layers": 2
         }
     }
 }

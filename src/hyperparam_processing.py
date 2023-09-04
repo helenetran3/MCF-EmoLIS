@@ -1,8 +1,8 @@
 import json
-from src.models import ef_williams_tf, ef_williams_torch, late_fusion, ef_from_MFN, mfn
+from src.models import ef_from_mfn, ef_williams_tf, ef_williams_torch, late_fusion, mfn
 from src.models.mult import model_mult
 
-possible_models = ['ef_williams', 'ef_williams_debug', 'late_fusion', 'mult', 'ef_from_mfn', 'mfn']
+possible_models = ['ef_from_mfn', 'ef_williams', 'ef_williams_debug', 'late_fusion', 'mfn', 'mult']
 possible_loss_fn = ['mae', 'mse']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
@@ -17,12 +17,12 @@ def get_model_module(model_str, is_tf):
     """
 
     model_dict = {
+        'ef_from_mfn': ef_from_mfn,
         'ef_williams': ef_williams_tf if is_tf else ef_williams_torch,
-        'ef_williams_debug': ef_williams_tf if is_tf else ef_williams_torch,  # TODO remove after debug
-        'mult': model_mult,
-        'ef_from_mfn': ef_from_MFN,
+        'ef_williams_debug': ef_williams_tf if is_tf else ef_williams_torch,
+        'late_fusion': late_fusion,
         'mfn': mfn,
-        'late_fusion': late_fusion
+        'mult': model_mult
     }
 
     if model_str.lower() in model_dict.keys():
