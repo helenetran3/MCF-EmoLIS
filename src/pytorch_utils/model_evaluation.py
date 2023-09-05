@@ -9,8 +9,14 @@ from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
 
-def evaluate_torch_model(test_list, param_model, param_training, model_name, model_id, num_steps, all_scores,
-                         predict_neutral_class, threshold_emo_pres, label_type, save_pred, device):
+def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
+                         all_scores, device):
+
+    predict_neutral_class = param_task['predict_neutral_class']
+    threshold_emo_pres = [param_task['threshold_emo_present']]
+    label_type = param_task['label_type']
+    round_decimals = param_log['round_decimals']
+    save_pred = param_log['save_predictions']
 
     x_test = test_list[0]  # list of lists of 3 arrays
     y_test = test_list[1]
@@ -72,6 +78,8 @@ def evaluate_torch_model(test_list, param_model, param_training, model_name, mod
 
                 bar()
     test_loss /= test_size
+    test_loss = np.round(test_loss, round_decimals)
+
     # correct /= test_size
     # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
     print(f"Avg test loss: {test_loss:>8f} \n")

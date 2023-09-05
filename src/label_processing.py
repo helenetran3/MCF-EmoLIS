@@ -245,8 +245,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     return pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
-def update_labels(train_list, valid_list, test_list, label_type, all_scores,
-                  predict_neutral_class, threshold_emo_pres, ext_name):
+def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     """
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
@@ -257,11 +256,8 @@ def update_labels(train_list, valid_list, test_list, label_type, all_scores,
     :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param test_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    :param label_type: Type of labels used for model training and evaluation. Possible values: all, coarse, present, dominant
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
     :param all_scores: list of available presence scores
-    :param predict_neutral_class: Whether we predict the neutral class
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
-    :param ext_name: extension name containing info on whether we predict sentiment/neutral class
     :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input
     """
 
@@ -271,6 +267,10 @@ def update_labels(train_list, valid_list, test_list, label_type, all_scores,
         y_list_res = [y.reshape((-1, num_output)) for y in y_list]
         return y_list_res
 
+    label_type = param_task['label_type']
+    predict_neutral_class = param_task['predict_neutral_class']
+    threshold_emo_pres = [param_task['threshold_emo_present']]
+    ext_name = "_n" if predict_neutral_class else ""
     num_classes = 7 if predict_neutral_class else 6
 
     y_train = train_list[1]
@@ -298,8 +298,21 @@ def update_labels(train_list, valid_list, test_list, label_type, all_scores,
     return new_train_list, new_valid_list, new_test_list
 
 
-def balance_dataset(train_list, valid_list, test_list, label_type, all_scores, predict_neutral_class,
-                    threshold_emo_pres, ext_name):
+def balance_dataset(train_list, valid_list, test_list, param_task, all_scores):
+    """
+
+    :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+    :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+    :param test_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param all_scores: list of available presence scores
+    :return:
+    """
+
+    label_type = param_task['label_type']
+    predict_neutral_class = param_task['predict_neutral_class']
+    threshold_emo_pres = [param_task['threshold_emo_present']]
+    ext_name = "_n" if predict_neutral_class else ""
     num_classes = 7 if predict_neutral_class else 6
 
     y_train = train_list[1]

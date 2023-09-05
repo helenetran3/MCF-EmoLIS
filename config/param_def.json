@@ -1,4 +1,25 @@
 {
+    "logistics": {
+        "pickle_name_dataset": "Name of the pickle object that will contain the CMU-MOSEI mmdataset",
+        "pickle_name_fold": "Name of the pickle object that will contain the training, validation and test folds",
+        "round_decimals": "Number of decimals to be rounded for metrics",
+        "plot_confusion_matrix": "Whether we plot and save confusion matrices with pickle (0 or 1)",
+        "save_predictions": "Whether we save predictions with pickle (0 or 1)",
+        "display_fig": "Whether we display the figures from the terminal (0 or 1)"
+    },
+
+    "task":
+    {
+        "model_name": "Name of the model to be tested (check README.md for the list of possible models)",
+        "label_type": "Type of labels used for model training and evaluation. Possible values: all, coarse, present, dominant (check README.md for more details)",
+        "set_length": "Fixed length for sequence data (padding/truncate, using avg, max, or int>0) OR keep variable length (set 'none', only for Pytorch). Possible values: 'avg', 'max', any strictly positive number, 'none'.",
+        "threshold_emo_present": "Threshold at which emotions are considered to be present. Must be between 0 and 3. ote that setting thresholds greater than 0 might lead to no positive true and predicted classes and skew classification metrics (F1, precision, recall).",
+        "predict_neutral_class": "Whether we predict the neutral class (0 or 1). Only useful for label_type 'present' or 'dominant.",
+        "align_to_text": "Whether audio and image data are aligned to the textual modality (0 or 1)",
+        "image_feature": "Image features. Values: facet or openface.",
+        "with_custom_split": "Whether we perform custom split on training and validation sets (0 or 1). For more details, cf. Williams et al. (2018) paper."
+    },
+
     "training":
     {
         "num_epochs": "Number epochs",

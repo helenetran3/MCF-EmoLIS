@@ -32,7 +32,7 @@ def print_hyperparameters(model_name, model_id, param_value_to_print, print_arch
     if print_archi:
         print("Model name:", model_name)
         print("Model id:", model_id)
-        param_model_def, param_training_def = get_hyperparam_from_json(model_name, "param_def")
+        param_model_def, param_training_def = get_hyperparam_from_json("param_def", model_name=model_name)
         param_def_to_print = param_model_def if print_archi else param_training_def
         if param_def_to_print is not None:
             for key, value in param_def_to_print.items():
@@ -71,8 +71,8 @@ def plot_history(history, model_id, history_folder, root_folder, display_fig):
         plt.show()
 
 
-def train_tf_model(train_list, valid_list, test_list, param_model, param_training, num_steps, model_name, model_id,
-                   predict_neutral_class, display_fig, label_type):
+def train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
+                   model_name, model_id):
     """
     Train the model using TensorFlow.
     Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
@@ -82,16 +82,18 @@ def train_tf_model(train_list, valid_list, test_list, param_model, param_trainin
     (ex: 'zk2jTlAtvSU[1]')
     :param valid_list: [x_valid, y_valid, seg_valid]
     :param test_list: [x_test, y_test, seg_test]
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
     :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. param_training.json)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training.json)
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
     :param num_steps: Fixed length for all sequences in the dataset
     :param model_name: Name of the model currently tested
-    :param predict_neutral_class: Whether we predict the neutral class
     :param model_id: Model id (int)
-    :param display_fig: Whether we display the figures
-    :param label_type: Type of labels used for model training and evaluation.
     """
 
+    predict_neutral_class = param_task['predict_neutral_class']
+    label_type = param_task['label_type']
+    display_fig = param_log['display_fig']
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
     batch_size = param_training['batch_size']

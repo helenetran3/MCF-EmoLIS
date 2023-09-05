@@ -173,22 +173,20 @@ def save_results_in_csv_file(model_name, model_id,
     #     print(len(header_presence), len(data_presence[i]))
 
 
-def save_model_param_in_csv_file(model_id, param_model, param_training,
-                                 predict_neutral_class, label_type, set_length, model_name):
+def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
     :param model_id: Model id (int)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
     :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. default_parameters.json)
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. default_parameters.json)
-    :param predict_neutral_class: Whether we predict the neutral class
-    :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
-                         scores provided by the dataset), coarse (presence score for each emotion among "
-                         [0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)
-    :param set_length: Set length for all sequences in dataset (variable length, padding or truncate for fixed length)
+    :param param_training: dictionary of 'training' hyperparameters (cf. default_parameters.json)
     :param model_name: Name of the model
     """
 
+    predict_neutral_class = param_task['predict_neutral_class']
+    set_length = param_task['set_length']
+    label_type = param_task['label_type']
     csv_path = create_csv_path(model_name, "model_ids")
     num_classes = 7 if predict_neutral_class else 6
 

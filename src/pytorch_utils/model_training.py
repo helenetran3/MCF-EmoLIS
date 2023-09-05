@@ -106,10 +106,13 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
         plt.show()
 
 
-def train_torch_model(train_list, valid_list, test_list, param_model, param_training, model_name, model_id,
-                      num_steps, predict_neutral_class, display_fig, label_type, device):
+def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_log, param_training, num_steps,
+                      model_name, model_id, device):
 
     num_training_prints = 10
+    predict_neutral_class = param_task['predict_neutral_class']
+    label_type = param_task['label_type']
+    display_fig = param_log['display_fig']
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
     batch_size = param_training['batch_size']

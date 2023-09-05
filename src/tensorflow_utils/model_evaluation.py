@@ -30,25 +30,27 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, model_id,
     return pred_raw
 
 
-def evaluate_tf_model(test_list, param_training, max_steps, model_name, model_id, all_scores,
-                      predict_neutral_class, threshold_emo_pres, label_type, round_decimals, save_pred):
+def evaluate_tf_model(test_list, param_task, param_training, param_log, max_steps, model_name, model_id, all_scores):
     """
     Evaluate the performance of the best model.
 
     :param test_list: [x_test, y_test, seg_test]
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. param_training.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training.json)
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
     :param max_steps: Maximum length for all sequences in the dataset
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
     :param all_scores: list of available presence scores
-    :param predict_neutral_class: Whether we predict the neutral class
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
-    :param round_decimals: Number of decimals to be rounded for metrics
-    :param save_pred: Whether we save predictions with pickle
 
     :returns loss_function_val, pred_raw, pred_scores, pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
 
+    predict_neutral_class = param_task['predict_neutral_class']
+    threshold_emo_pres = [param_task['threshold_emo_present']]
+    label_type = param_task['label_type']
+    round_decimals = param_log['round_decimals']
+    save_pred = param_log['save_predictions']
     batch_size = param_training['batch_size']
     loss_function = get_loss_function(param_training['loss_function'], is_tf=True)
 

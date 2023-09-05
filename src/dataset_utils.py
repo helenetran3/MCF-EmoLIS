@@ -18,13 +18,12 @@ def avg_collapse_function(intervals: np.array, features: np.array) -> np.array:
         return features
 
 
-def download_dataset(pickle_name_dataset, align_to_text, append_label_to_data):
+def download_dataset(pickle_name_dataset, align_to_text):
     """
     Download CMU-MOSEI dataset using the SDK and perform data alignment (if desired).
 
     :param pickle_name_dataset: name of the pickle object that will contain the CMU-MOSEI mmdataset
     :param align_to_text: whether we want data to align to the textual modality
-    :param append_label_to_data: whether we want data to align to the labels
     """
 
     # The next two lines for safety. The function should be called only if the pickle obj does not exist
@@ -42,27 +41,28 @@ def download_dataset(pickle_name_dataset, align_to_text, append_label_to_data):
         if align_to_text:
             cmu_mosei.align('glove_vectors', collapse_functions=[avg_collapse_function])
 
-        if append_label_to_data:
-            cmu_mosei.add_computational_sequences(mmdatasdk.cmu_mosei.labels, 'cmu_mosei/')
-            cmu_mosei.align('All Labels')
+        cmu_mosei.add_computational_sequences(mmdatasdk.cmu_mosei.labels, 'cmu_mosei/')
+        cmu_mosei.align('All Labels')
 
         # Save cmu_mosei mmdataset with pickle
         save_with_pickle(cmu_mosei, pickle_name_dataset, pickle_folder="mmdataset", root_folder="cmu_mosei")
 
 
-def get_dataset_from_sdk(pickle_name_dataset, align_to_text, append_label_to_data):
+def get_dataset_from_sdk(param_log, param_task):
     """
     Return CMU-MOSEI mmdataset.
 
-    :param pickle_name_dataset: name of the pickle object that will contain the CMU-MOSEI mmdataset
-    :param align_to_text: whether we want data to align to the textual modality
-    :param append_label_to_data: whether we want data to align to the labels
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
     :return: CMU-MOSEI mmdataset
     """
 
+    pickle_name_dataset = param_log['pickle_name_dataset']
+    align_to_text = param_task['align_to_text']
+
     if not pickle_file_exists(pickle_name_dataset, pickle_folder="mmdataset", root_folder="cmu_mosei"):
         # Download from sdk and save with pickle
-        download_dataset(pickle_name_dataset, align_to_text, append_label_to_data)
+        download_dataset(pickle_name_dataset, align_to_text)
 
     # Get CMU-MOSEI mmdataset object from pickle
     dataset = load_from_pickle(pickle_name_dataset, pickle_folder='mmdataset', root_folder="cmu_mosei")
@@ -118,13 +118,15 @@ def perform_custom_split(train_ids, valid_ids, test_ids):
     return new_train_ids, new_valid_ids, new_test_ids
 
 
-def get_fold_ids(with_custom_split):
+def get_fold_ids(param_task):
     """
     Get CMU-MOSEI standard fold ids for training, validation, and test
 
-    :param with_custom_split: whether we perform custom_split proposed by the paper written by Williams et al. (ACL 2018)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
     :return: 3 lists of ids for training, validation, and test sets respectively
     """
+
+    with_custom_split = param_task['with_custom_split']
 
     train_ids = mmdatasdk.cmu_mosei.standard_folds.standard_train_fold
     valid_ids = mmdatasdk.cmu_mosei.standard_folds.standard_valid_fold
@@ -136,7 +138,7 @@ def get_fold_ids(with_custom_split):
     return train_ids, valid_ids, test_ids
 
 
-def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_feature, pickle_name_fold):
+def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log):
     """
     For each training, validation and test sets, create a list of three sublists:
     - one for features (x): a list of 3 arrays of shape (number steps, number features) for text, image and audio
@@ -150,11 +152,14 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
     :param train_ids: list of training ids
     :param valid_ids: list of validation ids
     :param test_ids: list of test ids
-    :param image_feature: image feature type (either FACET 4.2 or OpenFace 2)
-    :param pickle_name_fold: root name of the pickle object that contains the training, validation and test folds
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
     :return: 3 lists train_list = [x_train, y_train, seg_train], valid_list = [x_valid, y_valid, seg_valid],
      test_list = [x_test, y_test, seg_test]
     """
+
+    image_feature = param_task['image_feature']
+    pickle_name_fold = param_log['pickle_name_fold']
 
     # a sentinel epsilon for safe division, without it we will replace illegal values with a constant
     EPS = 0
@@ -263,15 +268,18 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, image_fea
 
 
 # BUILD TENSORFLOW DATASETS
-def get_length_dataset(set_length, train_list, valid_list, test_list, is_tf):
+def get_length_dataset(train_list, valid_list, test_list, param_task, is_tf):
     """
     Return the desired length for creating batches. (None if we want to keep variable lengths)
-    :param set_length: Set length for all sequences in dataset (variable length, padding or truncate for fixed length)
     :param train_list: [X_train, y_train, seg_train]
     :param valid_list: [X_valid, y_valid, seg_valid]
     :param test_list: [X_test, y_test, seg_test]
-    :return:
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param is_tf: whether it is TensorFlow or not (boolean)
+    :return: Number of steps for each datapoint
     """
+
+    set_length = param_task['set_length']
 
     def get_maximum_sequence_length_dataset():
         def get_maximum_sequence_length(x_list):

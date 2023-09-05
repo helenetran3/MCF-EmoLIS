@@ -112,8 +112,6 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             Name of the pickle object that will contain the training, validation
                             and test folds.
       -t, --align_to_text   Data will be aligned to the textual modality.
-      -al, --append_label_to_data
-                            Append annotations to the dataset.
       -f {facet,openface}, --image_feature {facet,openface}
                             Image features. Values: facet or openface.
       -c, --with_custom_split

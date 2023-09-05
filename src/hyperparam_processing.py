@@ -112,6 +112,13 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                     raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
                                       .format(root_key, key, json_name))
 
+    def check_value_is_int(hp_name, hp_value, strictly_positive):
+        type_value = type(hp_value)
+        if (type_value is not int) or (strictly_positive and hp_value == 0):
+            strictly_positive_str = "a strictly positive" if strictly_positive else "an"
+            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not {} integer. "
+                             "Please check '{}.json' file.".format(hp_value, hp_name, strictly_positive_str, json_name))
+
     def check_value_is_number(hp_name, hp_value):
         type_value = type(hp_value)
         if not (type_value is int or type_value is float):
@@ -123,17 +130,26 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
             raise ValueError("The value '{}' assigned to hyperparameter '{}' is not among possible values: {}. "
                              "Please check '{}.json' file.".format(hp_value, hp_name, list_possible_values, json_name))
 
+    def check_value_is_binary(hp_name, hp_value):
+        check_value_is_in_list(hp_name, hp_value, [0, 1])
+
+    def check_set_length_param(hp_value):
+        if hp_value != 'avg' and hp_value != 'max' and hp_value != "none" and type(hp_value) != int \
+                and (type(hp_value) == int and hp_value == 0):
+            raise ValueError("Invalid value for parameter set_length. Please choose value between: 'avg', 'max',"
+                             " any strictly positive number, 'none'")
+
     if json_name == 'param_model':
-        check_if_key_is_in_list_actual_keys([model_name], hyperparam_dict['models'], None, check_model_in_dict=True)
+        check_if_key_is_in_list_actual_keys([model_name], hyperparam_dict['models'], 'models', check_model_in_dict=True)
         hyperparam_model = hyperparam_dict['models'][model_name]
         check_if_key_is_in_list_actual_keys(['is_TensorFlow'], hyperparam_model, model_name)
-        check_value_is_in_list("is_TensorFlow", hyperparam_model['is_TensorFlow'], [0, 1])
+        check_value_is_binary("is_TensorFlow", hyperparam_model['is_TensorFlow'])
 
     if json_name == 'param_training':
         hyperparam_training = hyperparam_dict['training']
         required_keys = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function', 'learning_rate', 'clip',
                          'when']
-        check_if_key_is_in_list_actual_keys(required_keys, hyperparam_training, model_name)
+        check_if_key_is_in_list_actual_keys(required_keys, hyperparam_training, json_name)
         check_value_is_number('num_epochs', hyperparam_training['num_epochs'])
         check_value_is_number('patience', hyperparam_training['patience'])
         check_value_is_number('batch_size', hyperparam_training['batch_size'])
@@ -143,8 +159,32 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_in_list('optimizer', hyperparam_training['optimizer'], possible_optimizers)
         check_value_is_in_list('loss_function', hyperparam_training['loss_function'], possible_loss_fn)
 
+    if json_name == 'param_task':
+        hyperparam_task = hyperparam_dict['task']
+        required_keys = ['model_name', 'label_type', 'set_length', 'threshold_emo_present', 'predict_neutral_class',
+                         'align_to_text', 'image_feature', 'with_custom_split']
+        check_if_key_is_in_list_actual_keys(required_keys, hyperparam_task, json_name)
+        check_value_is_binary('threshold_emo_present', hyperparam_task['threshold_emo_present'])
+        check_value_is_binary('predict_neutral_class', hyperparam_task['predict_neutral_class'])
+        check_value_is_binary('align_to_text', hyperparam_task['align_to_text'])
+        check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])
+        check_set_length_param(hyperparam_task['set_length'])
+        check_value_is_in_list('model_name', hyperparam_task['model_name'], possible_models)
+        check_value_is_in_list('label_type', hyperparam_task['label_type'], ['all', 'coarse', 'present', 'dominant'])
+        check_value_is_in_list('image_feature', hyperparam_task['image_feature'], ['facet', 'openface'])
 
-def get_hyperparam_from_json(model_name, json_name):
+    if json_name == 'param_logistics':
+        hyperparam_log = hyperparam_dict['logistics']
+        required_keys = ['pickle_name_dataset', 'pickle_name_fold', 'round_decimals', 'plot_confusion_matrix',
+                         'save_prediction', 'display_fig']
+        check_if_key_is_in_list_actual_keys(required_keys, hyperparam_log, json_name)
+        check_value_is_int('round_decimals', hyperparam_log['round_decimals'], strictly_positive=False)
+        check_value_is_binary('plot_confusion_matrix', hyperparam_log['plot_confusion_matrix'])
+        check_value_is_binary('save_prediction', hyperparam_log['save_prediction'])
+        check_value_is_binary('display_fig', hyperparam_log['display_fig'])
+
+
+def get_hyperparam_from_json(json_name, model_name=None):
 
     with open("config/{}.json".format(json_name)) as json_file:
         hyperparam_dict = json.load(json_file)

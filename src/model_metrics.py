@@ -412,9 +412,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 def compute_and_save_model_metrics(test_list,
                                    loss_function_val,
                                    pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                   param_training, label_type, model_name, model_id, all_scores,
-                                   predict_neutral_class, threshold_emo_pres, round_decimals, ext_name,
-                                   plot_confusion_matrix, display_fig):
+                                   param_task, param_training, param_log, model_name, model_id, all_scores):
     """
     Compute and save model metrics, based on loss function value and prediction scores.
 
@@ -425,20 +423,22 @@ def compute_and_save_model_metrics(test_list,
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by threshold_emo_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. param_training.json)
-    :param label_type: Type of labels used for model training and evaluation.
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training.json)
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
     :param all_scores: list of available presence scores
-    :param predict_neutral_class: Whether we predict the neutral class
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
-    :param round_decimals: Number of decimals to be rounded for metrics
-    :param ext_name: extension name containing info on whether we predict neutral class
-    :param plot_confusion_matrix: Whether we save confusion matrices with pickle
-    :param display_fig: Whether we display figures
     """
 
+    predict_neutral_class = param_task['predict_neutral_class']
+    threshold_emo_pres = [param_task['threshold_emo_present']]
+    label_type = param_task['label_type']
+    round_decimals = param_log['round_decimals']
+    plot_confusion_matrix = param_log['plot_confusion_matrix']
+    display_fig = param_log['display_fig']
     loss_function = param_training['loss_function']
+    ext_name = "_n" if predict_neutral_class else ""
 
     model_folder = os.path.join('results', model_name)
 
