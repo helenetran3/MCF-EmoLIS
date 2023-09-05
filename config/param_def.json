@@ -11,7 +11,7 @@
         "when": "When to decay learning rate (-1 if parameter not used)"
     },
 
-    "architecture":
+    "model":
     {
         "ef_from_mfn":
         {

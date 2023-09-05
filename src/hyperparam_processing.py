@@ -112,6 +112,17 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                     raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
                                       .format(root_key, key, json_name))
 
+    def check_value_is_number(hp_name, hp_value):
+        type_value = type(hp_value)
+        if not (type_value is int or type_value is float):
+            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not a number. "
+                             "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+
+    def check_value_is_in_list(hp_name, hp_value, list_possible_values):
+        if hp_value not in list_possible_values:
+            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not among possible values: {}. "
+                             "Please check '{}.json' file.".format(hp_value, hp_name, list_possible_values, json_name))
+
     if json_name == 'param_model':
         check_if_key_is_in_list_actual_keys([model_name], hyperparam_dict['models'], None, check_model_in_dict=True)
         hyperparam_model = hyperparam_dict['models'][model_name]
@@ -133,21 +144,6 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_in_list('loss_function', hyperparam_training['loss_function'], possible_loss_fn)
 
 
-def check_value_is_number(hp_name, hp_value):
-
-    type_value = type(hp_value)
-    if not (type_value is int or type_value is float):
-        raise ValueError("The value '{}' assigned to hyperparameter '{}' is not a number. "
-                         "Please check 'hyperparameters.json' file.".format(hp_value, hp_name))
-
-
-def check_value_is_in_list(hp_name, hp_value, list_possible_values):
-
-    if hp_value not in list_possible_values:
-        raise ValueError("The value '{}' assigned to hyperparameter '{}' is not among possible values: {}. "
-                         "Please check 'hyperparameters.json' file.".format(hp_value, hp_name, list_possible_values))
-
-
 def get_hyperparam_from_json(model_name, json_name):
 
     with open("config/{}.json".format(json_name)) as json_file:
@@ -155,10 +151,10 @@ def get_hyperparam_from_json(model_name, json_name):
 
     # param_def.json has a different structure from the others
     if json_name == "param_def":
-        if model_name not in list(hyperparam_dict['architecture'].keys()):
+        if model_name not in list(hyperparam_dict['model'].keys()):
             return None, None
         else:
-            return hyperparam_dict['training'], hyperparam_dict['architecture'][model_name]
+            return hyperparam_dict['model'][model_name], hyperparam_dict['training']
 
     # for param_model.json and param_training.json
     else:
