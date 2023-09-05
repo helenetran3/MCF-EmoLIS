@@ -179,8 +179,8 @@ def save_model_param_in_csv_file(model_id, param_model, param_training,
     Create a csv file which lists the model ids and model architecture/training parameters.
 
     :param model_id: Model id (int)
-    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. default_parameters.json)
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. default_parameters.json)
     :param predict_neutral_class: Whether we predict the neutral class
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
                          scores provided by the dataset), coarse (presence score for each emotion among "

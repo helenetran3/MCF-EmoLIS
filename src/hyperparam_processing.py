@@ -56,7 +56,7 @@ def get_loss_function(loss_function_str, is_tf):
     if loss_function_str.lower() in loss_fn_dict.keys():
         return loss_fn_dict[loss_function_str]
     else:
-        raise ValueError("'{}' assigned to key 'loss_function' in 'hyperparameters.json' is invalid."
+        raise ValueError("'{}' assigned to key 'loss_function' in 'default_parameters.json' is invalid."
                          " Please choose among {}.".format(loss_function_str, possible_loss_fn))
 
 
@@ -94,7 +94,7 @@ def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):
     if optimizer_str.lower() in opt_dict.keys():
         return opt_dict[optimizer_str]
     else:
-        raise ValueError("'{}' assigned to key 'optimizer' in 'hyperparameters.json' is invalid."
+        raise ValueError("'{}' assigned to key 'optimizer' in 'default_parameters.json' is invalid."
                          " Please choose among {}.".format(optimizer_str, possible_optimizers))
 
 

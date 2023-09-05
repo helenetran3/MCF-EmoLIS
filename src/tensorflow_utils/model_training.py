@@ -82,8 +82,8 @@ def train_tf_model(train_list, valid_list, test_list, param_model, param_trainin
     (ex: 'zk2jTlAtvSU[1]')
     :param valid_list: [x_valid, y_valid, seg_valid]
     :param test_list: [x_test, y_test, seg_test]
-    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. param_training.json)
     :param num_steps: Fixed length for all sequences in the dataset
     :param model_name: Name of the model currently tested
     :param predict_neutral_class: Whether we predict the neutral class

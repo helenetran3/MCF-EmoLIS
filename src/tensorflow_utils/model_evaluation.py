@@ -36,7 +36,7 @@ def evaluate_tf_model(test_list, param_training, max_steps, model_name, model_id
     Evaluate the performance of the best model.
 
     :param test_list: [x_test, y_test, seg_test]
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. param_training.json)
     :param max_steps: Maximum length for all sequences in the dataset
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)

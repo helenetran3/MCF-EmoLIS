@@ -10,7 +10,7 @@ class MModel(nn.Module):
         Works only when the number of steps is the same for all datapoints.
 
         :param model_id: Model id (int)
-        :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+        :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
         :param num_features_text: size of text feature vector (it should be the same at each step)
         :param num_features_image: size of image feature vector (it should be the same at each step)
         :param num_features_audio: size of audio feature vector (it should be the same at each step)

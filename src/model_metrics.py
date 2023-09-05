@@ -425,7 +425,7 @@ def compute_and_save_model_metrics(test_list,
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by threshold_emo_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
-    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. param_training.json)
     :param label_type: Type of labels used for model training and evaluation.
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
