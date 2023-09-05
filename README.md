@@ -301,8 +301,8 @@ _For PyTorch:_
 
 1. Create your model in a Python class and name it `MModel`: `class MModel(nn.Module)`.
 2. The class must at least contain the following functions:
-   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_archi, num_features_text, 
-   num_features_image, num_features_audio, num_classes)`. The parameter `param_archi` is a dictionary defined in 
+   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_model, num_features_text, 
+   num_features_image, num_features_audio, num_classes)`. The parameter `param_model` is a dictionary defined in 
    `config/hyperparameters.json` (will be explained in the next subsection) 
    2. `forward` which inputs the three feature arrays (text - image - audio, in this order) and returns the output 
    (the dimension must be *self.num_classes*): `def forward(self, x_text, x_image, x_audio)`. If you work with variable 
@@ -312,8 +312,8 @@ _For PyTorch:_
 _For TensorFlow:_
 1. Create your model in a Python class and name it `MModel`: `class MModel`.
 2. The class must at least contain the following functions:
-   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_archi, num_features_text, 
-   num_features_image, num_features_audio, num_steps, num_classes)`. The parameter `param_archi` is a dictionary defined
+   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_model, num_features_text, 
+   num_features_image, num_features_audio, num_steps, num_classes)`. The parameter `param_model` is a dictionary defined
    in `config/hyperparameters.json` (will be explained in the next subsection)
    2. `build` which returns a `Model` object from `keras` library: `def build(self)`. The output of the model must be of
    dimension *self.num_classes*. Note that TensorFlow do not support variable input length (as far as I know).

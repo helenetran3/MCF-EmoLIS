@@ -173,13 +173,13 @@ def save_results_in_csv_file(model_name, model_id,
     #     print(len(header_presence), len(data_presence[i]))
 
 
-def save_model_param_in_csv_file(model_id, param_archi, param_training,
+def save_model_param_in_csv_file(model_id, param_model, param_training,
                                  predict_neutral_class, label_type, set_length, model_name):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
     :param model_id: Model id (int)
-    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param predict_neutral_class: Whether we predict the neutral class
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
@@ -193,8 +193,8 @@ def save_model_param_in_csv_file(model_id, param_archi, param_training,
     num_classes = 7 if predict_neutral_class else 6
 
     # Model architecture hyperparameters
-    data_archi = list(param_archi.values())
-    header_archi = list(param_archi.keys())
+    data_archi = list(param_model.values())
+    header_archi = list(param_model.keys())
     data = [model_id, model_name] + data_archi + [num_classes]
     header = ['model_id', 'model_name'] + header_archi + ['num_classes']
 

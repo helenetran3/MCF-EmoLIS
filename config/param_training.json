@@ -6,6 +6,8 @@
     "batch_size": 64,
     "optimizer": "adam",
     "loss_function": "mae",
-    "learning_rate": 0.001
+    "learning_rate": 0.001,
+    "clip": -1,
+    "when": -1
   }
 }

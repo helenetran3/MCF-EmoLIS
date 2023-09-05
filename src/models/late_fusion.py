@@ -9,14 +9,14 @@ class MModel:
     (Challenge-HML) (pp. 11-19).
     """
 
-    def __init__(self, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_steps,
+    def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio, num_steps,
                  num_classes):
         """
         Build the model described in the paper (cf. README for the reference).
         Works only when the number of steps is the same for all datapoints.
 
         :param model_id: Model id (int)
-        :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+        :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
         :param num_features_text: size of text feature vector (it should be the same at each step)
         :param num_features_image: size of image feature vector (it should be the same at each step)
         :param num_features_audio: size of audio feature vector (it should be the same at each step)
@@ -32,10 +32,10 @@ class MModel:
         self.num_steps = num_steps
         self.num_classes = num_classes
         self.num_steps = num_steps
-        self.num_layers = param_archi['num_layers']
-        self.num_nodes = param_archi['num_nodes']
-        self.dropout_rate = param_archi['dropout_rate']
-        self.final_activ = param_archi['final_activ']
+        self.num_layers = param_model['num_layers']
+        self.num_nodes = param_model['num_nodes']
+        self.dropout_rate = param_model['dropout_rate']
+        self.final_activ = param_model['final_activ']
 
     def build(self):
         """

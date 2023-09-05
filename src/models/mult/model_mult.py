@@ -17,7 +17,7 @@ from src.models.mult.modules.transformer import TransformerEncoder
 
 
 class MModel(nn.Module):
-    def __init__(self, model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+    def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio,
                  num_classes):
         """
         Construct a mult model.
@@ -27,19 +27,19 @@ class MModel(nn.Module):
         self.model_id = model_id
         self.orig_d_l, self.orig_d_a, self.orig_d_v = num_features_text, num_features_audio, num_features_image
         self.d_l, self.d_a, self.d_v = 30, 30, 30
-        self.vonly = param_archi['vonly']
-        self.aonly = param_archi['aonly']
-        self.lonly = param_archi['lonly']
-        self.num_heads = param_archi['num_heads']
-        self.layers = param_archi['nlevels']
-        self.attn_dropout = param_archi['attn_dropout']
-        self.attn_dropout_a = param_archi['attn_dropout_a']
-        self.attn_dropout_v = param_archi['attn_dropout_v']
-        self.relu_dropout = param_archi['relu_dropout']
-        self.embed_dropout = param_archi['embed_dropout']
-        self.res_dropout = param_archi['res_dropout']
-        self.out_dropout = param_archi['out_dropout']
-        self.attn_mask = param_archi['attn_mask']
+        self.vonly = param_model['vonly']
+        self.aonly = param_model['aonly']
+        self.lonly = param_model['lonly']
+        self.num_heads = param_model['num_heads']
+        self.layers = param_model['nlevels']
+        self.attn_dropout = param_model['attn_dropout']
+        self.attn_dropout_a = param_model['attn_dropout_a']
+        self.attn_dropout_v = param_model['attn_dropout_v']
+        self.relu_dropout = param_model['relu_dropout']
+        self.embed_dropout = param_model['embed_dropout']
+        self.res_dropout = param_model['res_dropout']
+        self.out_dropout = param_model['out_dropout']
+        self.attn_mask = param_model['attn_mask']
 
         combined_dim = self.d_l + self.d_a + self.d_v
 

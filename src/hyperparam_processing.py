@@ -100,28 +100,37 @@ def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):
 
 def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
 
-    def check_if_key_is_in_list_actual_keys(key, list_actual_keys, root_key):
-        if key not in list_actual_keys:
-            raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
-                              .format(root_key, key, json_name))
+    def check_if_key_is_in_list_actual_keys(keys, hyperparam_subdict, root_key, check_model_in_dict=False):
+        list_existing_keys = list(hyperparam_subdict.keys())
+        for key in keys:
+            if key not in list_existing_keys:
+                if check_model_in_dict:
+                    raise ValueError(
+                        "Model name '{}' not found in {}.json file. Please create a dictionary with '{}' key or"
+                        " choose among {}.".format(model_name, model_name, json_name, list_existing_keys))
+                else:
+                    raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
+                                      .format(root_key, key, json_name))
 
-    list_available_models = list(hyperparam_dict['models'].keys())
-    if model_name not in list_available_models:
-        raise ValueError("Model name '{}' not found. Please create a dictionary with '{}' key in {}.json file or"
-                         " choose among {}.".format(model_name, model_name, json_name, list_available_models))
+    if json_name == 'param_model':
+        check_if_key_is_in_list_actual_keys([model_name], hyperparam_dict['models'], None, check_model_in_dict=True)
+        hyperparam_model = hyperparam_dict['models'][model_name]
+        check_if_key_is_in_list_actual_keys(['is_TensorFlow'], hyperparam_model, model_name)
+        check_value_is_in_list("is_TensorFlow", hyperparam_model['is_TensorFlow'], [0, 1])
 
-    list_keys_from_model = list(hyperparam_dict['models'][model_name].keys())
-    check_if_key_is_in_list_actual_keys('is_TensorFlow', list_keys_from_model, model_name)
-    check_if_key_is_in_list_actual_keys('architecture', list_keys_from_model, model_name)
-    check_if_key_is_in_list_actual_keys('training', list_keys_from_model, model_name)
-
-    list_keys_from_training = list(hyperparam_dict['models'][model_name]['training'].keys())
-    check_if_key_is_in_list_actual_keys('num_epochs', list_keys_from_training, "training' in '{}".format(model_name))
-    check_if_key_is_in_list_actual_keys('patience', list_keys_from_training, "training' in '{}".format(model_name))
-    check_if_key_is_in_list_actual_keys('batch_size', list_keys_from_training, "training' in '{}".format(model_name))
-    check_if_key_is_in_list_actual_keys('optimizer', list_keys_from_training, "training' in '{}".format(model_name))
-    check_if_key_is_in_list_actual_keys('loss_function', list_keys_from_training, "training' in '{}".format(model_name))
-    check_if_key_is_in_list_actual_keys('learning_rate', list_keys_from_training, "training' in '{}".format(model_name))
+    if json_name == 'param_training':
+        hyperparam_training = hyperparam_dict['training']
+        required_keys = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function', 'learning_rate', 'clip',
+                         'when']
+        check_if_key_is_in_list_actual_keys(required_keys, hyperparam_training, model_name)
+        check_value_is_number('num_epochs', hyperparam_training['num_epochs'])
+        check_value_is_number('patience', hyperparam_training['patience'])
+        check_value_is_number('batch_size', hyperparam_training['batch_size'])
+        check_value_is_number('learning_rate', hyperparam_training['learning_rate'])
+        check_value_is_number('clip', hyperparam_training['clip'])
+        check_value_is_number('when', hyperparam_training['when'])
+        check_value_is_in_list('optimizer', hyperparam_training['optimizer'], possible_optimizers)
+        check_value_is_in_list('loss_function', hyperparam_training['loss_function'], possible_loss_fn)
 
 
 def check_value_is_number(hp_name, hp_value):
@@ -142,26 +151,19 @@ def check_value_is_in_list(hp_name, hp_value, list_possible_values):
 def get_hyperparam_from_json(model_name, json_name):
 
     with open("config/{}.json".format(json_name)) as json_file:
-        hyperparam = json.load(json_file)
+        hyperparam_dict = json.load(json_file)
 
-    if model_name not in list(hyperparam['models'].keys()):
-        return None, None, None
+    # param_def.json has a different structure from the others
+    if json_name == "param_def":
+        if model_name not in list(hyperparam_dict['architecture'].keys()):
+            return None, None
+        else:
+            return hyperparam_dict['training'], hyperparam_dict['architecture'][model_name]
 
-    check_model_name_and_structure(hyperparam, model_name, json_name)
-    is_tf = (hyperparam['models'][model_name]["is_TensorFlow"])
-    if json_name == "hyperparameters":
-        check_value_is_in_list("is_TensorFlow", is_tf, [0, 1])
-        is_tf = bool(is_tf)
-    param_archi = hyperparam['models'][model_name]["architecture"]
-    param_training = hyperparam['models'][model_name]["training"]
+    # for param_model.json and param_training.json
+    else:
+        check_model_name_and_structure(hyperparam_dict, model_name, json_name)
+        hyperparam_model = hyperparam_dict['models'][model_name] if json_name == 'param_model' \
+            else hyperparam_dict['training']
 
-    if json_name == "hyperparameters":
-        # Check hyperparameter values from model training
-        check_value_is_number('num_epochs', param_training['num_epochs'])
-        check_value_is_number('patience', param_training['patience'])
-        check_value_is_number('batch_size', param_training['batch_size'])
-        check_value_is_number('learning_rate', param_training['learning_rate'])
-        check_value_is_in_list('loss_function', param_training['loss_function'], possible_loss_fn)
-        check_value_is_in_list('optimizer', param_training['optimizer'], possible_optimizers)
-
-    return is_tf, param_archi, param_training
+        return hyperparam_model

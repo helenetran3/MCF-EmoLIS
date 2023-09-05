@@ -4,13 +4,13 @@ import torch.nn.functional as F
 
 
 class MModel(nn.Module):
-    def __init__(self, model_id, param_archi, num_features_text, num_features_image, num_features_audio, num_classes):
+    def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio, num_classes):
         """
         Build the model described in the paper (cf. README for the reference).
         Works only when the number of steps is the same for all datapoints.
 
         :param model_id: Model id (int)
-        :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+        :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
         :param num_features_text: size of text feature vector (it should be the same at each step)
         :param num_features_image: size of image feature vector (it should be the same at each step)
         :param num_features_audio: size of audio feature vector (it should be the same at each step)
@@ -24,9 +24,9 @@ class MModel(nn.Module):
         self.num_features_audio = num_features_audio
         self.num_features = num_features_text + num_features_image + num_features_audio
         self.num_classes = num_classes
-        self.num_layers = param_archi['num_layers']
-        self.dropout_rate = param_archi['dropout_rate']
-        self.h = param_archi['h']
+        self.num_layers = param_model['num_layers']
+        self.dropout_rate = param_model['dropout_rate']
+        self.h = param_model['h']
         self.concatenate = torch.cat
         self.bidir_lstm_layers = nn.LSTM(self.num_features, 64, self.num_layers).to(device="cpu", dtype=torch.bfloat16)
         self.lstm = nn.LSTMCell(self.num_features, self.h).to(device='cpu', dtype=torch.bfloat16)

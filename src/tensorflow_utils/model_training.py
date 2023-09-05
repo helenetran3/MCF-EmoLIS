@@ -32,8 +32,8 @@ def print_hyperparameters(model_name, model_id, param_value_to_print, print_arch
     if print_archi:
         print("Model name:", model_name)
         print("Model id:", model_id)
-        _, param_archi_def, param_training_def = get_hyperparam_from_json(model_name, "param_def")
-        param_def_to_print = param_archi_def if print_archi else param_training_def
+        param_model_def, param_training_def = get_hyperparam_from_json(model_name, "param_def")
+        param_def_to_print = param_model_def if print_archi else param_training_def
         if param_def_to_print is not None:
             for key, value in param_def_to_print.items():
                 print("{}: {}".format(param_def_to_print[key], param_value_to_print[key]))
@@ -71,7 +71,7 @@ def plot_history(history, model_id, history_folder, root_folder, display_fig):
         plt.show()
 
 
-def train_tf_model(train_list, valid_list, test_list, param_archi, param_training, num_steps, model_name, model_id,
+def train_tf_model(train_list, valid_list, test_list, param_model, param_training, num_steps, model_name, model_id,
                    predict_neutral_class, display_fig, label_type):
     """
     Train the model using TensorFlow.
@@ -82,7 +82,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     (ex: 'zk2jTlAtvSU[1]')
     :param valid_list: [x_valid, y_valid, seg_valid]
     :param test_list: [x_test, y_test, seg_test]
-    :param param_archi: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
+    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param param_training: dictionary of 'training' hyperparameters of the model chosen (cf. hyperparameters.json)
     :param num_steps: Fixed length for all sequences in the dataset
     :param model_name: Name of the model currently tested
@@ -140,7 +140,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     loss_function = get_loss_function(loss_function_str, is_tf=True)
     optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
     model_module = get_model_module(model_name, is_tf=True)
-    model_class = model_module.MModel(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+    model_class = model_module.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
                                       num_steps, num_classes)
     model_tf = model_class.build()
 
@@ -159,7 +159,7 @@ def train_tf_model(train_list, valid_list, test_list, param_archi, param_trainin
     print_hyperparameters(model_name, model_id, param_training, print_archi=False)
     print("Fixed number of steps:", num_steps)
     print("\n>>> Model parameters")
-    print_hyperparameters(model_name, model_id, param_archi, print_archi=True)
+    print_hyperparameters(model_name, model_id, param_model, print_archi=True)
     print("\n")
     print(model_tf.summary())
 

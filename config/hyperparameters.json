@@ -152,7 +152,6 @@
                 "optimizer": "adam",
                 "loss_function": "mae",
                 "learning_rate": 2e-3,
-                "aligned": 0,
                 "clip": 0.8,
                 "when": 20
             }

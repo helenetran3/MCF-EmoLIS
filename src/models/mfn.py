@@ -16,28 +16,28 @@ import torch.nn.functional as F
 
 class MModel(nn.Module):
     # def __init__(self, config, NN1Config, NN2Config, gamma1Config, gamma2Config, outConfig):
-    def __init__(self, model_id, param_archi, num_features_text,  num_features_image, num_features_audio, num_classes):
+    def __init__(self, model_id, param_model, num_features_text,  num_features_image, num_features_audio, num_classes):
         super(MModel, self).__init__()
         [self.d_l, self.d_v, self.d_a] = [num_features_text,  num_features_image, num_features_audio]
-        [self.dh_l, self.dh_v, self.dh_a] = [param_archi['dim_h_text'], param_archi['dim_h_image'],
-                                             param_archi['dim_h_audio']]
+        [self.dh_l, self.dh_v, self.dh_a] = [param_model['dim_h_text'], param_model['dim_h_image'],
+                                             param_model['dim_h_audio']]
         total_h_dim = self.dh_l + self.dh_a + self.dh_v
-        self.mem_dim = param_archi["memsize"]
-        window_dim = param_archi["windowsize"]
+        self.mem_dim = param_model["memsize"]
+        window_dim = param_model["windowsize"]
         output_dim = num_classes  # We changed 1 to num_classes
         attInShape = total_h_dim * window_dim
         gammaInShape = attInShape + self.mem_dim
         final_out = total_h_dim + self.mem_dim
-        h_att1 = param_archi['nn1_shapes']
-        h_att2 = param_archi['nn2_shapes']
-        h_gamma1 = param_archi['gamma1_shapes']
-        h_gamma2 = param_archi['gamma2_shapes']
-        h_out = param_archi['out_shapes']
-        att1_dropout = param_archi['nn1_drop']
-        att2_dropout = param_archi['nn2_drop']
-        gamma1_dropout = param_archi['gamma1_drop']
-        gamma2_dropout = param_archi['gamma2_drop']
-        out_dropout = param_archi['out_drop']
+        h_att1 = param_model['nn1_shapes']
+        h_att2 = param_model['nn2_shapes']
+        h_gamma1 = param_model['gamma1_shapes']
+        h_gamma2 = param_model['gamma2_shapes']
+        h_out = param_model['out_shapes']
+        att1_dropout = param_model['nn1_drop']
+        att2_dropout = param_model['nn2_drop']
+        gamma1_dropout = param_model['gamma1_drop']
+        gamma2_dropout = param_model['gamma2_drop']
+        out_dropout = param_model['out_drop']
 
         self.lstm_l = nn.LSTMCell(self.d_l, self.dh_l)
         self.lstm_a = nn.LSTMCell(self.d_a, self.dh_a)

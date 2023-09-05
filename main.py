@@ -68,7 +68,9 @@ def main():
                                                                       args.image_feature, args.pickle_name_fold)
 
     # Get hyperparameters for model architecture and model training + if model available in TensorFlow (tf) or PyTorch
-    is_tf, param_archi, param_training = get_hyperparam_from_json(args.model_name, json_name="hyperparameters")
+    param_model = get_hyperparam_from_json(args.model_name, json_name="param_model")
+    param_training = get_hyperparam_from_json(args.model_name, json_name="param_training")
+    is_tf = bool(param_model['is_TensorFlow'])
 
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
     num_steps = get_length_dataset(args.set_length, train_list, valid_list, test_list, is_tf)
@@ -90,7 +92,7 @@ def main():
         from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
         train_tf_model(train_list, valid_list, test_list,
-                       param_archi, param_training, num_steps, args.model_name, model_id,
+                       param_model, param_training, num_steps, args.model_name, model_id,
                        args.predict_neutral_class, args.display_fig, args.label_type)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
@@ -107,16 +109,16 @@ def main():
         print(f"\nUsing {device} device")
 
         train_torch_model(train_list, valid_list, test_list,
-                          param_archi, param_training, args.model_name, model_id, num_steps,
+                          param_model, param_training, args.model_name, model_id, num_steps,
                           args.predict_neutral_class, args.display_fig, args.label_type, device)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, param_archi, param_training, args.model_name, model_id, num_steps,
+            evaluate_torch_model(test_list, param_model, param_training, args.model_name, model_id, num_steps,
                                  all_scores, args.predict_neutral_class, args.threshold_emo_present, args.label_type,
                                  args.save_predictions, device)
 
     # Save model parameters in csv file
-    save_model_param_in_csv_file(model_id, param_archi, param_training, args.predict_neutral_class,
+    save_model_param_in_csv_file(model_id, param_model, param_training, args.predict_neutral_class,
                                  args.label_type, args.set_length, args.model_name)
 
     # Compute and save metrics

@@ -106,7 +106,7 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
         plt.show()
 
 
-def train_torch_model(train_list, valid_list, test_list, param_archi, param_training, model_name, model_id,
+def train_torch_model(train_list, valid_list, test_list, param_model, param_training, model_name, model_id,
                       num_steps, predict_neutral_class, display_fig, label_type, device):
 
     num_training_prints = 10
@@ -146,7 +146,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     num_features_image = x_train[0][1].shape[1]
     num_features_audio = x_train[0][2].shape[1]
     model_class = get_model_module(model_name, is_tf=False)
-    model = model_class.MModel(model_id, param_archi, num_features_text, num_features_image, num_features_audio,
+    model = model_class.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
                                num_classes).to(device)
 
     # # Inspect model using Tensorboard
@@ -155,7 +155,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     # Optimizing the model parameters
     loss_fn = get_loss_function(loss_function_str, is_tf=False)
     optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
-    if "when" in param_training.keys():
+    if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
@@ -180,7 +180,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
     print_hyperparameters(model_name, model_id, param_training, print_archi=False)
     print("Fixed number of steps:", num_steps)
     print("\n>>> Model parameters")
-    print_hyperparameters(model_name, model_id, param_archi, print_archi=True)
+    print_hyperparameters(model_name, model_id, param_model, print_archi=True)
     print("\n")
     # if num_steps is not None:
     #     print("\n>>> Model summary (for a sequence of length {})".format(num_steps))
@@ -227,7 +227,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
                 optimizer.zero_grad()
                 batch_loss.backward()
 
-                if "clip" in param_training.keys():
+                if  param_training["clip"] != -1:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
                 optimizer.step()
 
@@ -281,7 +281,7 @@ def train_torch_model(train_list, valid_list, test_list, param_archi, param_trai
         writer.add_scalar("Validation loss", valid_loss, epoch)
 
         # Reduce learning rate when valid_loss stops improving
-        if "when" in param_training.keys():
+        if param_training["when"] != -1:
             scheduler.step(valid_loss)
 
         print("---------------------------------------------------------------------------------------")
