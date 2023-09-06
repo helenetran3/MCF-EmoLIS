@@ -50,11 +50,13 @@ class MModel(nn.Module):
         all_layers = range(self.num_layers)
         for i in all_layers:
             if i == 0:
-                blstm = self.bidir_lstm_layers[i](bnorm)[0]  # takes the last output (-1) in the output sequence (0)
+                blstm = self.bidir_lstm_layers[i](bnorm)[0]  # first element = output sequence
             elif i != self.num_layers-1:
                 blstm = self.bidir_lstm_layers[i](blstm)[0]
             else:
-                blstm = self.bidir_lstm_layers[i](blstm)[0][-1]
+                blstm = self.bidir_lstm_layers[i](blstm)[0]
+            if i == self.num_layers-1:
+                blstm = blstm[-1] # takes the last output (-1)
             blstm = self.dropout_layers[i](blstm)
         l1 = self.linear1(blstm)
         l1 = self.dropout_end(l1)

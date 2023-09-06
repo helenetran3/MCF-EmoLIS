@@ -1,5 +1,6 @@
 import os
 import csv
+import pandas as pd
 
 
 def create_csv_path(model_name, filename, extension_name=""):
@@ -22,6 +23,13 @@ def create_csv_path(model_name, filename, extension_name=""):
     return csv_path
 
 
+def get_num_rows_csv(csv_path):
+    with open(csv_path, 'r') as f:
+        reader = csv.reader(f)
+        lines = len(list(reader))
+    return lines
+
+
 def get_current_model_id(model_name):
     """
     Get the current model id based on the number of rows in csv file.
@@ -30,15 +38,8 @@ def get_current_model_id(model_name):
     :return: model_id
     """
 
-    def get_num_rows_csv():
-        with open(csv_path, 'r') as f:
-            reader = csv.reader(f)
-            lines = len(list(reader))
-        return lines
-
     csv_path = create_csv_path(model_name, "model_ids")
-
-    model_id = get_num_rows_csv() if os.path.exists(csv_path) else 1
+    model_id = get_num_rows_csv(csv_path) if os.path.exists(csv_path) else 1
 
     return model_id
 
@@ -203,3 +204,34 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
     header = header + header_training + ['neutral_class', 'label_type', 'set_length']
 
     write_csv(csv_path, header, data)
+
+
+def csv_summary():
+    if os.path.isdir("results/"):
+
+        # This section gets the list of all filenames (regression, classif_score_coa, etc)
+        list_model_names = [name for name in os.listdir("results/") if name != 'summary']
+        all_csv_files = []
+        for model in list_model_names:
+            csv_name_current_model = [csv_name for csv_name in os.listdir(os.path.join("results", model, "csv"))
+                                      if csv_name != 'model_ids.csv']
+            for cn in csv_name_current_model:
+                filename_without_extension = os.path.splitext(cn)[0]
+                if filename_without_extension not in all_csv_files:
+                    all_csv_files += [filename_without_extension]
+
+        # This section creates and fills model data in one single file (in summary/ folder)
+        for csv_file in all_csv_files:
+            df = pd.DataFrame()
+            csv_path_summary = create_csv_path("summary", csv_file)
+            os.remove(csv_path_summary)
+            for model in list_model_names:
+                csv_path_model = create_csv_path(model, csv_file)
+                if os.path.exists(csv_path_model):
+                    data = pd.read_csv(csv_path_model)
+                    model_column = [model for _ in range(get_num_rows_csv(csv_path_model)-1)]
+                    data.insert(0, 'model', model_column, allow_duplicates=True)
+                    df = pd.concat([df, data], axis=0)
+            df.to_csv(csv_path_summary, index=False)
+    else:
+        print("No results to summarize.")

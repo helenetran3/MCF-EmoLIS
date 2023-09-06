@@ -176,11 +176,11 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
     if json_name == 'param_logistics':
         hyperparam_log = hyperparam_dict['logistics']
         required_keys = ['pickle_name_dataset', 'pickle_name_fold', 'round_decimals', 'plot_confusion_matrix',
-                         'save_prediction', 'display_fig']
+                         'save_predictions', 'display_fig']
         check_if_key_is_in_list_actual_keys(required_keys, hyperparam_log, json_name)
         check_value_is_int('round_decimals', hyperparam_log['round_decimals'], strictly_positive=False)
         check_value_is_binary('plot_confusion_matrix', hyperparam_log['plot_confusion_matrix'])
-        check_value_is_binary('save_prediction', hyperparam_log['save_prediction'])
+        check_value_is_binary('save_predictions', hyperparam_log['save_predictions'])
         check_value_is_binary('display_fig', hyperparam_log['display_fig'])
 
 
@@ -199,7 +199,15 @@ def get_hyperparam_from_json(json_name, model_name=None):
     # for param_model.json and param_training.json
     else:
         check_model_name_and_structure(hyperparam_dict, model_name, json_name)
-        hyperparam_model = hyperparam_dict['models'][model_name] if json_name == 'param_model' \
-            else hyperparam_dict['training']
+        if json_name == 'param_model':
+            hyperparam_out = hyperparam_dict['models'][model_name]
+        elif json_name == 'param_training':
+            hyperparam_out = hyperparam_dict['training']
+        elif json_name == 'param_task':
+            hyperparam_out = hyperparam_dict['task']
+        elif json_name == 'param_logistics':
+            hyperparam_out = hyperparam_dict['logistics']
+        else:
+            hyperparam_out = None
 
-        return hyperparam_model
+        return hyperparam_out

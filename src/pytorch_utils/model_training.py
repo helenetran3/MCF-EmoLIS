@@ -106,7 +106,7 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
         plt.show()
 
 
-def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_log, param_training, num_steps,
+def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
                       model_name, model_id, device):
 
     num_training_prints = 10
@@ -230,7 +230,7 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
                 optimizer.zero_grad()
                 batch_loss.backward()
 
-                if  param_training["clip"] != -1:
+                if param_training["clip"] != -1:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
                 optimizer.step()
 
@@ -262,7 +262,7 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
                             x_audio = x_audio.bfloat16()
                             x_image = x_image.bfloat16()
                         pred = model(x_text, x_audio, x_image)
-                        valid_loss += loss_fn(pred, y_sample)
+                        valid_loss += loss_fn(pred, y_sample).item()
 
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X

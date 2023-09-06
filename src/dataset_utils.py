@@ -308,8 +308,8 @@ def get_length_dataset(train_list, valid_list, test_list, param_task, is_tf):
 
     if set_length == 'none':
         if is_tf:
-            return ValueError("Impossible to set set_length to 'none' for Tensorflow. Please choose value between: "
-                              "'avg', 'max', any strictly positive number")
+            raise ValueError("Impossible to set set_length to 'none' for Tensorflow. Please choose value between: "
+                             "'avg', 'max', any strictly positive number")
         return None
     elif set_length == 'max':
         return get_maximum_sequence_length_dataset()
