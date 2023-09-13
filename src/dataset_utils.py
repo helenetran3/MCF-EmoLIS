@@ -3,6 +3,7 @@ import numpy as np
 from mmsdk import mmdatasdk
 from src.pickle_functions import *
 from statistics import mean
+from sklearn.model_selection import KFold
 
 
 # CMU-MOSEI DATA DOWNLOAD FUNCTIONS
@@ -267,7 +268,36 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     return train_res, valid_res, test_res
 
 
-# BUILD TENSORFLOW DATASETS
+def split_for_cross_validation(train_list, valid_list, param_training):
+
+    def create_split_for_one_fold(index):
+        l_res = []
+        x_new_fold = [X_for_training[i] for i in index]
+        y_new_fold = [y_for_training[i] for i in index]
+        seg_new_fold = [seg_for_training[i] for i in index]
+        for x_i, y_i, seg_i in zip(x_new_fold, y_new_fold, seg_new_fold):
+            l_res += [x_i, y_i, seg_i]
+        return l_res
+
+    num_folds = param_training['cross_val_folds']
+    random_state = param_training['random_state']
+
+    X_for_training = train_list[0] + valid_list[0]
+    y_for_training = train_list[1] + valid_list[1]
+    seg_for_training = train_list[2] + valid_list[2]
+
+    train_res, valid_res = [], []
+
+    kf = KFold(n_splits=num_folds, shuffle=True, random_state=random_state)
+
+    for train_index, valid_index in kf.split(X_for_training):
+        train_res += [[create_split_for_one_fold(train_index)]]
+        valid_res += [[create_split_for_one_fold(valid_index)]]
+
+    return train_res, valid_res
+
+
+
 def get_length_dataset(train_list, valid_list, test_list, param_task, is_tf):
     """
     Return the desired length for creating batches. (None if we want to keep variable lengths)

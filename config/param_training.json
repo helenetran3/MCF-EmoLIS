@@ -7,6 +7,8 @@
     "optimizer": "adam",
     "loss_function": "mae",
     "learning_rate": 0.001,
+    "cross_val_folds": 5,
+    "random_state": 42,
     "clip": -1,
     "when": -1
   }

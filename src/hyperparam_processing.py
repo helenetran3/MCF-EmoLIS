@@ -112,18 +112,21 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                     raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
                                       .format(root_key, key, json_name))
 
-    def check_value_is_int(hp_name, hp_value, strictly_positive):
-        type_value = type(hp_value)
-        if (type_value is not int) or (strictly_positive and hp_value == 0):
-            strictly_positive_str = "a strictly positive" if strictly_positive else "an"
-            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not {} integer. "
-                             "Please check '{}.json' file.".format(hp_value, hp_name, strictly_positive_str, json_name))
-
     def check_value_is_number(hp_name, hp_value):
         type_value = type(hp_value)
         if not (type_value is int or type_value is float):
             raise ValueError("The value '{}' assigned to hyperparameter '{}' is not a number. "
                              "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+
+    def check_value_is_int_superior_to_min_value(hp_name, hp_value, min_value):
+        check_value_is_number(hp_name, hp_value)
+        type_value = type(hp_value)
+        if type_value is not int:
+            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not an integer. "
+                             "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+        if hp_value < min_value and hp_value !=-1:
+            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not >= to {} (or equal to -1). "
+                             "Please check '{}.json' file.".format(hp_value, hp_name, min_value, json_name))
 
     def check_value_is_in_list(hp_name, hp_value, list_possible_values):
         if hp_value not in list_possible_values:
@@ -150,12 +153,14 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         required_keys = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function', 'learning_rate', 'clip',
                          'when']
         check_if_key_is_in_list_actual_keys(required_keys, hyperparam_training, json_name)
-        check_value_is_number('num_epochs', hyperparam_training['num_epochs'])
-        check_value_is_number('patience', hyperparam_training['patience'])
-        check_value_is_number('batch_size', hyperparam_training['batch_size'])
+        check_value_is_int_superior_to_min_value('num_epochs', hyperparam_training['num_epochs'], min_value=1)
+        check_value_is_int_superior_to_min_value('patience', hyperparam_training['patience'], min_value=0)
+        check_value_is_int_superior_to_min_value('batch_size', hyperparam_training['batch_size'], min_value=1)
+        check_value_is_int_superior_to_min_value('cross_val_folds', hyperparam_training['cross_val_folds'], min_value=2)
+        check_value_is_int_superior_to_min_value('random_state', hyperparam_training['random_state'], min_value=0)
+        check_value_is_int_superior_to_min_value('when', hyperparam_training['when'], min_value=0)
         check_value_is_number('learning_rate', hyperparam_training['learning_rate'])
         check_value_is_number('clip', hyperparam_training['clip'])
-        check_value_is_number('when', hyperparam_training['when'])
         check_value_is_in_list('optimizer', hyperparam_training['optimizer'], possible_optimizers)
         check_value_is_in_list('loss_function', hyperparam_training['loss_function'], possible_loss_fn)
 
@@ -178,10 +183,12 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         required_keys = ['pickle_name_dataset', 'pickle_name_fold', 'round_decimals', 'plot_confusion_matrix',
                          'save_predictions', 'display_fig']
         check_if_key_is_in_list_actual_keys(required_keys, hyperparam_log, json_name)
-        check_value_is_int('round_decimals', hyperparam_log['round_decimals'], strictly_positive=False)
+        check_value_is_int_superior_to_min_value('round_decimals', hyperparam_log['round_decimals'], min_value=0)
         check_value_is_binary('plot_confusion_matrix', hyperparam_log['plot_confusion_matrix'])
         check_value_is_binary('save_predictions', hyperparam_log['save_predictions'])
         check_value_is_binary('display_fig', hyperparam_log['display_fig'])
+        check_value_is_int_superior_to_min_value('num_training_prints', hyperparam_log['num_training_prints'],
+                                                 min_value=0)
 
 
 def get_hyperparam_from_json(json_name, model_name=None):

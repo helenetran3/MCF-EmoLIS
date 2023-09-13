@@ -5,7 +5,8 @@
         "round_decimals": "Number of decimals to be rounded for metrics",
         "plot_confusion_matrix": "Whether we plot and save confusion matrices with pickle (0 or 1)",
         "save_predictions": "Whether we save predictions with pickle (0 or 1)",
-        "display_fig": "Whether we display the figures from the terminal (0 or 1)"
+        "display_fig": "Whether we display the figures from the terminal (0 or 1)",
+        "num_training_prints": "Number of prints for each epoch (only for PyTorch)"
     },
 
     "task":
@@ -28,6 +29,8 @@
         "optimizer": "Optimizer",
         "loss_function": "Loss function",
         "learning_rate": "Learning rate",
+        "cross_val_folds": "Number of folds for cross-validation (-1 if parameter not used)",
+        "random_state": "Random state for cross-validation splitting",
         "clip": "Gradient clip value (-1 if parameter not used)",
         "when": "When to decay learning rate (-1 if parameter not used)"
     },

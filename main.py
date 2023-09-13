@@ -1,5 +1,6 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
-from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset
+from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset, \
+    split_for_cross_validation
 from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
 from src.label_processing import get_available_presence_scores_arr, update_labels, balance_dataset
@@ -14,6 +15,7 @@ def main():
     param_model = get_hyperparam_from_json("param_model", model_name=model_name)
     param_training = get_hyperparam_from_json("param_training")
     is_tf = bool(param_model['is_TensorFlow'])
+    with_cross_validation = (param_training['cross_val_folds'] != -1)
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     pickle_name_fold = param_log['pickle_name_fold']
@@ -30,6 +32,10 @@ def main():
         train_ids, valid_ids, test_ids = get_fold_ids(param_task)
         train_list, valid_list, test_list = process_and_split_dataset(dataset, train_ids, valid_ids, test_ids,
                                                                       param_task, param_log)
+
+    # Cross-validation
+    if with_cross_validation:
+        train_list, valid_list = split_for_cross_validation(train_list, valid_list)
 
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
     num_steps = get_length_dataset(train_list, valid_list, test_list, param_task, is_tf)
@@ -63,7 +69,7 @@ def main():
         device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         print(f"\nUsing {device} device")
 
-        train_torch_model(train_list, valid_list, test_list,
+        train_torch_model(train_list, valid_list, test_list, with_cross_validation,
                           param_task, param_model, param_training, param_log, num_steps, model_name, model_id, device)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \

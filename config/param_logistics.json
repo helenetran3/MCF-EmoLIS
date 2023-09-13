@@ -6,6 +6,7 @@
     "round_decimals": 3,
     "plot_confusion_matrix": 1,
     "save_predictions": 1,
-    "display_fig": 0
+    "display_fig": 0,
+    "num_training_prints": 10
   }
 }

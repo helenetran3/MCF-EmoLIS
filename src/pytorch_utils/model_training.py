@@ -16,6 +16,14 @@ from alive_progress import alive_bar
 from matplotlib import pyplot as plt
 
 
+# def compute_size_dataset(train_size, valid_size, test_size, with_cross_valid, num_folds=None):
+#     if with_cross_valid:
+#         validation_fold_size = 1/num_folds
+#         whole_training_size = train_size + valid_size
+#         final_valid_size =
+#         final_train_size =
+
+
 def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps):
     dataiter = iter(train_dataloader)
     data, labels = next(dataiter)
@@ -106,21 +114,63 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
         plt.show()
 
 
-def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
-                      model_name, model_id, device):
+def print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
+                              param_task, param_model, param_training, num_steps, model_name, model_id):
 
-    num_training_prints = 10
     predict_neutral_class = param_task['predict_neutral_class']
     label_type = param_task['label_type']
-    display_fig = param_log['display_fig']
+
+    y_train, y_valid, y_test = (train_list[0][1], valid_list[0][1], test_list[0][1]) if with_cross_valid \
+        else (train_list[1], valid_list[1], test_list[1])
+    num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
+    num_train_samples = len(y_train)
+    num_valid_samples = len(y_valid)
+    num_test_samples = len(test_list[1])
+    total_data = num_train_samples + num_valid_samples + num_test_samples
+
+    print("\n\n============================== Training Parameters ===========================================")
+    print("\n>>> Dataset")
+    print("With cross validation:", with_cross_valid)
+    print("Number training datapoints: {} ({:.2f}%)".format(num_train_samples, 100 * (num_train_samples / total_data)))
+    print(
+        "Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
+    print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
+    print("Number of output cells:", num_classes)
+    print("\n>>> Model training")
+    print("Task:", label_type)
+    if label_type == 'dominant' or label_type == 'present':
+        print("Predict neutral class:", predict_neutral_class)
+    print("Library: PyTorch")
+    print_hyperparameters(model_name, model_id, param_training, print_archi=False)
+    print("Fixed number of steps:", num_steps)
+    print("\n>>> Model parameters")
+    print_hyperparameters(model_name, model_id, param_model, print_archi=True)
+    print("\n")
+    # if num_steps is not None:
+    #     print("\n>>> Model summary (for a sequence of length {})".format(num_steps))
+    #     summary(model, [(num_steps, 300), (num_steps, 35), (num_steps, 74)], device='cpu',
+    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+    # else:
+    #     print("\n>>> Model summary (for a sequence of length 26)")
+    #     summary(model, [(26, 300), (26, 35), (26, 74)], device='cpu',
+    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
+
+
+def run_one_training(train_list, valid_list, with_cross_valid, fold_id,
+                     param_model, param_training, param_log, num_steps, model_name, model_id, device):
+
+    batch_size = param_training['batch_size']
+    loss_function_str = param_training['loss_function']
+    optimizer_name = param_training['optimizer']
+    learning_rate = param_training['learning_rate']
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
-    batch_size = param_training['batch_size']
-    optimizer_name = param_training['optimizer']
-    loss_function_str = param_training['loss_function']
-    learning_rate = param_training['learning_rate']
+    num_training_prints = param_log['num_training_prints']
+    display_fig = param_log['display_fig']
 
-    writer_path = os.path.join('runs', model_name, 'model_{}'.format(model_id))
+    # Writer for Tensorboard
+    ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
+    writer_path = os.path.join('runs', model_name, 'model_{}'.format(ext_model_name))
     writer = SummaryWriter(writer_path)
 
     x_train = train_list[0]  # list of lists of 3 arrays
@@ -130,10 +180,6 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
     num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
-    num_train_samples = len(y_train)
-    num_valid_samples = len(y_valid)
-    num_test_samples = len(test_list[1])
-    total_data = num_train_samples + num_valid_samples + num_test_samples
 
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, num_steps, device)
@@ -169,32 +215,9 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
     history_train = []
     history_valid = []
 
-    print("\n\n============================== Training Parameters ===========================================")
-    print("\n>>> Dataset")
-    print("Number training datapoints: {} ({:.2f}%)".format(num_train_samples, 100 * (num_train_samples / total_data)))
-    print("Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
-    print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
-    print("Number of output cells:", num_classes)
-    print("\n>>> Model training")
-    print("Task:", label_type)
-    if label_type == 'dominant' or label_type == 'present':
-        print("Predict neutral class:", predict_neutral_class)
-    print("Library: PyTorch")
-    print_hyperparameters(model_name, model_id, param_training, print_archi=False)
-    print("Fixed number of steps:", num_steps)
-    print("\n>>> Model parameters")
-    print_hyperparameters(model_name, model_id, param_model, print_archi=True)
-    print("\n")
-    # if num_steps is not None:
-    #     print("\n>>> Model summary (for a sequence of length {})".format(num_steps))
-    #     summary(model, [(num_steps, 300), (num_steps, 35), (num_steps, 74)], device='cpu',
-    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
-    # else:
-    #     print("\n>>> Model summary (for a sequence of length 26)")
-    #     summary(model, [(26, 300), (26, 35), (26, 74)], device='cpu',
-    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
-
-    print("\n\n================================= Model Training =============================================\n")
+    fold_text = ": Fold {})".format(fold_id) if with_cross_valid else ""
+    print("\n\n================================= Model Training{} =============================================\n"
+          .format(fold_text))
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch:>3d}")
@@ -238,7 +261,8 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
                 batch_loss_current = batch_loss / len(X)
 
                 # if batch_id % 10 == 0 or batch_id == num_iterations-1:
-                if batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations-1:
+                if (num_training_prints > 0) and \
+                        (batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations - 1):
                     # # Log the current batch loss in Tensorboard
                     # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
                     writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch * train_size + batch_id)
@@ -303,7 +327,7 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
         if patience != -1:
             num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best,
                                                                   num_epochs_without_improvement, patience)
-            if patience == num_epochs_without_improvement-1:
+            if patience == num_epochs_without_improvement - 1:
                 break
 
     model_folder = os.path.join('results', model_name)
@@ -312,4 +336,18 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
 
     writer.close()
 
-    return 0
+
+def train_torch_model(train_list, valid_list, test_list, with_cross_valid,
+                      param_task, param_model, param_training, param_log, num_steps, model_name, model_id, device):
+
+    print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
+                              param_task, param_model, param_training, num_steps, model_name, model_id)
+
+    if with_cross_valid:
+        for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
+            run_one_training(train_list_i, valid_list_i, with_cross_valid, fold_id,
+                             param_model, param_training, param_log, num_steps, model_name, model_id, device)
+
+    else:
+        run_one_training(train_list, valid_list, with_cross_valid, None,
+                         param_model, param_training, param_log, num_steps, model_name, model_id, device)
