@@ -275,8 +275,7 @@ def split_for_cross_validation(train_list, valid_list, param_training):
         x_new_fold = [X_for_training[i] for i in index]
         y_new_fold = [y_for_training[i] for i in index]
         seg_new_fold = [seg_for_training[i] for i in index]
-        for x_i, y_i, seg_i in zip(x_new_fold, y_new_fold, seg_new_fold):
-            l_res += [x_i, y_i, seg_i]
+        l_res += [x_new_fold, y_new_fold, seg_new_fold]
         return l_res
 
     num_folds = param_training['cross_val_folds']
@@ -291,11 +290,10 @@ def split_for_cross_validation(train_list, valid_list, param_training):
     kf = KFold(n_splits=num_folds, shuffle=True, random_state=random_state)
 
     for train_index, valid_index in kf.split(X_for_training):
-        train_res += [[create_split_for_one_fold(train_index)]]
-        valid_res += [[create_split_for_one_fold(valid_index)]]
+        train_res += [create_split_for_one_fold(train_index)]
+        valid_res += [create_split_for_one_fold(valid_index)]
 
     return train_res, valid_res
-
 
 
 def get_length_dataset(train_list, valid_list, test_list, param_task, is_tf):

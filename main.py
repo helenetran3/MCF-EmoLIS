@@ -33,15 +33,15 @@ def main():
         train_list, valid_list, test_list = process_and_split_dataset(dataset, train_ids, valid_ids, test_ids,
                                                                       param_task, param_log)
 
-    # Cross-validation
-    if with_cross_validation:
-        train_list, valid_list = split_for_cross_validation(train_list, valid_list)
-
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
     num_steps = get_length_dataset(train_list, valid_list, test_list, param_task, is_tf)
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
     train_list, valid_list, test_list = update_labels(train_list, valid_list, test_list, param_task, all_scores)
+
+    # Cross-validation
+    if with_cross_validation:
+        train_list, valid_list = split_for_cross_validation(train_list, valid_list, param_training)
 
     # Balance dataset  #TODO
     balance_dataset(train_list, valid_list, test_list, param_task, all_scores)
