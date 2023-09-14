@@ -47,7 +47,7 @@ def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_n
 
 
 def model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train_loss,
-                     model_name, model_id):
+                     model_name, ext_model_name):
 
     model_folder = os.path.join('results', model_name, 'models')
 
@@ -58,7 +58,7 @@ def model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train
 
         valid_loss_best = valid_loss
 
-        model_path = os.path.join(model_folder, "model_{}.pt".format(model_id))
+        model_path = os.path.join(model_folder, "model_{}.pt".format(ext_model_name))
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -167,9 +167,9 @@ def run_one_training(train_list, valid_list, with_cross_valid, fold_id,
     patience = param_training['patience']
     num_training_prints = param_log['num_training_prints']
     display_fig = param_log['display_fig']
+    ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
 
     # Writer for Tensorboard
-    ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
     writer_path = os.path.join('runs', model_name, 'model_{}'.format(ext_model_name))
     writer = SummaryWriter(writer_path)
 
@@ -321,7 +321,7 @@ def run_one_training(train_list, valid_list, with_cross_valid, fold_id,
 
         # For model checkpoint
         valid_loss_best = model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train_loss, model_name,
-                                           model_id)
+                                           ext_model_name)
 
         # For early stopping
         if patience != -1:

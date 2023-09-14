@@ -73,8 +73,8 @@ def main():
                           param_task, param_model, param_training, param_log, num_steps, model_name, model_id, device)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name,
-                                 model_id, all_scores, device)
+            evaluate_torch_model(test_list, with_cross_validation, param_task, param_model, param_training, param_log,
+                                 num_steps, model_name, model_id, all_scores, device)
 
     # Save model parameters in csv file
     save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name)

@@ -9,14 +9,15 @@ from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
 
-def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
-                         all_scores, device):
+def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_model, param_training, param_log,
+                       num_steps, model_name, model_id, all_scores, device):
 
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
     label_type = param_task['label_type']
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
+    ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
 
     x_test = test_list[0]  # list of lists of 3 arrays
     y_test = test_list[1]
@@ -27,16 +28,6 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
     num_features_image = x_test[0][1].shape[1]
     num_features_audio = x_test[0][2].shape[1]
 
-    # Load best model
-    model_folder = os.path.join('results', model_name)
-    model_path = os.path.join(model_folder, 'models', "model_{}.pt".format(model_id))
-    model_module = get_model_module(model_name, is_tf=False)
-    model = model_module.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
-                                num_classes).to(device)
-    checkpoint = torch.load(model_path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
-
     # Create dataloader for test data
     test_data = DatasetTorch(x_test, y_test, seg_test, num_steps, device)
     test_dataloader = DataLoader(test_data)
@@ -46,6 +37,16 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
     test_loss = 0
     # correct = 0
     pred_raw = []
+
+    # Load best model
+    model_folder = os.path.join('results', model_name)
+    model_path = os.path.join(model_folder, 'models', "model_{}.pt".format(ext_model_name))
+    model_module = get_model_module(model_name, is_tf=False)
+    model = model_module.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
+                                num_classes).to(device)
+    checkpoint = torch.load(model_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
 
     with torch.no_grad():
         with alive_bar(test_size, title='Model evaluation') as bar:
@@ -89,5 +90,28 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
     pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
+
+    return test_loss, pred_scores_coa, pred_classes_pres, pred_classes_dom
+
+
+def evaluate_torch_model(test_list, with_cross_valid, param_task, param_model, param_training, param_log, num_steps,
+                         model_name, model_id, all_scores, device):
+
+    if with_cross_valid:
+        num_folds = param_training['cross_val_folds']
+        test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
+        for fold_i in range(num_folds):
+            loss_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
+                run_one_evaluation(test_list, with_cross_valid, fold_i, param_task, param_model, param_training,
+                                   param_log, num_steps, model_name, model_id, all_scores, device)
+            test_loss += loss_i
+            pred_raw_array += pred_raw_i
+            pred_scores_coa += pred_coa_i
+            pred_classes_pres += pred_pres_i
+            pred_classes_dom += pred_dom_i
+    else:
+        test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+            run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_training, param_log,
+                               num_steps, model_name, model_id, all_scores, device)
 
     return test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
