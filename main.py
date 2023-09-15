@@ -80,7 +80,7 @@ def main():
     save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name)
 
     # Compute and save metrics
-    compute_and_save_model_metrics(test_list, loss_function_val,
+    compute_and_save_model_metrics(test_list, with_cross_validation, loss_function_val,
                                    pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    param_task, param_training, param_log, model_name, model_id, all_scores)
 

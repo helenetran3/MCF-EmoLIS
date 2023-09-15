@@ -112,8 +112,7 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
 
 def save_results_in_csv_file(model_name, model_id,
                              loss_function, loss_function_val, metrics_regression, metrics_score_coa,
-                             metrics_presence, metrics_dominant, predict_neutral_class, threshold_emo_pres,
-                             extension_name):
+                             metrics_presence, metrics_dominant, predict_neutral_class, threshold_emo_pres):
     """
     Save results of a single model to a csv file.
 
@@ -127,17 +126,18 @@ def save_results_in_csv_file(model_name, model_id,
     :param metrics_dominant: List of metrics for detecting the dominant emotion(s)
     :param predict_neutral_class: Whether we predict the neutral class
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
-    :param extension_name: extension name containing info on whether we predict sentiment/neutral class
     :return: One-line results added to the csv file.
     """
 
+    ext_name = "_n" if predict_neutral_class else ""
+
     # Create filenames
-    csv_path_regression = create_csv_path(model_name, filename="regression", extension_name=extension_name)
+    csv_path_regression = create_csv_path(model_name, filename="regression", extension_name=ext_name)
     csv_path_score_coa = create_csv_path(model_name, filename="classif_score_coa",
-                                         extension_name=extension_name)
+                                         extension_name=ext_name)
     csv_path_presence = [create_csv_path(model_name, filename="classif_pres_t_{}".format(thres),
-                                         extension_name=extension_name) for thres in threshold_emo_pres]
-    csv_path_dominant = create_csv_path(model_name, filename="classif_dom", extension_name=extension_name)
+                                         extension_name=ext_name) for thres in threshold_emo_pres]
+    csv_path_dominant = create_csv_path(model_name, filename="classif_dom", extension_name=ext_name)
 
     # Create model parameter header and data for each csv file
     header_param = ['model_id', loss_function]

@@ -114,7 +114,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
         return list_bin_array_emotions
 
 
-def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, threshold_emo_pres, num_classes, ext_name,
+def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
                         label_type=None):
     """
     Compute the true labels from a list of 2D arrays of shape (1, num_classes) (y_list)
@@ -131,13 +131,13 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     :param predict_neutral_class: Whether we predict the neutral class
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :param num_classes: number of emotion classes (7 with neutral class, else 6)
-    :param ext_name: extension name containing info on whether we predict sentiment/neutral class
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
                          scores provided by the dataset), coarse (presence score for each emotion among "
                          [0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)
     :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on label_type value
     """
 
+    ext_name = "_n" if predict_neutral_class else ""
     true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
 
     # if not pickle_file_exists(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei'):
