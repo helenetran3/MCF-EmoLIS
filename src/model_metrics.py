@@ -248,8 +248,8 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     return res
 
 
-def plot_multilabel_confusion_matrix(num_classes, with_cross_val, model_id, model_folder, label_type, display_fig,
-                                     threshold_emo_pres):
+def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
+                                     display_fig, threshold_emo_pres):
 
     display = None
 
@@ -267,13 +267,14 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, model_id, mode
 
     def cross_valid_plot_matrix(conf_matrix, line_id, thres=None):
         conf_mean = np.mean(conf_matrix, axis=0)
-        conf_std = np.std(conf_matrix, axis=0)
-        conf_for_print = np.array(["{} \u00B1 {}".format(conf_mean[i, j, k], conf_std[i, j, k])
-                                   for i in range(num_classes) for j in range(2) for k in range(2)]) \
-            .reshape(conf_mean.shape)
-        end_of_title = " dominant" if thres is None else " with score>{}".format(thres)
+        # conf_std = np.std(conf_matrix, axis=0)
+        # conf_for_print = np.array(["{} \u00B1 {}".format(conf_mean[i, j, k], conf_std[i, j, k])
+        #                            for i in range(num_classes) for j in range(2) for k in range(2)]) \
+        #     .reshape(conf_mean.shape)
+        end_of_title = " dominant (mean of {} folds)".format(num_folds) if thres is None \
+            else " with score>{} (mean of {} folds)".format(thres, num_folds)
         for emo_i in range(num_classes):
-            display = plot_one_confusion_matrix(conf_for_print, emo_i, axe_id=line_id * num_classes + emo_i,
+            display = plot_one_confusion_matrix(conf_mean, emo_i, axe_id=line_id * num_classes + emo_i,
                                                 end_of_title=end_of_title)
         return display
 
@@ -344,11 +345,11 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
     def cross_valid_conf_matrix(thres=None, thres_id=None):
         conf_matrices = []
-        num_folds = len(true_classes)  # true_classes and pred_classes are two lists of num_fold elements
+        num_folds = len(pred_classes)  # pred_classes is a list of num_fold elements
         task_name = "pres_t_{}".format(thres) if thres is not None else "dom"
 
         for fold_id in range(num_folds):
-            tc = true_classes[fold_id][thres_id] if thres_id is not None else true_classes[fold_id]
+            tc = true_classes[thres_id] if thres_id is not None else true_classes
             pc = pred_classes[fold_id][thres_id] if thres_id is not None else pred_classes[fold_id]
             conf_matrix = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
             conf_matrices += [conf_matrix]
@@ -486,6 +487,7 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
     plot_confusion_matrix = param_log['plot_confusion_matrix']
     display_fig = param_log['display_fig']
     loss_function = param_training['loss_function']
+    num_folds = param_training['cross_val_folds']
 
     model_folder = os.path.join('results', model_name)
 
@@ -504,8 +506,8 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
     compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, with_cross_val, num_classes,
                                         model_id, model_folder)
     if plot_confusion_matrix:
-        plot_multilabel_confusion_matrix(num_classes, with_cross_val, model_id, model_folder, label_type, display_fig,
-                                         threshold_emo_pres)
+        plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
+                                         display_fig, threshold_emo_pres)
 
     # Compute all metrics
     metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \

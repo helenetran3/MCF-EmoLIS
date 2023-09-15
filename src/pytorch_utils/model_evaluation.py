@@ -48,6 +48,10 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
+    fold_text = ": Fold {}".format(fold_id) if with_cross_valid else ""
+    print("\n\n================================= Model Evaluation{} =============================================\n"
+          .format(fold_text))
+
     with torch.no_grad():
         with alive_bar(test_size, title='Model evaluation') as bar:
             for X, y in test_dataloader:
@@ -91,7 +95,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
 
-    return test_loss, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_torch_model(test_list, with_cross_valid, param_task, param_model, param_training, param_log, num_steps,
@@ -104,11 +108,11 @@ def evaluate_torch_model(test_list, with_cross_valid, param_task, param_model, p
             loss_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, with_cross_valid, fold_i, param_task, param_model, param_training,
                                    param_log, num_steps, model_name, model_id, all_scores, device)
-            test_loss += loss_i
-            pred_raw_array += pred_raw_i
-            pred_scores_coa += pred_coa_i
-            pred_classes_pres += pred_pres_i
-            pred_classes_dom += pred_dom_i
+            test_loss += [loss_i]
+            pred_raw_array += [pred_raw_i]
+            pred_scores_coa += [pred_coa_i]
+            pred_classes_pres += [pred_pres_i]
+            pred_classes_dom += [pred_dom_i]
     else:
         test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_training, param_log,
