@@ -77,7 +77,7 @@ def main():
                                  num_steps, model_name, model_id, all_scores, device)
 
     # Save model parameters in csv file
-    save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name)
+    save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, with_cross_validation)
 
     # Compute and save metrics
     compute_and_save_model_metrics(test_list, with_cross_validation, loss_function_val,
@@ -85,7 +85,7 @@ def main():
                                    param_task, param_training, param_log, model_name, model_id, all_scores)
 
     # Summary files
-    csv_summary()
+    csv_summary(with_cross_validation)
 
 
 if __name__ == "__main__":

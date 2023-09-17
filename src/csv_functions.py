@@ -146,11 +146,11 @@ def save_results_in_csv_file(model_name, model_id, loss_function, loss_function_
     csv_path_dominant = create_csv_path(model_name, filename="classif_dom", ext_name=ext_name,
                                         with_cross_val=with_cross_val)
     
-    def write_csv_one_model(met_reg, met_coa, met_pres, met_dom, fold_id=None):
+    def write_csv_one_model(l_val, met_reg, met_coa, met_pres, met_dom, fold_id=None):
         
         # Create model parameter header and data for each csv file
         header_id = ['model_id', loss_function] if not with_cross_val else ['model_id', 'fold_id']
-        data_id = [model_id, loss_function_val] if not with_cross_val else [model_id, fold_id]
+        data_id = [model_id, l_val] if not with_cross_val else [model_id, fold_id]
 
         # Regression metrics
         if met_reg is not None:
@@ -183,13 +183,16 @@ def save_results_in_csv_file(model_name, model_id, loss_function, loss_function_
         #     print(len(header_presence), len(data_presence[i]))
 
     if with_cross_val:
-        for fold_id, (m_reg_i, m_coa_i, m_pres_i, m_dom_i) in enumerate(zip(loss_function_val, metrics_regression,
-                                                                            metrics_score_coa, metrics_presence,
-                                                                            metrics_dominant)):
-            write_csv_one_model(m_reg_i, m_coa_i, m_pres_i, m_dom_i, fold_id)
+        for fold_id, (l_val_i, m_reg_i, m_coa_i, m_pres_i, m_dom_i) in enumerate(zip(loss_function_val,
+                                                                                     metrics_regression,
+                                                                                     metrics_score_coa,
+                                                                                     metrics_presence,
+                                                                                     metrics_dominant)):
+            write_csv_one_model(l_val_i, m_reg_i, m_coa_i, m_pres_i, m_dom_i, fold_id)
             
     else:
-        write_csv_one_model(metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant)
+        write_csv_one_model(loss_function_val,
+                            metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant)
 
 
 def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, with_cross_val):
@@ -228,8 +231,9 @@ def csv_summary(with_cross_val):
     if os.path.isdir("results/"):
 
         # This section gets the list of all filenames (regression, classif_score_coa, etc)
-        list_model_names = [name for name in os.listdir("results/") if name != 'summary']
         metric_folder_name = "cross_validation" if with_cross_val else "hold_out"
+        list_model_names = [model_name for model_name in os.listdir("results/") if model_name != 'summary' and 
+                            os.path.exists(os.path.join("results", model_name, 'csv', metric_folder_name))]
         all_csv_files = []
         for model in list_model_names:
             csv_name_current_model = [csv_name for csv_name in
@@ -244,14 +248,17 @@ def csv_summary(with_cross_val):
         for csv_file in all_csv_files:
             df = pd.DataFrame()
             csv_path_summary = create_csv_path("summary", csv_file, with_cross_val=with_cross_val, is_summary=True)
-            os.remove(csv_path_summary)  # for reinitialisation
+            if os.path.exists(csv_path_summary):
+                os.remove(csv_path_summary)  # for reinitialisation
             for model in list_model_names:
                 csv_path_model = create_csv_path(model, csv_file, with_cross_val=with_cross_val)
                 if os.path.exists(csv_path_model):
                     data = pd.read_csv(csv_path_model)
                     if with_cross_val:
                         data = data.groupby('model_id').agg(['mean', 'std'])
-                    model_column = [model for _ in range(get_num_rows_csv(csv_path_model)-1)]
+                    model_column = [model for _ in range(len(data.index))]
+                    print("get_num_rows_csv(csv_path_model)", get_num_rows_csv(csv_path_model))
+                    print("len(data.index)", len(data.index))
                     data.insert(0, 'model', model_column, allow_duplicates=True)
                     df = pd.concat([df, data], axis=0)
             df.to_csv(csv_path_summary, index=False)

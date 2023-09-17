@@ -156,7 +156,7 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
 
 
 def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, model_id, model_folder,
-                               thres=None):
+                               with_cross_val, fold_id, thres=None):
     """
     Compute classification metrics.
      Accuracy
@@ -170,22 +170,25 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     :param round_decimals: number of decimals to be rounded for metrics
     :param model_id: Model id (int)
     :param model_folder: The folder where the result will be saved
+    :param with_cross_val: boolean (cross_validation or not)
+    :param fold_id: Cross-validation fold id (int)
     :return: List of classification metrics
     """
 
     def compute_binary_accuracy_per_class():
         bin_acc = []
-        if thres is None:
-            conf_matrix = load_from_pickle('conf_matrix_{}_dom'.format(model_id),
-                                           pickle_folder="confusion_matrix", root_folder=model_folder)
-        else:
-            conf_matrix = load_from_pickle('conf_matrix_{}_pres_t_{}'.format(model_id, thres),
-                                           pickle_folder="confusion_matrix", root_folder=model_folder)
+        ext_name = "dom" if thres is None else "pres_t_{}".format(thres)
+        ext_name += "_cv" if with_cross_val else ""
+
+        conf_matrix = load_from_pickle('conf_matrix_{}_{}'.format(model_id, ext_name),
+                                       pickle_folder="confusion_matrix", root_folder=model_folder)
+        conf_matrix_i = conf_matrix[fold_id]
+
         for emo_i in range(num_classes):
-            tp = conf_matrix[emo_i, 0, 0]
-            fp = conf_matrix[emo_i, 0, 1]
-            fn = conf_matrix[emo_i, 1, 0]
-            tn = conf_matrix[emo_i, 1, 1]
+            tp = conf_matrix_i[emo_i, 0, 0]
+            fp = conf_matrix_i[emo_i, 0, 1]
+            fn = conf_matrix_i[emo_i, 1, 0]
+            tn = conf_matrix_i[emo_i, 1, 1]
             bin_acc_emo = (tp+tn)/(tp+fp+fn+tn)
             bin_acc_emo_rounded = round(bin_acc_emo, round_decimals)
             bin_acc.append(bin_acc_emo_rounded)
@@ -424,7 +427,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     else:  # dominant
         compute_reg, compute_coa, compute_pres = False, False, False
 
-    def compute_metrics_one_model(pred_raw_i, pred_scores_coa_i, pred_classes_pres_i, pred_classes_dom_i):
+    def compute_metrics_one_model(pred_raw_i, pred_scores_coa_i, pred_classes_pres_i, pred_classes_dom_i, fold_id=None):
         # Regression metrics
         if compute_reg:
             print("\n------- Presence score estimation (regression) --------\n")
@@ -446,7 +449,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         if compute_pres:
             print("\n------- Detecting the presence of emotions ------------")
             metrics_presence = [get_classification_metrics(true_classes_pres[j], pred_classes_pres_i[j], num_classes,
-                                                           round_decimals, model_id, model_folder, thres)
+                                                           round_decimals, model_id, model_folder, with_cross_val,
+                                                           fold_id, thres)
                                 for j, thres in enumerate(threshold_emo_pres)]
         else:
             metrics_presence = None
@@ -454,14 +458,15 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         # Classification metrics of dominant emotions
         print("\n------- Predicting dominant emotions ------------------\n")
         metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom_i, num_classes, round_decimals,
-                                                      model_id, model_folder)
+                                                      model_id, model_folder, with_cross_val, fold_id)
 
         return metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
 
     if with_cross_val:
         met_reg, met_coa, met_pres, met_dom = [], [], [], []
-        for pr_i, pc_i, pp_i, pd_i in zip(pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom):
-            mr, mc, mp, md = compute_metrics_one_model(pr_i, pc_i, pp_i, pd_i)
+        for fold_id, (pr_i, pc_i, pp_i, pd_i) in enumerate(zip(pred_raw, pred_scores_coa,
+                                                               pred_classes_pres, pred_classes_dom)):
+            mr, mc, mp, md = compute_metrics_one_model(pr_i, pc_i, pp_i, pd_i, fold_id)
             met_reg += [mr]
             met_coa += [mc]
             met_pres += [mp]
