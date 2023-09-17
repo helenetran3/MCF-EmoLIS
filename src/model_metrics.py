@@ -381,7 +381,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                              pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                              pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom, with_cross_val,
                               threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
                               model_id, model_folder):
     """
@@ -399,6 +399,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by threshold_emo_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
+    :param with_cross_val: boolean (cross_validation or not)
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param predict_neutral_class: Whether we predict the neutral class
@@ -423,38 +424,52 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     else:  # dominant
         compute_reg, compute_coa, compute_pres = False, False, False
 
-    # Regression metrics
-    if compute_reg:
-        print("\n------- Presence score estimation (regression) --------\n")
-        metrics_regression = get_regression_metrics(true_scores_all, pred_raw, round_decimals)
+    def compute_metrics_one_model(pred_raw_i, pred_scores_coa_i, pred_classes_pres_i, pred_classes_dom_i):
+        # Regression metrics
+        if compute_reg:
+            print("\n------- Presence score estimation (regression) --------\n")
+            metrics_regression = get_regression_metrics(true_scores_all, pred_raw_i, round_decimals)
+        else:
+            metrics_regression = None
+            # metrics_regression = ['-' for _ in range(21)]  # 21 regression metric values replaced by "-"
+
+        # Classification metrics of presence scores
+        if compute_coa:
+            print("\n------- Presence score classification [0,1,2,3] -------\n")
+            metrics_score_coa = get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa_i, num_classes,
+                                                                     round_decimals)
+        else:
+            metrics_score_coa = None
+            # metrics_score_coa = ['-' for _ in range(43)]
+
+        # Classification metrics of emotion present
+        if compute_pres:
+            print("\n------- Detecting the presence of emotions ------------")
+            metrics_presence = [get_classification_metrics(true_classes_pres[j], pred_classes_pres_i[j], num_classes,
+                                                           round_decimals, model_id, model_folder, thres)
+                                for j, thres in enumerate(threshold_emo_pres)]
+        else:
+            metrics_presence = None
+
+        # Classification metrics of dominant emotions
+        print("\n------- Predicting dominant emotions ------------------\n")
+        metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom_i, num_classes, round_decimals,
+                                                      model_id, model_folder)
+
+        return metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
+
+    if with_cross_val:
+        met_reg, met_coa, met_pres, met_dom = [], [], [], []
+        for pr_i, pc_i, pp_i, pd_i in zip(pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom):
+            mr, mc, mp, md = compute_metrics_one_model(pr_i, pc_i, pp_i, pd_i)
+            met_reg += [mr]
+            met_coa += [mc]
+            met_pres += [mp]
+            met_dom += [md]
     else:
-        metrics_regression = None
-        # metrics_regression = ['-' for _ in range(21)]  # 21 regression metric values replaced by "-"
-
-    # Classification metrics of presence scores
-    if compute_coa:
-        print("\n------- Presence score classification [0,1,2,3] -------\n")
-        metrics_score_coa = get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes,
-                                                                 round_decimals)
-    else:
-        metrics_score_coa = None
-        # metrics_score_coa = ['-' for _ in range(43)]
-
-    # Classification metrics of emotion present
-    if compute_pres:
-        print("\n------- Detecting the presence of emotions ------------")
-        metrics_presence = [get_classification_metrics(true_classes_pres[i], pred_classes_pres[i], num_classes,
-                                                       round_decimals, model_id, model_folder, thres)
-                        for i, thres in enumerate(threshold_emo_pres)]
-    else:
-        metrics_presence = None
-
-    # Classification metrics of dominant emotions
-    print("\n------- Predicting dominant emotions ------------------\n")
-    metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom, num_classes, round_decimals,
-                                                  model_id, model_folder)
-
-    return metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
+        met_reg, met_coa, met_pres, met_dom = compute_metrics_one_model(pred_raw, pred_scores_coa,
+                                                                        pred_classes_pres, pred_classes_dom)
+    return met_reg, met_coa, met_pres, met_dom
 
 
 def compute_and_save_model_metrics(test_list, with_cross_val,
@@ -512,11 +527,11 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
     # Compute all metrics
     metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                                  pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                                  pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom, with_cross_val,
                                   threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
                                   model_id, model_folder)
 
     # Save metrics in csv file
     save_results_in_csv_file(model_name, model_id, loss_function, loss_function_val,
                              metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
-                             predict_neutral_class, threshold_emo_pres)
+                             with_cross_val, predict_neutral_class, threshold_emo_pres)

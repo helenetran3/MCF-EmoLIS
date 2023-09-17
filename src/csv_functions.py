@@ -3,22 +3,26 @@ import csv
 import pandas as pd
 
 
-def create_csv_path(model_name, filename, extension_name=""):
+def create_csv_path(model_name, filename, ext_name="", with_cross_val=None, is_summary=False):
     """
     Create path to csv file.
     
     :param model_name: Name of the model
     :param filename: Root name of the csv file
-    :param extension_name: Extension name for pickle
+    :param ext_name: Extension name for pickle
+    :param with_cross_val: boolean (cross_validation or not)
+    :param is_summary: boolean (path for summary or not)
     :return: Path to csv file.
     """
     # Create csv folder
-    model_csv_folder = os.path.join('results', model_name, 'csv')
+    csv_folder = "" if is_summary else "csv"
+    metric_folder_name = "" if with_cross_val is None else "cross_validation" if with_cross_val else "hold_out"
+    model_csv_folder = os.path.join('results', model_name, csv_folder, metric_folder_name)
     if not os.path.isdir(model_csv_folder):
         os.makedirs(model_csv_folder)
 
     # Create filename
-    csv_path = os.path.join(model_csv_folder, "{}{}.csv".format(filename, extension_name))
+    csv_path = os.path.join(model_csv_folder, "{}{}.csv".format(filename, ext_name))
 
     return csv_path
 
@@ -110,9 +114,9 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
     return header, data
 
 
-def save_results_in_csv_file(model_name, model_id,
-                             loss_function, loss_function_val, metrics_regression, metrics_score_coa,
-                             metrics_presence, metrics_dominant, predict_neutral_class, threshold_emo_pres):
+def save_results_in_csv_file(model_name, model_id, loss_function, loss_function_val,
+                             metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
+                             with_cross_val, predict_neutral_class, threshold_emo_pres):
     """
     Save results of a single model to a csv file.
 
@@ -124,6 +128,7 @@ def save_results_in_csv_file(model_name, model_id,
     :param metrics_score_coa: List of metrics for classifying the presence score of each emotion
     :param metrics_presence: T lists of lists of metrics for detecting the presence/absence of an emotion (T is the number of thresholds set)
     :param metrics_dominant: List of metrics for detecting the dominant emotion(s)
+    :param with_cross_val: boolean (cross_validation or not)
     :param predict_neutral_class: Whether we predict the neutral class
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :return: One-line results added to the csv file.
@@ -132,49 +137,62 @@ def save_results_in_csv_file(model_name, model_id,
     ext_name = "_n" if predict_neutral_class else ""
 
     # Create filenames
-    csv_path_regression = create_csv_path(model_name, filename="regression", extension_name=ext_name)
-    csv_path_score_coa = create_csv_path(model_name, filename="classif_score_coa",
-                                         extension_name=ext_name)
-    csv_path_presence = [create_csv_path(model_name, filename="classif_pres_t_{}".format(thres),
-                                         extension_name=ext_name) for thres in threshold_emo_pres]
-    csv_path_dominant = create_csv_path(model_name, filename="classif_dom", extension_name=ext_name)
+    csv_path_regression = create_csv_path(model_name, filename="regression", ext_name=ext_name,
+                                          with_cross_val=with_cross_val)
+    csv_path_score_coa = create_csv_path(model_name, filename="classif_score_coa", ext_name=ext_name,
+                                         with_cross_val=with_cross_val)
+    csv_path_presence = [create_csv_path(model_name, filename="classif_pres_t_{}".format(thres), ext_name=ext_name,
+                                         with_cross_val=with_cross_val) for thres in threshold_emo_pres]
+    csv_path_dominant = create_csv_path(model_name, filename="classif_dom", ext_name=ext_name,
+                                        with_cross_val=with_cross_val)
+    
+    def write_csv_one_model(met_reg, met_coa, met_pres, met_dom, fold_id=None):
+        
+        # Create model parameter header and data for each csv file
+        header_id = ['model_id', loss_function] if not with_cross_val else ['model_id', 'fold_id']
+        data_id = [model_id, loss_function_val] if not with_cross_val else [model_id, fold_id]
 
-    # Create model parameter header and data for each csv file
-    header_param = ['model_id', loss_function]
-    data_param = [model_id, loss_function_val]
+        # Regression metrics
+        if met_reg is not None:
+            header_regression, data_regression = get_header_and_data_metrics(met_reg, header_id, data_id,
+                                                                             predict_neutral_class, task="regression")
+            write_csv(csv_path_regression, header_regression, data_regression)
 
-    # Regression metrics
-    if metrics_regression is not None:
-        header_regression, data_regression = get_header_and_data_metrics(metrics_regression, header_param, data_param,
-                                                                         predict_neutral_class, task="regression")
-        write_csv(csv_path_regression, header_regression, data_regression)
+        # Coarse presence score metrics
+        if met_coa is not None:
+            header_score_coa, data_score_coa = get_header_and_data_metrics(met_coa, header_id, data_id,
+                                                                           predict_neutral_class, task="score_coa")
+            write_csv(csv_path_score_coa, header_score_coa, data_score_coa)
 
-    # Coarse presence score metrics
-    if metrics_score_coa is not None:
-        header_score_coa, data_score_coa = get_header_and_data_metrics(metrics_score_coa, header_param, data_param,
-                                                                       predict_neutral_class, task="score_coa")
-        write_csv(csv_path_score_coa, header_score_coa, data_score_coa)
+        # Present emotion metrics
+        if met_pres is not None:
+            header_presence, data_presence = get_header_and_data_metrics(met_pres, header_id, data_id,
+                                                                         predict_neutral_class, task="presence")
+            for path, data in zip(csv_path_presence, data_presence):
+                write_csv(path, header_presence, data)
 
-    # Present emotion metrics
-    if metrics_presence is not None:
-        header_presence, data_presence = get_header_and_data_metrics(metrics_presence, header_param, data_param,
-                                                                     predict_neutral_class, task="presence")
-        for path, data in zip(csv_path_presence, data_presence):
-            write_csv(path, header_presence, data)
+        # Dominant emotion metrics
+        header_dominant, data_dominant = get_header_and_data_metrics(met_dom, header_id, data_id,
+                                                                     predict_neutral_class, task="dominant")
+        write_csv(csv_path_dominant, header_dominant, data_dominant)
 
-    # Dominant emotion metrics
-    header_dominant, data_dominant = get_header_and_data_metrics(metrics_dominant, header_param, data_param,
-                                                                 predict_neutral_class, task="dominant")
-    write_csv(csv_path_dominant, header_dominant, data_dominant)
+        # print(len(header_regression), len(data_regression))
+        # print(len(header_score_coa), len(data_score_coa))
+        # print(len(header_dominant), len(data_dominant))
+        # for i in range(len(metrics_presence)):
+        #     print(len(header_presence), len(data_presence[i]))
 
-    # print(len(header_regression), len(data_regression))
-    # print(len(header_score_coa), len(data_score_coa))
-    # print(len(header_dominant), len(data_dominant))
-    # for i in range(len(metrics_presence)):
-    #     print(len(header_presence), len(data_presence[i]))
+    if with_cross_val:
+        for fold_id, (m_reg_i, m_coa_i, m_pres_i, m_dom_i) in enumerate(zip(loss_function_val, metrics_regression,
+                                                                            metrics_score_coa, metrics_presence,
+                                                                            metrics_dominant)):
+            write_csv_one_model(m_reg_i, m_coa_i, m_pres_i, m_dom_i, fold_id)
+            
+    else:
+        write_csv_one_model(metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant)
 
 
-def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name):
+def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, with_cross_val):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
@@ -200,20 +218,22 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
     # Model training hyperparameters
     data_training = list(param_training.values())
     header_training = list(param_training.keys())
-    data = data + data_training + [predict_neutral_class, label_type, set_length]
-    header = header + header_training + ['neutral_class', 'label_type', 'set_length']
+    data = data + data_training + [predict_neutral_class, label_type, set_length, with_cross_val]
+    header = header + header_training + ['neutral_class', 'label_type', 'set_length', 'cross_val']
 
     write_csv(csv_path, header, data)
 
 
-def csv_summary():
+def csv_summary(with_cross_val):
     if os.path.isdir("results/"):
 
         # This section gets the list of all filenames (regression, classif_score_coa, etc)
         list_model_names = [name for name in os.listdir("results/") if name != 'summary']
+        metric_folder_name = "cross_validation" if with_cross_val else "hold_out"
         all_csv_files = []
         for model in list_model_names:
-            csv_name_current_model = [csv_name for csv_name in os.listdir(os.path.join("results", model, "csv"))
+            csv_name_current_model = [csv_name for csv_name in
+                                      os.listdir(os.path.join("results/", model, "csv", metric_folder_name))
                                       if csv_name != 'model_ids.csv']
             for cn in csv_name_current_model:
                 filename_without_extension = os.path.splitext(cn)[0]
@@ -223,12 +243,14 @@ def csv_summary():
         # This section creates and fills model data in one single file (in summary/ folder)
         for csv_file in all_csv_files:
             df = pd.DataFrame()
-            csv_path_summary = create_csv_path("summary", csv_file)
-            os.remove(csv_path_summary)
+            csv_path_summary = create_csv_path("summary", csv_file, with_cross_val=with_cross_val, is_summary=True)
+            os.remove(csv_path_summary)  # for reinitialisation
             for model in list_model_names:
-                csv_path_model = create_csv_path(model, csv_file)
+                csv_path_model = create_csv_path(model, csv_file, with_cross_val=with_cross_val)
                 if os.path.exists(csv_path_model):
                     data = pd.read_csv(csv_path_model)
+                    if with_cross_val:
+                        data = data.groupby('model_id').agg(['mean', 'std'])
                     model_column = [model for _ in range(get_num_rows_csv(csv_path_model)-1)]
                     data.insert(0, 'model', model_column, allow_duplicates=True)
                     df = pd.concat([df, data], axis=0)
