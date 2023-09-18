@@ -257,8 +257,6 @@ def csv_summary(with_cross_val):
                     if with_cross_val:
                         data = data.groupby('model_id').agg(['mean', 'std'])
                     model_column = [model for _ in range(len(data.index))]
-                    print("get_num_rows_csv(csv_path_model)", get_num_rows_csv(csv_path_model))
-                    print("len(data.index)", len(data.index))
                     data.insert(0, 'model', model_column, allow_duplicates=True)
                     df = pd.concat([df, data], axis=0)
             df.to_csv(csv_path_summary, index=False)

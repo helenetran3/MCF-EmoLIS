@@ -1,9 +1,9 @@
 import os.path
-import json
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer, get_hyperparam_from_json
+from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
+from src.print_functions import print_training_parameters
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.utils import plot_model
@@ -11,43 +11,29 @@ from tensorflow.keras.utils import plot_model
 from matplotlib import pyplot as plt
 
 
-def create_model_folder_and_path(model_name, model_id):
+def create_model_folder_and_path(model_name, ext_name):
     """
     Create model folder and path to file containing model weights.
 
     :param model_name: Name of the model
-    :param model_id: Model id (int)
+    :param ext_name: Extension name (str)
     :return: model_save_path
     """
 
     model_folder = os.path.join('results', model_name, 'models')
-    if not os.path.isdir('results'):
+    if not os.path.exists(model_folder):
         os.makedirs(model_folder)
-    model_save_path = os.path.join(model_folder, "model_{}.h5".format(model_id))
+    model_save_path = os.path.join(model_folder, "model_{}.h5".format(ext_name))
 
     return model_save_path
 
 
-def print_hyperparameters(model_name, model_id, param_value_to_print, print_archi):
-    if print_archi:
-        print("Model name:", model_name)
-        print("Model id:", model_id)
-        param_model_def, param_training_def = get_hyperparam_from_json("param_def", model_name=model_name)
-        param_def_to_print = param_model_def if print_archi else param_training_def
-        if param_def_to_print is not None:
-            for key, value in param_def_to_print.items():
-                print("{}: {}".format(param_def_to_print[key], param_value_to_print[key]))
-        else:
-            for key, value in param_value_to_print.items():
-                print("{}: {}".format(key, value))
-
-
-def plot_history(history, model_id, history_folder, root_folder, display_fig):
+def save_and_plot_history(history, ext_name, history_folder, root_folder, display_fig):
     """
-    Plot history, display and save figures
+    Save and plot history, display and save figures
 
     :param history: TensorFlow history object
-    :param model_id: Model id (int)
+    :param ext_name: Extension name (str)
     :param history_folder: Name of the folder where the history plot will be saved
     :param root_folder: Name of the root folder where the history folder is created
     :param display_fig: Whether we display the figures
@@ -58,6 +44,9 @@ def plot_history(history, model_id, history_folder, root_folder, display_fig):
     if not os.path.isdir(full_path_folder):
         os.makedirs(full_path_folder)
 
+    # save history
+    save_with_pickle(history, "history_{}".format(ext_name), pickle_folder="history", root_folder=root_folder)
+
     # summarize history for training and validation metric used to monitor
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
@@ -65,41 +54,23 @@ def plot_history(history, model_id, history_folder, root_folder, display_fig):
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'val'])
-    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(model_id))
+    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(ext_name))
     plt.savefig(history_plot_path, bbox_inches='tight')
     if display_fig:
         plt.show()
 
 
-def train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
-                   model_name, model_id):
-    """
-    Train the model using TensorFlow.
-    Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
+def run_one_training(train_list, valid_list, param_model, param_training, param_log,
+                     num_steps, model_name, model_id, with_cross_val, fold_id=None):
 
-    :param train_list: [x_train, y_train, seg_train] where x_train is a list of 3 lists of arrays of shape
-    (num_steps, num_features), y_train a list arrays of shape (1, 6 or 7), and seg_train a list of segment ids
-    (ex: 'zk2jTlAtvSU[1]')
-    :param valid_list: [x_valid, y_valid, seg_valid]
-    :param test_list: [x_test, y_test, seg_test]
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
-    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
-    :param param_training: dictionary of 'training' hyperparameters (cf. param_training.json)
-    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
-    :param num_steps: Fixed length for all sequences in the dataset
-    :param model_name: Name of the model currently tested
-    :param model_id: Model id (int)
-    """
-
-    predict_neutral_class = param_task['predict_neutral_class']
-    label_type = param_task['label_type']
-    display_fig = param_log['display_fig']
+    batch_size = param_training['batch_size']
+    loss_function_str = param_training['loss_function']
+    optimizer_name = param_training['optimizer']
+    learning_rate = param_training['learning_rate']
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
-    batch_size = param_training['batch_size']
-    optimizer_name = param_training['optimizer']
-    loss_function_str = param_training['loss_function']
-    learning_rate = param_training['learning_rate']
+    display_fig = param_log['display_fig']
+    ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_val else model_id
 
     x_train = train_list[0]  # list of lists of 3 arrays
     y_train = train_list[1]
@@ -110,18 +81,13 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
     num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
     num_train_samples = len(y_train)
     num_valid_samples = len(y_valid)
-    num_test_samples = len(test_list[1])
-    total_data = num_train_samples + num_valid_samples + num_test_samples
 
     # Create TensorFlow datasets for model training
     train_dataset = DatasetTf(x_train, y_train, seg_train, num_steps, num_classes, batch_size, train_mode=True).build()
     valid_dataset = DatasetTf(x_valid, y_valid, seg_valid, num_steps, num_classes, batch_size, train_mode=True).build()
 
-    # Parameters to save model
-    model_save_path = create_model_folder_and_path(model_name, model_id)
-
     # Initialize callbacks
-    checkpoint = ModelCheckpoint(filepath=model_save_path,
+    checkpoint = ModelCheckpoint(filepath=create_model_folder_and_path(model_name, ext_model_name),
                                  verbose=1,
                                  monitor='val_loss',
                                  mode='min',
@@ -146,26 +112,10 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
                                       num_steps, num_classes)
     model_tf = model_class.build()
 
-    print("\n\n============================== Training Parameters ===========================================")
-    print("\n>>> Dataset")
-    print("Number training datapoints: {} ({:.2f}%)".format(num_train_samples, 100 * (num_train_samples / total_data)))
-    print(
-        "Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
-    print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
-    print("Number of output cells:", num_classes)
-    print("\n>>> Model training")
-    print("Task:", label_type)
-    if label_type == 'dominant' or label_type == 'present':
-        print("Predict neutral class:", predict_neutral_class)
-    print("Library: TensorFlow")
-    print_hyperparameters(model_name, model_id, param_training, print_archi=False)
-    print("Fixed number of steps:", num_steps)
-    print("\n>>> Model parameters")
-    print_hyperparameters(model_name, model_id, param_model, print_archi=True)
-    print("\n")
-    print(model_tf.summary())
+    fold_text = ": Fold {}".format(fold_id) if with_cross_val else ""
+    print("\n\n================================= Model Training{} =============================================\n"
+          .format(fold_text))
 
-    print("\n\n================================= Model Training =============================================\n")
     model_tf.compile(loss=loss_function, optimizer=optimizer_tf)
     history = model_tf.fit(x=train_dataset,
                            epochs=num_epochs,
@@ -176,11 +126,47 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
                            callbacks=callbacks)
 
     model_folder = os.path.join("results", model_name)
-    save_with_pickle(history, "history_{}".format(model_id), pickle_folder="history", root_folder=model_folder)
 
-    # Save model plot
-    plot_model(model_tf, to_file=os.path.join(model_folder, "models", "model_{}.png".format(model_id)),
-               show_shapes=True, show_layer_activations=True)
+    # Save model plot (only one time, hence the if condition)
+    if fold_id is None or fold_id == 0:
+        plot_model(model_tf, to_file=os.path.join(model_folder, "models", "model_{}.png".format(ext_model_name)),
+                   show_shapes=True, show_layer_activations=True)
 
-    # Display and save history plot
-    plot_history(history, model_id, history_folder="history", root_folder=model_folder, display_fig=display_fig)
+    # Save history, display and save history plot
+    save_and_plot_history(history, ext_model_name, history_folder="history", root_folder=model_folder,
+                          display_fig=display_fig)
+
+
+def train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
+                   model_name, model_id, with_cross_valid):
+    """
+    Train the model using TensorFlow.
+    Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
+
+    :param train_list: [x_train, y_train, seg_train] where x_train is a list of 3 lists of arrays of shape
+    (num_steps, num_features), y_train a list arrays of shape (1, 6 or 7), and seg_train a list of segment ids
+    (ex: 'zk2jTlAtvSU[1]')
+    :param valid_list: [x_valid, y_valid, seg_valid]
+    :param test_list: [x_test, y_test, seg_test]
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training.json)
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
+    :param num_steps: Fixed length for all sequences in the dataset
+    :param model_name: Name of the model currently tested
+    :param model_id: Model id (int)
+    :param with_cross_valid: boolean (cross_validation or not)
+    """
+
+    print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
+                              param_task, param_model, param_training, num_steps, model_name, model_id, is_tf=True)
+
+    if with_cross_valid:
+        for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
+            run_one_training(train_list_i, valid_list_i, param_model, param_training, param_log,
+                             num_steps, model_name, model_id, with_cross_valid, fold_id)
+
+    else:
+        run_one_training(train_list, valid_list, param_model, param_training, param_log,
+                         num_steps, model_name, model_id, with_cross_valid)
+

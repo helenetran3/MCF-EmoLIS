@@ -54,8 +54,8 @@ def main():
         from src.tensorflow_utils.model_training import train_tf_model
         from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
-        train_tf_model(train_list, valid_list, test_list,
-                       param_task, param_model, param_training, param_log, num_steps, model_name, model_id)
+        train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
+                       num_steps, model_name, model_id, with_cross_validation)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
@@ -69,12 +69,12 @@ def main():
         device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         print(f"\nUsing {device} device")
 
-        train_torch_model(train_list, valid_list, test_list, with_cross_validation,
-                          param_task, param_model, param_training, param_log, num_steps, model_name, model_id, device)
+        train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
+                          num_steps, model_name, model_id, device, with_cross_validation)
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, with_cross_validation, param_task, param_model, param_training, param_log,
-                                 num_steps, model_name, model_id, all_scores, device)
+            evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,
+                                 num_steps, model_name, model_id, all_scores, device, with_cross_validation)
 
     # Save model parameters in csv file
     save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, with_cross_validation)

@@ -98,8 +98,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     return test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
-def evaluate_torch_model(test_list, with_cross_valid, param_task, param_model, param_training, param_log, num_steps,
-                         model_name, model_id, all_scores, device):
+def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps,
+                         model_name, model_id, all_scores, device, with_cross_valid):
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']

@@ -1,7 +1,7 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, collate_fn_for_variable_length
 from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
-from src.tensorflow_utils.model_training import print_hyperparameters
-
+from src.print_functions import print_training_parameters
+from src.pickle_functions import save_with_pickle
 
 import os
 import torch
@@ -14,14 +14,6 @@ from torch.utils.tensorboard import SummaryWriter
 from alive_progress import alive_bar
 
 from matplotlib import pyplot as plt
-
-
-# def compute_size_dataset(train_size, valid_size, test_size, with_cross_valid, num_folds=None):
-#     if with_cross_valid:
-#         validation_fold_size = 1/num_folds
-#         whole_training_size = train_size + valid_size
-#         final_valid_size =
-#         final_train_size =
 
 
 def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps):
@@ -84,17 +76,20 @@ def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improve
     return num_epochs_without_improvement
 
 
-def plot_history(history_train, history_valid, model_id, history_folder, root_folder, display_fig):
+def save_and_plot_history(history_train, history_valid, ext_name, history_folder, root_folder, display_fig):
     """
-    Plot history, display and save figures
+    Save and plot history, display and save figures
 
     :param history_train: List of training losses
     :param history_valid: List of validation losses
-    :param model_id: Model id (int)
+    :param ext_name: Extension name (str)
     :param history_folder: Name of the folder where the history plot will be saved
     :param root_folder: Name of the root folder where the history folder is created
     :param display_fig: Whether we display the figures
     """
+
+    history = [history_train, history_valid]
+    save_with_pickle(history, "history_{}".format(ext_name), pickle_folder="history", root_folder=root_folder)
 
     # Create full path folder
     full_path_folder = os.path.join(root_folder, history_folder)
@@ -108,56 +103,14 @@ def plot_history(history_train, history_valid, model_id, history_folder, root_fo
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'val'])
-    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(model_id))
+    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(ext_name))
     plt.savefig(history_plot_path, bbox_inches='tight')
     if display_fig:
         plt.show()
 
 
-def print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
-                              param_task, param_model, param_training, num_steps, model_name, model_id):
-
-    predict_neutral_class = param_task['predict_neutral_class']
-    label_type = param_task['label_type']
-
-    y_train, y_valid, y_test = (train_list[0][1], valid_list[0][1], test_list[0][1]) if with_cross_valid \
-        else (train_list[1], valid_list[1], test_list[1])
-    num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
-    num_train_samples = len(y_train)
-    num_valid_samples = len(y_valid)
-    num_test_samples = len(test_list[1])
-    total_data = num_train_samples + num_valid_samples + num_test_samples
-
-    print("\n\n============================== Training Parameters ===========================================")
-    print("\n>>> Dataset")
-    print("With cross validation:", with_cross_valid)
-    print("Number training datapoints: {} ({:.2f}%)".format(num_train_samples, 100 * (num_train_samples / total_data)))
-    print(
-        "Number validation datapoints: {} ({:.2f}%)".format(num_valid_samples, 100 * (num_valid_samples / total_data)))
-    print("Number test datapoints: {} ({:.2f}%)".format(num_test_samples, 100 * (num_test_samples / total_data)))
-    print("Number of output cells:", num_classes)
-    print("\n>>> Model training")
-    print("Task:", label_type)
-    if label_type == 'dominant' or label_type == 'present':
-        print("Predict neutral class:", predict_neutral_class)
-    print("Library: PyTorch")
-    print_hyperparameters(model_name, model_id, param_training, print_archi=False)
-    print("Fixed number of steps:", num_steps)
-    print("\n>>> Model parameters")
-    print_hyperparameters(model_name, model_id, param_model, print_archi=True)
-    print("\n")
-    # if num_steps is not None:
-    #     print("\n>>> Model summary (for a sequence of length {})".format(num_steps))
-    #     summary(model, [(num_steps, 300), (num_steps, 35), (num_steps, 74)], device='cpu',
-    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
-    # else:
-    #     print("\n>>> Model summary (for a sequence of length 26)")
-    #     summary(model, [(26, 300), (26, 35), (26, 74)], device='cpu',
-    #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
-
-
-def run_one_training(train_list, valid_list, with_cross_valid, fold_id,
-                     param_model, param_training, param_log, num_steps, model_name, model_id, device):
+def run_one_training(train_list, valid_list, param_model, param_training, param_log,
+                     num_steps, model_name, model_id, device, with_cross_valid, fold_id=None):
 
     batch_size = param_training['batch_size']
     loss_function_str = param_training['loss_function']
@@ -331,23 +284,23 @@ def run_one_training(train_list, valid_list, with_cross_valid, fold_id,
                 break
 
     model_folder = os.path.join('results', model_name)
-    plot_history(history_train, history_valid, model_id, history_folder="history", root_folder=model_folder,
-                 display_fig=display_fig)
+    save_and_plot_history(history_train, history_valid, ext_model_name, history_folder="history",
+                          root_folder=model_folder, display_fig=display_fig)
 
     writer.close()
 
 
-def train_torch_model(train_list, valid_list, test_list, with_cross_valid,
-                      param_task, param_model, param_training, param_log, num_steps, model_name, model_id, device):
+def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
+                      num_steps, model_name, model_id, device, with_cross_valid):
 
     print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
-                              param_task, param_model, param_training, num_steps, model_name, model_id)
+                              param_task, param_model, param_training, num_steps, model_name, model_id, is_tf=False)
 
     if with_cross_valid:
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
-            run_one_training(train_list_i, valid_list_i, with_cross_valid, fold_id,
-                             param_model, param_training, param_log, num_steps, model_name, model_id, device)
+            run_one_training(train_list_i, valid_list_i, param_model, param_training, param_log,
+                             num_steps, model_name, model_id, device, with_cross_valid, fold_id)
 
     else:
-        run_one_training(train_list, valid_list, with_cross_valid, None,
-                         param_model, param_training, param_log, num_steps, model_name, model_id, device)
+        run_one_training(train_list, valid_list, param_model, param_training, param_log,
+                         num_steps, model_name, model_id, device, with_cross_valid)
