@@ -255,6 +255,7 @@ def csv_summary(with_cross_val):
                 if os.path.exists(csv_path_model):
                     data = pd.read_csv(csv_path_model)
                     if with_cross_val:
+                        data.drop(columns='fold_id')
                         data = data.groupby('model_id').agg(['mean', 'std'])
                     model_column = [model for _ in range(len(data.index))]
                     data.insert(0, 'model', model_column, allow_duplicates=True)

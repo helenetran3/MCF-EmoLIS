@@ -59,7 +59,7 @@ def main():
 
         loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                              all_scores)
+                              all_scores, with_cross_validation)
 
     else:
         import torch
