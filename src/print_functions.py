@@ -5,7 +5,7 @@ def print_hyperparameters(model_name, model_id, param_value_to_print, print_arch
     if print_archi:
         print("Model name:", model_name)
         print("Model id:", model_id)
-        param_model_def, param_training_def = get_hyperparam_from_json("param_def", model_name=model_name)
+        param_model_def, param_training_def = get_hyperparam_from_json("param_definitions", model_name=model_name)
         param_def_to_print = param_model_def if print_archi else param_training_def
         if param_def_to_print is not None:
             for key, value in param_def_to_print.items():
@@ -21,6 +21,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
 
     predict_neutral_class = param_task['predict_neutral_class']
     label_type = param_task['label_type']
+    num_folds = param_training['cross_val_folds']
 
     y_train, y_valid, y_test = (train_list[0][1], valid_list[0][1], test_list[0][1]) if with_cross_valid \
         else (train_list[1], valid_list[1], test_list[1])
@@ -39,6 +40,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     print("Number of output cells:", num_classes)
     print("\n>>> Model training")
     print("Task:", label_type)
+    print("Cross-validation:", with_cross_valid, "({} folds)".format(num_folds) if with_cross_valid else "")
     if label_type == 'dominant' or label_type == 'present':
         print("Predict neutral class:", predict_neutral_class)
     print("Library: {}".format("TensorFlow" if is_tf else "PyTorch"))

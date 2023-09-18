@@ -10,10 +10,9 @@ from src.model_metrics import compute_and_save_model_metrics
 def main():
 
     param_log = get_hyperparam_from_json("param_logistics")
-    param_task = get_hyperparam_from_json("param_task")
+    param_training, param_task = get_hyperparam_from_json("param_training_task")
     model_name = param_task['model_name']
     param_model = get_hyperparam_from_json("param_model", model_name=model_name)
-    param_training = get_hyperparam_from_json("param_training")
     is_tf = bool(param_model['is_TensorFlow'])
     with_cross_validation = (param_training['cross_val_folds'] != -1)
 

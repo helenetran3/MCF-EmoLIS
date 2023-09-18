@@ -319,7 +319,7 @@ _For TensorFlow:_
 **How to set the hyperparameters of your model**
 
 [//]: # (#TODO Must list the compulsory hyperparameters and force it in the code.)
-[//]: # (#[Optional] If you want to add a definition to each model parameter, you can add your model in param_def)
+[//]: # (#[Optional] If you want to add a definition to each model parameter, you can add your model in param_definition)
 
 **How to make it usable in this repository**
 

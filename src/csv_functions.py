@@ -200,9 +200,9 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
     Create a csv file which lists the model ids and model architecture/training parameters.
 
     :param model_id: Model id (int)
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
-    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. default_parameters.json)
-    :param param_training: dictionary of 'training' hyperparameters (cf. default_parameters.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
+    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model_name: Name of the model
     """
 

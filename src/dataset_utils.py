@@ -54,7 +54,7 @@ def get_dataset_from_sdk(param_log, param_task):
     Return CMU-MOSEI mmdataset.
 
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :return: CMU-MOSEI mmdataset
     """
 
@@ -123,7 +123,7 @@ def get_fold_ids(param_task):
     """
     Get CMU-MOSEI standard fold ids for training, validation, and test
 
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :return: 3 lists of ids for training, validation, and test sets respectively
     """
 
@@ -153,7 +153,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     :param train_ids: list of training ids
     :param valid_ids: list of validation ids
     :param test_ids: list of test ids
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
     :return: 3 lists train_list = [x_train, y_train, seg_train], valid_list = [x_valid, y_valid, seg_valid],
      test_list = [x_test, y_test, seg_test]
@@ -302,7 +302,7 @@ def get_length_dataset(train_list, valid_list, test_list, param_task, is_tf):
     :param train_list: [X_train, y_train, seg_train]
     :param valid_list: [X_valid, y_valid, seg_valid]
     :param test_list: [X_test, y_test, seg_test]
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param is_tf: whether it is TensorFlow or not (boolean)
     :return: Number of steps for each datapoint
     """

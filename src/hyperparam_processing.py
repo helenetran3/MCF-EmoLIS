@@ -56,7 +56,7 @@ def get_loss_function(loss_function_str, is_tf):
     if loss_function_str.lower() in loss_fn_dict.keys():
         return loss_fn_dict[loss_function_str]
     else:
-        raise ValueError("'{}' assigned to key 'loss_function' in 'default_parameters.json' is invalid."
+        raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is invalid."
                          " Please choose among {}.".format(loss_function_str, possible_loss_fn))
 
 
@@ -94,7 +94,7 @@ def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):
     if optimizer_str.lower() in opt_dict.keys():
         return opt_dict[optimizer_str]
     else:
-        raise ValueError("'{}' assigned to key 'optimizer' in 'default_parameters.json' is invalid."
+        raise ValueError("'{}' assigned to key 'optimizer' in 'param_training_task.json' is invalid."
                          " Please choose among {}.".format(optimizer_str, possible_optimizers))
 
 
@@ -148,7 +148,9 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_if_key_is_in_list_actual_keys(['is_TensorFlow'], hyperparam_model, model_name)
         check_value_is_binary("is_TensorFlow", hyperparam_model['is_TensorFlow'])
 
-    if json_name == 'param_training':
+    if json_name == 'param_training_task':
+
+        # Training
         hyperparam_training = hyperparam_dict['training']
         required_keys = ['num_epochs', 'patience', 'batch_size', 'optimizer', 'loss_function', 'learning_rate', 'clip',
                          'when']
@@ -164,7 +166,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_in_list('optimizer', hyperparam_training['optimizer'], possible_optimizers)
         check_value_is_in_list('loss_function', hyperparam_training['loss_function'], possible_loss_fn)
 
-    if json_name == 'param_task':
+        # Task
         hyperparam_task = hyperparam_dict['task']
         required_keys = ['model_name', 'label_type', 'set_length', 'threshold_emo_present', 'predict_neutral_class',
                          'align_to_text', 'image_feature', 'with_custom_split']
@@ -196,22 +198,20 @@ def get_hyperparam_from_json(json_name, model_name=None):
     with open("config/{}.json".format(json_name)) as json_file:
         hyperparam_dict = json.load(json_file)
 
-    # param_def.json has a different structure from the others
-    if json_name == "param_def":
+    # param_definitions.json has a different structure from the others
+    if json_name == "param_definitions":
         if model_name not in list(hyperparam_dict['model'].keys()):
             return None, None
         else:
             return hyperparam_dict['model'][model_name], hyperparam_dict['training']
 
-    # for param_model.json and param_training.json
+    # for param_model.json and param_training_task.json
     else:
         check_model_name_and_structure(hyperparam_dict, model_name, json_name)
         if json_name == 'param_model':
             hyperparam_out = hyperparam_dict['models'][model_name]
-        elif json_name == 'param_training':
-            hyperparam_out = hyperparam_dict['training']
-        elif json_name == 'param_task':
-            hyperparam_out = hyperparam_dict['task']
+        elif json_name == 'param_training_task':
+            hyperparam_out = (hyperparam_dict['training'], hyperparam_dict['task'])
         elif json_name == 'param_logistics':
             hyperparam_out = hyperparam_dict['logistics']
         else:

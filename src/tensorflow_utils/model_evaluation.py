@@ -76,8 +76,8 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
     Returns 5 metrics. if cross-validation, each object is a list of num_folds elements.
 
     :param test_list: [x_test, y_test, seg_test]
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
-    :param param_training: dictionary of 'training' hyperparameters (cf. param_training.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
     :param num_steps: Maximum length for all sequences in the dataset
     :param model_name: Name of the model currently tested

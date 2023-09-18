@@ -493,8 +493,8 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
     an emotion (> threshold defined by threshold_emo_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_task.json)
-    :param param_training: dictionary of 'training' hyperparameters (cf. param_training.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
     :param all_scores: list of available presence scores
