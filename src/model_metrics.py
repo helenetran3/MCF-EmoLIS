@@ -27,7 +27,7 @@ def compute_loss_value(model, test_dataset, loss_function, round_decimals):
     print("\n\n================================= Model Evaluation ===========================================\n")
 
     loss_function_val = model.evaluate(test_dataset, verbose=1)
-    loss_function_val = round(loss_function_val, round_decimals)
+    loss_function_val = np.round(loss_function_val, round_decimals)
     print("Loss function ({}): {}".format(loss_function, loss_function_val))
 
     return loss_function_val
@@ -63,12 +63,12 @@ def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     true_scores_emo = [true_scores_all[:, i] for i in range(num_emotions)]
     pred_scores_emo = [pred_scores_all[:, i] for i in range(num_emotions)]
 
-    mae_emo = [round(mean_absolute_error(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    mse_emo = [round(mean_squared_error(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    r2_emo = [round(r2_score(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    mae = round(mean_absolute_error(true_scores_all, pred_scores_all), round_decimals)
-    mse = round(mean_squared_error(true_scores_all, pred_scores_all), round_decimals)
-    r2 = round(r2_score(true_scores_all, pred_scores_all), round_decimals)
+    mae_emo = [np.round(mean_absolute_error(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    mse_emo = [np.round(mean_squared_error(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    r2_emo = [np.round(r2_score(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    mae = np.round(mean_absolute_error(true_scores_all, pred_scores_all), round_decimals)
+    mse = np.round(mean_squared_error(true_scores_all, pred_scores_all), round_decimals)
+    r2 = np.round(r2_score(true_scores_all, pred_scores_all), round_decimals)
 
     print("Mean absolute error (for each emotion):", mae_emo)
     print("Mean squared error (for each emotion):", mse_emo)
@@ -100,17 +100,17 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     # In this block, we go through all the emotions. Metrics are here given for each emotion.
     # Imbalance in presence score [0, 1, 2, 3]. example for happy: [3048, 1210, 376, 20],
     # hence we also calculate weighted metrics
-    f1_macro_each = [round(f1_score(ts, ps, average='macro', zero_division=1), round_decimals)
+    f1_macro_each = [np.round(f1_score(ts, ps, average='macro', zero_division=1), round_decimals)
                      for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    f1_weighted_each = [round(f1_score(ts, ps, average='weighted', zero_division=1), round_decimals)
+    f1_weighted_each = [np.round(f1_score(ts, ps, average='weighted', zero_division=1), round_decimals)
                         for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    rec_macro_each = [round(recall_score(ts, ps, average='macro', zero_division=1), round_decimals)
+    rec_macro_each = [np.round(recall_score(ts, ps, average='macro', zero_division=1), round_decimals)
                       for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    rec_weighted_each = [round(recall_score(ts, ps, average='weighted', zero_division=1), round_decimals)
+    rec_weighted_each = [np.round(recall_score(ts, ps, average='weighted', zero_division=1), round_decimals)
                          for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    prec_macro_each = [round(precision_score(ts, ps, average='macro', zero_division=1), round_decimals)
+    prec_macro_each = [np.round(precision_score(ts, ps, average='macro', zero_division=1), round_decimals)
                        for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    prec_weighted_each = [round(precision_score(ts, ps, average='weighted', zero_division=1), round_decimals)
+    prec_weighted_each = [np.round(precision_score(ts, ps, average='weighted', zero_division=1), round_decimals)
                           for ts, ps in zip(true_scores_bin, pred_scores_bin)]
     # roc_auc_macro_each = [roc_auc_score(ts, ps, average='macro')
     #                      for ts, ps in zip(true_scores_bin, pred_scores_bin)]
@@ -118,15 +118,15 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     #                         for ts, ps in zip(true_scores_bin, pred_scores_bin)]
 
     # Unweighted mean over the six emotions
-    acc = round(accuracy_score(true_scores_bin_stack, pred_scores_bin_stack), round_decimals)
-    f1_macro_uw_mean = round(np.mean(f1_macro_each), round_decimals)
-    f1_weighted_uw_mean = round(np.mean(f1_weighted_each), round_decimals)
-    rec_macro_uw_mean = round(np.mean(rec_macro_each), round_decimals)
-    rec_weighted_uw_mean = round(np.mean(rec_weighted_each), round_decimals)
-    prec_macro_uw_mean = round(np.mean(prec_macro_each), round_decimals)
-    prec_weighted_uw_mean = round(np.mean(prec_weighted_each), round_decimals)
-    # roc_auc_macro_uw_mean = round(np.mean(roc_auc_macro_each), round_decimals)
-    # roc_auc_weighted_uw_mean = round(np.mean(roc_auc_weighted_each), round_decimals)
+    acc = np.round(accuracy_score(true_scores_bin_stack, pred_scores_bin_stack), round_decimals)
+    f1_macro_uw_mean = np.round(np.mean(f1_macro_each), round_decimals)
+    f1_weighted_uw_mean = np.round(np.mean(f1_weighted_each), round_decimals)
+    rec_macro_uw_mean = np.round(np.mean(rec_macro_each), round_decimals)
+    rec_weighted_uw_mean = np.round(np.mean(rec_weighted_each), round_decimals)
+    prec_macro_uw_mean = np.round(np.mean(prec_macro_each), round_decimals)
+    prec_weighted_uw_mean = np.round(np.mean(prec_weighted_each), round_decimals)
+    # roc_auc_macro_uw_mean = np.round(np.mean(roc_auc_macro_each), round_decimals)
+    # roc_auc_weighted_uw_mean = np.round(np.mean(roc_auc_weighted_each), round_decimals)
     print("4 classes (presence scores) for each emotion class. "
           "The following metrics all give the unweighted mean over the emotions and the brackets give the type "
           "of mean over the presence scores.\n")
@@ -156,7 +156,7 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
 
 
 def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, model_id, model_folder,
-                               with_cross_val, fold_id, thres=None):
+                               with_cross_val, fold_id=None, thres=None):
     """
     Compute classification metrics.
      Accuracy
@@ -182,7 +182,7 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
         conf_matrix = load_from_pickle('conf_matrix_{}_{}'.format(model_id, ext_name),
                                        pickle_folder="confusion_matrix", root_folder=model_folder)
-        conf_matrix_i = conf_matrix[fold_id]
+        conf_matrix_i = conf_matrix[fold_id] if fold_id is not None else conf_matrix
 
         for emo_i in range(num_classes):
             tp = conf_matrix_i[emo_i, 0, 0]
@@ -190,37 +190,26 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
             fn = conf_matrix_i[emo_i, 1, 0]
             tn = conf_matrix_i[emo_i, 1, 1]
             bin_acc_emo = (tp+tn)/(tp+fp+fn+tn)
-            bin_acc_emo_rounded = round(bin_acc_emo, round_decimals)
+            bin_acc_emo_rounded = np.round(bin_acc_emo, round_decimals)
             bin_acc.append(bin_acc_emo_rounded)
         return bin_acc
 
     acc_per_class = compute_binary_accuracy_per_class()
-    acc_overall = round(accuracy_score(true_classes, pred_classes), round_decimals)
+    acc_overall = np.round(accuracy_score(true_classes, pred_classes), round_decimals)
     f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
-    f1_macro = round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    f1_weighted = round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
+    f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    f1_weighted = np.round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
     rec_each = recall_score(true_classes, pred_classes, average=None, zero_division=1)
-    rec_macro = round(recall_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    rec_weighted = round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
+    rec_macro = np.round(recall_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    rec_weighted = np.round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
     prec_each = precision_score(true_classes, pred_classes, average=None, zero_division=1)
-    prec_macro = round(precision_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    prec_weighted = round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1),
-                          round_decimals)
-    true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
-    pred_classes_bin = label_binarize(pred_classes, classes=list(range(num_classes)))
-    # Next block: Compute ROC AUC when NOT defining the presence/absence of an emotion (as this task creates error
-    # when no emotion has a presence score greater than the threshold - ROC AUC needs at least one positive sample)
-    if thres is None:
-        roc_auc_each = roc_auc_score(true_classes_bin, pred_classes_bin, average=None, multi_class='ovr')
-        roc_auc_macro = round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro', multi_class='ovr'),
-                              round_decimals)
-        roc_auc_weighted = round(
-            roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr'), round_decimals)
-        roc_auc_each_rounded = [round(val, round_decimals) for val in roc_auc_each]
+    prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1),
+                             round_decimals)
 
-    f1_each_rounded = [round(val, round_decimals) for val in f1_each]
-    rec_each_rounded = [round(val, round_decimals) for val in rec_each]
-    prec_each_rounded = [round(val, round_decimals) for val in prec_each]
+    f1_each_rounded = [np.round(val, round_decimals) for val in f1_each]
+    rec_each_rounded = [np.round(val, round_decimals) for val in rec_each]
+    prec_each_rounded = [np.round(val, round_decimals) for val in prec_each]
 
     if thres is not None:
         print('\n>>> Threshold:', thres)
@@ -236,17 +225,9 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     print("Precision (for each):", prec_each_rounded)
     print("Precision (unweighted mean):", prec_macro)
     print("Precision (weighted mean):", prec_weighted)
-    if thres is None:
-        print("ROC AUC (for each):", roc_auc_each_rounded)
-        print("ROC AUC (unweighted mean):", roc_auc_macro)
-        print("ROC AUC (weighted mean):", roc_auc_weighted)
 
     res = [acc_overall, f1_macro, f1_weighted, rec_macro, rec_weighted, prec_macro, prec_weighted]
-    if thres is None:
-        res = res + [roc_auc_macro, roc_auc_weighted] + acc_per_class + f1_each_rounded + rec_each_rounded + \
-              prec_each_rounded + roc_auc_each_rounded
-    else:
-        res = res + acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
+    res = res + acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
 
     return res
 

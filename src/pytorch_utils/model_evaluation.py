@@ -1,6 +1,7 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
 from src.label_processing import compute_pred_labels
 from src.hyperparam_processing import get_model_module, get_loss_function
+from src.pickle_functions import save_with_pickle
 
 import os
 import numpy as np
@@ -90,6 +91,10 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     print(f"Avg test loss: {test_loss:>8f} \n")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
+
+    if save_pred:
+        save_with_pickle(pred_raw, "pred_raw_{}".format(model_id), pickle_folder="predictions",
+                         root_folder=model_folder)
 
     pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
