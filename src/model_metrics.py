@@ -206,6 +206,17 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
     prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1),
                              round_decimals)
+    true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
+    pred_classes_bin = label_binarize(pred_classes, classes=list(range(num_classes)))
+    # Next block: Compute ROC AUC when NOT defining the presence/absence of an emotion (as this task creates error
+    # when no emotion has a presence score greater than the threshold - ROC AUC needs at least one positive sample)
+    if thres is None:
+        roc_auc_each = roc_auc_score(true_classes_bin, pred_classes_bin, average=None, multi_class='ovr')
+        roc_auc_macro = np.round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro', multi_class='ovr'),
+                              round_decimals)
+        roc_auc_weighted = np.round(
+            roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr'), round_decimals)
+        roc_auc_each_rounded = [np.round(val, round_decimals) for val in roc_auc_each]
 
     f1_each_rounded = [np.round(val, round_decimals) for val in f1_each]
     rec_each_rounded = [np.round(val, round_decimals) for val in rec_each]
@@ -225,9 +236,17 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     print("Precision (for each):", prec_each_rounded)
     print("Precision (unweighted mean):", prec_macro)
     print("Precision (weighted mean):", prec_weighted)
+    if thres is None:
+        print("ROC AUC (for each):", roc_auc_each_rounded)
+        print("ROC AUC (unweighted mean):", roc_auc_macro)
+        print("ROC AUC (weighted mean):", roc_auc_weighted)
 
     res = [acc_overall, f1_macro, f1_weighted, rec_macro, rec_weighted, prec_macro, prec_weighted]
-    res = res + acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
+    if thres is None:
+        res = res + [roc_auc_macro, roc_auc_weighted] + acc_per_class + f1_each_rounded + rec_each_rounded + \
+              prec_each_rounded + roc_auc_each_rounded
+    else:
+        res = res + acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
 
     return res
 
