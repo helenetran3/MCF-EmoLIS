@@ -84,7 +84,7 @@ def main():
                                    param_task, param_training, param_log, model_name, model_id, all_scores)
 
     # Summary files
-    csv_summary(with_cross_validation)
+    csv_summary(with_cross_validation, param_log)
 
 
 if __name__ == "__main__":

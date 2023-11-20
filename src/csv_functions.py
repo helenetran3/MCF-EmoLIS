@@ -28,6 +28,12 @@ def create_csv_path(model_name, filename, ext_name="", with_cross_val=None, is_s
 
 
 def get_num_rows_csv(csv_path):
+    """
+    Get the number of rows in a csv file.
+
+    :param csv_path: csv path (string)
+    :return: number of lines
+    """
     with open(csv_path, 'r') as f:
         reader = csv.reader(f)
         lines = len(list(reader))
@@ -69,6 +75,16 @@ def write_csv(csv_path, header, data_to_save):
 
 
 def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutral_class, task):
+    """
+    Creates two lists of strings (header and data) that will contain all the metrics for the specified task.
+
+    :param metrics: a list of metric values
+    :param header_param: a list of strings to identify the model (and the fold if applicable)
+    :param data_param: a list of values to identify the model (and the fold if applicable)
+    :param predict_neutral_class: Whether we predict the neutral class
+    :param task: name of the task (between "regression", "score_coa", "presence", "dominant")
+    :return: header, data
+    """
 
     header, data = None, None  # For initialisation
 
@@ -126,7 +142,8 @@ def save_results_in_csv_file(model_name, model_id, loss_function, loss_function_
     :param loss_function_val: Loss function obtained by the model
     :param metrics_regression: List of metrics for regression (w.r.t the presence scores)
     :param metrics_score_coa: List of metrics for classifying the presence score of each emotion
-    :param metrics_presence: T lists of lists of metrics for detecting the presence/absence of an emotion (T is the number of thresholds set)
+    :param metrics_presence: T lists of lists of metrics for detecting the presence/absence of an emotion
+    (T is the number of thresholds set)
     :param metrics_dominant: List of metrics for detecting the dominant emotion(s)
     :param with_cross_val: boolean (cross_validation or not)
     :param predict_neutral_class: Whether we predict the neutral class
@@ -227,7 +244,15 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
     write_csv(csv_path, header, data)
 
 
-def csv_summary(with_cross_val):
+def csv_summary(with_cross_val, param_log):
+    """
+    Creates a file for each task which summarizes the results of all models.
+     Can be found in "summary" folder in "results" folder.
+
+    :param with_cross_val: boolean (cross_validation or not)
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
+    """
+
     if os.path.isdir("results/"):
 
         # This section gets the list of all filenames (regression, classif_score_coa, etc)
@@ -245,18 +270,22 @@ def csv_summary(with_cross_val):
                     all_csv_files += [filename_without_extension]
 
         # This section creates and fills model data in one single file (in summary/ folder)
-        for csv_file in all_csv_files:
+        for csv_file in all_csv_files:   # Loop on each task
             df = pd.DataFrame()
             csv_path_summary = create_csv_path("summary", csv_file, with_cross_val=with_cross_val, is_summary=True)
             if os.path.exists(csv_path_summary):
-                os.remove(csv_path_summary)  # for reinitialisation
+                os.remove(csv_path_summary)  # for file reinitialisation
             for model in list_model_names:
                 csv_path_model = create_csv_path(model, csv_file, with_cross_val=with_cross_val)
                 if os.path.exists(csv_path_model):
                     data = pd.read_csv(csv_path_model)
                     if with_cross_val:
-                        data.drop(columns='fold_id')
-                        data = data.groupby('model_id').agg(['mean', 'std'])
+                        # if csv_path_summary == "results/summary/cross_validation/classif_dom.csv":
+                        #     print(data)
+                        data = data.drop(columns='fold_id')
+                        data = data.groupby('model_id').agg(['mean', 'std']).reset_index()
+                        round_decimals = param_log['round_decimals']
+                        data = data.round(round_decimals)
                     model_column = [model for _ in range(len(data.index))]
                     data.insert(0, 'model', model_column, allow_duplicates=True)
                     df = pd.concat([df, data], axis=0)
