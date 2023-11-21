@@ -14,4 +14,7 @@ personal_tests/
 test_torch/
 archives/
 train_labels.csv
+run_cluster.sh
 run_cluster_test.sh
+label_statistics_old.ipynb
+config/default_parameters.json
