@@ -43,14 +43,18 @@ def get_loss_function(loss_function_str, is_tf):
     if is_tf:  # TensorFlow
         loss_fn_dict = {
             'mae': 'mean_absolute_error',
-            'mse': 'mean_squared_error'
+            'mse': 'mean_squared_error',
+            'bce': 'binary_crossentropy',
+            'ce': 'categorical_crossentropy'
         }
 
     else:  # PyTorch
         from torch import nn
         loss_fn_dict = {
             'mae': nn.L1Loss(),
-            'mse': nn.MSELoss()
+            'mse': nn.MSELoss(),
+            'bce': nn.BCELoss(),
+            'ce': nn.CrossEntropyLoss()
         }
 
     if loss_function_str.lower() in loss_fn_dict.keys():
