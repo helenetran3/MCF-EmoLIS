@@ -217,7 +217,12 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     else:  # dominant
         compute_coa, compute_pres = False, False
 
-    # Get presence scores from raw predictions (useful for getting the other metrics)
+    # Save raw predictions
+    if save_pred:
+        save_with_pickle(pred_raw, "pred_raw_{}".format(model_id), pickle_folder="predictions",
+                         root_folder=model_folder)
+
+    # Get the closest presence score from raw prediction (useful for getting the other metrics)
     pred_scores_all = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes)
 
     # Get coarse presence scores from raw predictions
@@ -237,7 +242,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
 
     # Get dominant emotion classes predicted by the model
     pred_classes_dom = get_class_from_presence_score(pred_scores_all, predict_neutral_class, threshold_emo_pres,
-                                                         num_classes, only_dominant=True)
+                                                     num_classes, only_dominant=True)
     if save_pred:
         save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
                          root_folder=model_folder)

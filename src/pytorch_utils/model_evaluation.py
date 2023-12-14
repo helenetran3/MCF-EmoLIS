@@ -92,10 +92,6 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
-    if save_pred:
-        save_with_pickle(pred_raw, "pred_raw_{}".format(model_id), pickle_folder="predictions",
-                         root_folder=model_folder)
-
     pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
