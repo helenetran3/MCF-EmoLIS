@@ -276,19 +276,21 @@ def csv_summary(with_cross_val, param_log):
             if os.path.exists(csv_path_summary):
                 os.remove(csv_path_summary)  # for file reinitialisation
             for model in list_model_names:
-                csv_path_model = create_csv_path(model, csv_file, with_cross_val=with_cross_val)
-                if os.path.exists(csv_path_model):
-                    data = pd.read_csv(csv_path_model)
+                csv_path_model_metrics = create_csv_path(model, csv_file, with_cross_val=with_cross_val)
+                csv_path_model_id = create_csv_path(model, "model_ids", with_cross_val=None)
+                if os.path.exists(csv_path_model_metrics):
+                    data_metrics = pd.read_csv(csv_path_model_metrics)
+                    data_param = pd.read_csv(csv_path_model_id)
                     if with_cross_val:
-                        # if csv_path_summary == "results/summary/cross_validation/classif_dom.csv":
-                        #     print(data)
-                        data = data.drop(columns='fold_id')
-                        data = data.groupby('model_id').agg(['mean', 'std']).reset_index()
+                        data_metrics = data_metrics.drop(columns='fold_id')
+                        data_metrics = data_metrics.groupby('model_id').agg(['mean', 'std']).reset_index()
                         round_decimals = param_log['round_decimals']
-                        data = data.round(round_decimals)
-                    model_column = [model for _ in range(len(data.index))]
-                    data.insert(0, 'model', model_column, allow_duplicates=True)
-                    df = pd.concat([df, data], axis=0)
+                        data_metrics = data_metrics.round(round_decimals)
+                    model_column = [model for _ in range(len(data_metrics.index))]
+                    task_column = data_param['label_type']
+                    data_metrics.insert(0, 'model', model_column, allow_duplicates=True)
+                    data_metrics.insert(2, 'task', task_column, allow_duplicates=True)
+                    df = pd.concat([df, data_metrics], axis=0)
             df.to_csv(csv_path_summary, index=False)
     else:
         print("No results to summarize.")
