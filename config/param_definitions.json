@@ -28,6 +28,7 @@
         "batch_size": "Batch size",
         "optimizer": "Optimizer",
         "loss_function": "Loss function",
+        "val_metrics": "Validation metric used for monitoring (callbacks like EarlyStopping, ReduceLROnPlateau)",
         "learning_rate": "Learning rate",
         "cross_val_folds": "Number of folds for cross-validation (-1 if parameter not used)",
         "random_state": "Random state for cross-validation splitting",

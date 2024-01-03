@@ -18,6 +18,7 @@
     "batch_size": 64,
     "optimizer": "adam",
     "loss_function": "mae",
+    "val_metrics": "hamming_loss",
     "learning_rate": 0.001,
     "cross_val_folds": 5,
     "random_state": 42,

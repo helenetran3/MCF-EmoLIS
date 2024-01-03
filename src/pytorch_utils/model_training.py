@@ -1,5 +1,5 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, collate_fn_for_variable_length
-from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
+from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics, get_optimizer
 from src.print_functions import print_training_parameters
 from src.pickle_functions import save_with_pickle
 
@@ -65,11 +65,13 @@ def model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train
 def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improvement, patience):
     if valid_loss > valid_loss_best:
         num_epochs_without_improvement += 1
-        if patience == num_epochs_without_improvement - 1:
+        if patience == num_epochs_without_improvement:
             print("[Early stopping] Number epochs without improvement reaches patience {}. Model training terminates."
                   .format(patience))
         else:
-            print("[Early stopping]  {} epochs without improvement".format(num_epochs_without_improvement))
+            print("[Early stopping] {} epoch{} without improvement".format(num_epochs_without_improvement,
+                                                                           's' if num_epochs_without_improvement == 1
+                                                                           else ''))
     else:
         print("[Early stopping] Performance improved: model saved!")
         num_epochs_without_improvement = 0
@@ -114,6 +116,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     batch_size = param_training['batch_size']
     loss_function_str = param_training['loss_function']
+    val_metrics_str = param_training['val_metrics']
     optimizer_name = param_training['optimizer']
     learning_rate = param_training['learning_rate']
     num_epochs = param_training['num_epochs']
@@ -156,6 +159,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     # Optimizing the model parameters
     loss_fn = get_loss_function(loss_function_str, is_tf=False)
+    val_metrics = get_val_metrics(val_metrics_str, is_tf=True)
     optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)

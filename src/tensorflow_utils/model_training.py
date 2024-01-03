@@ -2,7 +2,7 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.hyperparam_processing import get_model_module, get_loss_function, get_optimizer
+from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics, get_optimizer
 from src.print_functions import print_training_parameters
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -65,6 +65,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     batch_size = param_training['batch_size']
     loss_function_str = param_training['loss_function']
+    val_metrics_str = param_training['val_metrics']
     optimizer_name = param_training['optimizer']
     learning_rate = param_training['learning_rate']
     num_epochs = param_training['num_epochs']
@@ -106,6 +107,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     num_features_image = x_train[0][1].shape[1]
     num_features_audio = x_train[0][2].shape[1]
     loss_function = get_loss_function(loss_function_str, is_tf=True)
+    val_metrics = get_val_metrics(val_metrics_str, is_tf=True)
     optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
     model_module = get_model_module(model_name, is_tf=True)
     model_class = model_module.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
@@ -116,7 +118,10 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     print("\n\n================================= Model Training{} =============================================\n"
           .format(fold_text))
 
-    model_tf.compile(loss=loss_function, optimizer=optimizer_tf)
+    model_tf.compile(loss=loss_function,
+                     metrics=val_metrics,
+                     optimizer=optimizer_tf)
+
     history = model_tf.fit(x=train_dataset,
                            epochs=num_epochs,
                            verbose=1,

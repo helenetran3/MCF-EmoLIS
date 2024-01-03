@@ -1,9 +1,14 @@
 import json
+
+import numpy as np
+
 from src.models import ef_from_mfn, ef_williams_tf, ef_williams_torch, late_fusion, mfn
 from src.models.mult import model_mult
+# from sklearn.metrics import zero_one_loss, hamming_loss
 
 possible_models = ['ef_from_mfn', 'ef_williams', 'ef_williams_debug', 'late_fusion', 'mfn', 'mult']
-possible_loss_fn = ['mae', 'mse']
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce']
+possible_val_metrics = ['zero_one_loss', 'hamming_loss']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
 
@@ -40,12 +45,13 @@ def get_loss_function(loss_function_str, is_tf):
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
     :return: TensorFlow or Pytorch loss function
     """
+
     if is_tf:  # TensorFlow
         loss_fn_dict = {
             'mae': 'mean_absolute_error',
             'mse': 'mean_squared_error',
             'bce': 'binary_crossentropy',
-            'ce': 'categorical_crossentropy'
+            'cce': 'categorical_crossentropy'
         }
 
     else:  # PyTorch
@@ -54,7 +60,7 @@ def get_loss_function(loss_function_str, is_tf):
             'mae': nn.L1Loss(),
             'mse': nn.MSELoss(),
             'bce': nn.BCELoss(),
-            'ce': nn.CrossEntropyLoss()
+            'cce': nn.CrossEntropyLoss()
         }
 
     if loss_function_str.lower() in loss_fn_dict.keys():
@@ -62,6 +68,47 @@ def get_loss_function(loss_function_str, is_tf):
     else:
         raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is invalid."
                          " Please choose among {}.".format(loss_function_str, possible_loss_fn))
+
+
+def get_val_metrics(val_metrics_str, is_tf):
+    """
+    Get TensorFlow or PyTorch loss function from string.
+
+    :param val_metrics_str: string
+    :param is_tf: bool (whether it is TensorFlow or PyTorch)
+    :return: TensorFlow or Pytorch validation metrics
+    """
+
+    def hamming_loss(output, target):
+        if is_tf:
+            import tensorflow as tf
+            num_diff = tf.math.count_nonzero(output - target, axis=-1)
+            loss = num_diff / target.shape[-1]
+            loss = tf.cast(loss, tf.float32)
+        else:
+            import torch
+            from torch.autograd import Variable
+            num_diff = torch.count_nonzero(output - target, dim=-1)
+            loss = num_diff / target.shape[-1]
+            loss = Variable(loss, requires_grad=True)
+        return loss
+
+    if is_tf:  # TensorFlow
+        val_metrics_dict = {
+            'hamming_loss': hamming_loss
+        }
+
+    else:  # PyTorch
+        from torch import nn
+        val_metrics_dict = {
+            'hamming_loss': hamming_loss
+        }
+
+    if val_metrics_str.lower() in val_metrics_dict.keys():
+        return val_metrics_dict[val_metrics_str]
+    else:
+        raise ValueError("'{}' assigned to key 'val_metrics' in 'param_training_task.json' is invalid."
+                         " Please choose among {}.".format(val_metrics_str, possible_val_metrics))
 
 
 def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):
