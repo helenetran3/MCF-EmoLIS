@@ -10,9 +10,9 @@ def print_hyperparameters(model_name, model_id, param_value_to_print, print_arch
         if param_def_to_print is not None:
             for key, value in param_def_to_print.items():
                 print("{}: {}".format(param_def_to_print[key], param_value_to_print[key]))
-        else:
-            for key, value in param_value_to_print.items():
-                print("{}: {}".format(key, value))
+    else:
+        for key, value in param_value_to_print.items():
+            print("{}: {}".format(key, value))
 
 
 def print_training_parameters(train_list, valid_list, test_list, with_cross_valid,

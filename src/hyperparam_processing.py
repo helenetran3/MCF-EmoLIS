@@ -87,10 +87,12 @@ def get_val_metrics(val_metrics_str, is_tf):
             loss = tf.cast(loss, tf.float32)
         else:
             import torch
-            from torch.autograd import Variable
             num_diff = torch.count_nonzero(output - target, dim=-1)
-            loss = num_diff / target.shape[-1]
-            loss = Variable(loss, requires_grad=True)
+            loss_batch = num_diff / target.shape[-1]
+            loss = torch.mean(loss_batch, dtype=torch.float32)
+            # num_diff = torch.count_nonzero(output - target)
+            # loss = num_diff / target.shape[-1]
+            # loss = loss / target.shape[0]  # Divide by the batch size
         return loss
 
     if is_tf:  # TensorFlow

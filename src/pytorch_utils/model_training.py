@@ -159,18 +159,20 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     # Optimizing the model parameters
     loss_fn = get_loss_function(loss_function_str, is_tf=False)
-    val_metrics = get_val_metrics(val_metrics_str, is_tf=True)
+    val_metrics = get_val_metrics(val_metrics_str, is_tf=False)
     optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
-    valid_loss_best = None
+    val_metrics_best = None
     num_epochs_without_improvement = 0
 
     # Parameters for history
     history_train = []
     history_valid = []
+    history_train_monitor = []
+    history_valid_monitor = []
 
     fold_text = ": Fold {}".format(fold_id) if with_cross_valid else ""
     print("\n\n================================= Model Training{} =============================================\n"
@@ -180,13 +182,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         print(f"Epoch {epoch:>3d}")
         train_loss = 0.0
         valid_loss = 0.0
+        train_monitor = 0.0
+        valid_monitor = 0.0
 
         # Model training on training data
         model.train()
         num_iterations = train_size // batch_size if train_size % batch_size == 0 else train_size // batch_size + 1
         with alive_bar(num_iterations, title='Model training') as bar:
             for batch_id, (X, y) in enumerate(train_dataloader):
-                batch_loss = 0
 
                 if num_steps is None:  # Varying sequence length
                     for X_sample, y_sample in zip(X, y):
@@ -196,7 +199,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_audio = x_audio.bfloat16()
                             x_image = x_image.bfloat16()
                         pred = model(x_text, x_audio, x_image)
-                        batch_loss += loss_fn(pred, y_sample)
+                        batch_loss = loss_fn(pred, y_sample)
+                        batch_monitor = val_metrics(pred, y_sample)
 
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X
@@ -206,6 +210,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
                     batch_loss = loss_fn(pred, y)
+                    batch_monitor = val_metrics(pred, y)
 
                 optimizer.zero_grad()
                 batch_loss.backward()
@@ -214,21 +219,28 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
                 optimizer.step()
 
-                batch_loss, current = batch_loss.item(), batch_id * batch_size + len(X)
-                batch_loss_current = batch_loss / len(X)
+                batch_loss, batch_monitor = batch_loss.item(), batch_monitor.item()
+                current = batch_id * batch_size + len(X)
+                # batch_loss_current = batch_loss / len(X)
+                # batch_monitor_current = batch_monitor / len(X)
 
                 # if batch_id % 10 == 0 or batch_id == num_iterations-1:
                 if (num_training_prints > 0) and \
                         (batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations - 1):
                     # # Log the current batch loss in Tensorboard
                     # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
-                    writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch * train_size + batch_id)
+                    writer.add_scalar("Training loss (per batch)", batch_loss, epoch * train_size + batch_id)
                     # Print every 10 batch losses on the terminal
-                    print(f"Batch training loss: {batch_loss_current:>7f} [{current:>5d}/{train_size:>5d}]")
+                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f} - "
+                          f"{val_metrics_str}: {batch_monitor:>7f} "
+                          f"[{current:>5d}/{train_size:>5d}]")
 
                 train_loss += batch_loss
+                train_monitor += batch_monitor
                 bar()
-        train_loss /= train_size
+
+        train_loss /= num_iterations
+        train_monitor /= num_iterations
 
         # Model evaluation on validation data
         model.eval()
@@ -244,6 +256,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_image = x_image.bfloat16()
                         pred = model(x_text, x_audio, x_image)
                         valid_loss += loss_fn(pred, y_sample).item()
+                        valid_monitor += val_metrics(pred, y_sample).item()
 
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X
@@ -253,42 +266,53 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
                     valid_loss += loss_fn(pred, y).item()
+                    valid_monitor += val_metrics(pred, y).item()
 
                 bar()
                 # if idx % 100 == 0 or idx == valid_size-1:
                 #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
                 #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
         valid_loss /= valid_size
+        valid_monitor /= valid_size
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
         writer.add_scalar("Training loss", train_loss, epoch)
         writer.add_scalar("Validation loss", valid_loss, epoch)
+        writer.add_scalar("Training to monitor", train_monitor, epoch)
+        writer.add_scalar("Validation to monitor", valid_monitor, epoch)
 
         # Reduce learning rate when valid_loss stops improving
         if param_training["when"] != -1:
-            scheduler.step(valid_loss)
+            scheduler.step(valid_monitor)
 
         print("---------------------------------------------------------------------------------------")
-        print(f"Epoch {epoch:>3d} - Avg training loss {train_loss:>5f}, Avg validation loss {valid_loss:>5f}")
+        print(f"Epoch {epoch:>3d} - Avg train {loss_function_str} {train_loss:>5f}")
+        print(f"          - Avg valid {loss_function_str} {valid_loss:>5f}")
+        print(f"          - Avg train {val_metrics_str} {train_monitor:>5f}")
+        print(f"          - Avg valid {val_metrics_str} {valid_monitor:>5f}")
         print("---------------------------------------------------------------------------------------")
 
         # Display and save history plot
         history_train += [train_loss]
         history_valid += [valid_loss]
+        history_train_monitor += [train_monitor]
+        history_valid_monitor += [valid_monitor]
 
         # For model checkpoint
-        valid_loss_best = model_checkpoint(valid_loss, valid_loss_best, model, optimizer, epoch, train_loss, model_name,
-                                           ext_model_name)
+        val_metrics_best = model_checkpoint(valid_monitor, val_metrics_best, model, optimizer, epoch, train_loss,
+                                            model_name, ext_model_name)
 
         # For early stopping
         if patience != -1:
-            num_epochs_without_improvement = model_early_stopping(valid_loss, valid_loss_best,
+            num_epochs_without_improvement = model_early_stopping(valid_monitor, val_metrics_best,
                                                                   num_epochs_without_improvement, patience)
-            if patience == num_epochs_without_improvement - 1:
+            if patience == num_epochs_without_improvement:
                 break
 
     model_folder = os.path.join('results', model_name)
     save_and_plot_history(history_train, history_valid, ext_model_name, history_folder="history",
+                          root_folder=model_folder, display_fig=display_fig)
+    save_and_plot_history(history_train_monitor, history_valid_monitor, ext_model_name, history_folder="history_monitor",
                           root_folder=model_folder, display_fig=display_fig)
 
     writer.close()
