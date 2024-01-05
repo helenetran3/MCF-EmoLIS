@@ -1,7 +1,5 @@
 import json
 
-import numpy as np
-
 from src.models import ef_from_mfn, ef_williams_tf, ef_williams_torch, late_fusion, mfn
 from src.models.mult import model_mult
 # from sklearn.metrics import zero_one_loss, hamming_loss
@@ -95,16 +93,23 @@ def get_val_metrics(val_metrics_str, is_tf):
             # loss = loss / target.shape[0]  # Divide by the batch size
         return loss
 
-    if is_tf:  # TensorFlow
-        val_metrics_dict = {
-            'hamming_loss': hamming_loss
-        }
+    def zero_one_loss(output, target):
+        if is_tf:
+            import tensorflow as tf
+            num_diff = tf.math.count_nonzero(output - target, axis=-1)
+            loss = tf.where(tf.equal(num_diff, 0), 0, 1)
+            loss = tf.cast(loss, tf.float32)
+        else:
+            import torch
+            num_diff = torch.count_nonzero(output - target, dim=-1)
+            loss = (num_diff != 0).float()  # 0 if output == target, else 1
+            loss = torch.mean(loss, dtype=torch.float32)
+        return loss
 
-    else:  # PyTorch
-        from torch import nn
-        val_metrics_dict = {
-            'hamming_loss': hamming_loss
-        }
+    val_metrics_dict = {
+        'zero_one_loss': zero_one_loss,
+        'hamming_loss': hamming_loss
+    }
 
     if val_metrics_str.lower() in val_metrics_dict.keys():
         return val_metrics_dict[val_metrics_str]

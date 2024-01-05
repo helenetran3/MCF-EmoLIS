@@ -281,7 +281,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         writer.add_scalar("Training to monitor", train_monitor, epoch)
         writer.add_scalar("Validation to monitor", valid_monitor, epoch)
 
-        # Reduce learning rate when valid_loss stops improving
+        # Reduce learning rate when valid_monitor stops improving
         if param_training["when"] != -1:
             scheduler.step(valid_monitor)
 
