@@ -6,7 +6,7 @@ from src.models.mult import model_mult
 
 possible_models = ['ef_from_mfn', 'ef_williams', 'ef_williams_debug', 'late_fusion', 'mfn', 'mult']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce']
-possible_val_metrics = ['zero_one_loss', 'hamming_loss']
+possible_val_metrics = ['zero_one_loss', 'hamming_loss', 'rank_loss_ml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
 
@@ -77,6 +77,19 @@ def get_val_metrics(val_metrics_str, is_tf):
     :return: TensorFlow or Pytorch validation metrics
     """
 
+    def zero_one_loss(output, target):
+        if is_tf:
+            import tensorflow as tf
+            num_diff = tf.math.count_nonzero(output - target, axis=-1)
+            loss = tf.where(tf.equal(num_diff, 0), 0, 1)
+            loss = tf.cast(loss, tf.float32)
+        else:
+            import torch
+            num_diff = torch.count_nonzero(output - target, dim=-1)
+            loss = (num_diff != 0).float()  # 0 if output == target, else 1
+            loss = torch.mean(loss, dtype=torch.float32)
+        return loss
+
     def hamming_loss(output, target):
         if is_tf:
             import tensorflow as tf
@@ -93,22 +106,35 @@ def get_val_metrics(val_metrics_str, is_tf):
             # loss = loss / target.shape[0]  # Divide by the batch size
         return loss
 
-    def zero_one_loss(output, target):
+    def rank_loss_ml(output, target):  ## Works only for present and dominant classes
         if is_tf:
             import tensorflow as tf
-            num_diff = tf.math.count_nonzero(output - target, axis=-1)
-            loss = tf.where(tf.equal(num_diff, 0), 0, 1)
+            target, output = tf.squeeze(output), tf.squeeze(target)  # TODO vérifier pour PyTorch
+            loss = 0.
+            index_pos, index_neg = tf.where(target).numpy(), tf.where(tf.math.abs(1-target)).numpy()
+            index_pos, index_neg = list(index_pos), list(index_neg)
+            # print("target:", tf.get_static_value(target))
+            # print("index_pos:", index_pos)
+            # print("index_neg:", index_neg)
+            for i_pos_row, i_pos_col in index_pos:
+                for i_neg_row, i_neg_col in index_neg:
+                    output_pos = output[i_pos_row, i_pos_col]
+                    output_neg = output[i_neg_row, i_neg_col]
+                    if output_pos < output_neg:
+                        loss += 1.
+                    if output_pos == output_neg:
+                        loss += 0.5
+            loss = loss / (len(index_pos) * len(index_neg))
             loss = tf.cast(loss, tf.float32)
         else:
             import torch
-            num_diff = torch.count_nonzero(output - target, dim=-1)
-            loss = (num_diff != 0).float()  # 0 if output == target, else 1
-            loss = torch.mean(loss, dtype=torch.float32)
+            loss = 0  # TODO
         return loss
 
     val_metrics_dict = {
         'zero_one_loss': zero_one_loss,
-        'hamming_loss': hamming_loss
+        'hamming_loss': hamming_loss,
+        'rank_loss_ml': rank_loss_ml
     }
 
     if val_metrics_str.lower() in val_metrics_dict.keys():

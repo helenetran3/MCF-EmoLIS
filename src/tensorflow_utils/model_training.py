@@ -120,7 +120,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     model_tf.compile(loss=loss_function,
                      metrics=val_metrics,
-                     optimizer=optimizer_tf)
+                     optimizer=optimizer_tf, run_eagerly=True)
 
     history = model_tf.fit(x=train_dataset,
                            epochs=num_epochs,
