@@ -175,8 +175,14 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     :return: List of classification metrics
     """
 
-    def compute_binary_accuracy_per_class():
-        bin_acc = []
+    def compute_accuracy_per_class(is_weighted):
+        """
+        Compute a list of accuracies per emotion.
+
+        :param is_weighted: whether the accuracy is weighted or not
+        :return: a list of rounded accuracies
+        """
+        acc_list = []
         ext_name = "dom" if thres is None else "pres_t_{}".format(thres)
         ext_name += "_cv" if with_cross_val else ""
 
@@ -189,19 +195,31 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
             fp = conf_matrix_i[emo_i, 0, 1]
             fn = conf_matrix_i[emo_i, 1, 0]
             tn = conf_matrix_i[emo_i, 1, 1]
-            bin_acc_emo = (tp+tn)/(tp+fp+fn+tn)
-            bin_acc_emo_rounded = np.round(bin_acc_emo, round_decimals)
-            bin_acc.append(bin_acc_emo_rounded)
-        return bin_acc
+            total = tp + fp + fn + tn
+            pos = tp + fp
+            if is_weighted:
+                # Formula from Tong, E., Zadeh, A., Jones, C., & Morency, L. P. (2017, July). Combating Human
+                # Trafficking with Multimodal Deep Models. In Proceedings of the 55th Annual Meeting of the
+                # Association for Computational Linguistics (Volume 1: Long Papers) (pp. 1547-1556).
+                acc_emo = (tp * (total / pos) + tn) / (2 * total)
+            else:
+                acc_emo = (tp + tn) / (tp + fp + fn + tn)
+            acc_emo_rounded = np.round(acc_emo, round_decimals)
+            acc_list.append(acc_emo_rounded)
+        return acc_list
 
-    acc_per_class = compute_binary_accuracy_per_class()
-    acc_overall = np.round(accuracy_score(true_classes, pred_classes), round_decimals)
+    bin_acc_per_class = compute_accuracy_per_class(is_weighted=False)
+    wei_acc_per_class = compute_accuracy_per_class(is_weighted=True)
+    acc_overall = np.round(accuracy_score(true_classes, pred_classes),
+                           round_decimals)  # True and pred class vectors must exactly match
+
     f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
     f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
     f1_weighted = np.round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
     rec_each = recall_score(true_classes, pred_classes, average=None, zero_division=1)
     rec_macro = np.round(recall_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    rec_weighted = np.round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
+    rec_weighted = np.round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1),
+                            round_decimals)
     prec_each = precision_score(true_classes, pred_classes, average=None, zero_division=1)
     prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
     prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1),
@@ -213,7 +231,7 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     if thres is None:
         roc_auc_each = roc_auc_score(true_classes_bin, pred_classes_bin, average=None, multi_class='ovr')
         roc_auc_macro = np.round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro', multi_class='ovr'),
-                              round_decimals)
+                                 round_decimals)
         roc_auc_weighted = np.round(
             roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr'), round_decimals)
         roc_auc_each_rounded = [np.round(val, round_decimals) for val in roc_auc_each]
@@ -226,7 +244,8 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
         print('\n>>> Threshold:', thres)
 
     print("Multilabel accuracy:", acc_overall)
-    print("Binary accuracy (for each):", acc_per_class)
+    print("Binary accuracy (for each):", bin_acc_per_class)
+    print("Weighted accuracy (for each):", wei_acc_per_class)
     print("F1 score (for each):", f1_each_rounded)
     print("F1 score (unweighted mean):", f1_macro)
     print("F1 score (weighted mean):", f1_weighted)
@@ -243,17 +262,16 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
     res = [acc_overall, f1_macro, f1_weighted, rec_macro, rec_weighted, prec_macro, prec_weighted]
     if thres is None:
-        res = res + [roc_auc_macro, roc_auc_weighted] + acc_per_class + f1_each_rounded + rec_each_rounded + \
-              prec_each_rounded + roc_auc_each_rounded
+        res = res + [roc_auc_macro, roc_auc_weighted] + bin_acc_per_class + wei_acc_per_class + f1_each_rounded + \
+              rec_each_rounded + prec_each_rounded + roc_auc_each_rounded
     else:
-        res = res + acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
+        res = res + bin_acc_per_class + wei_acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
 
     return res
 
 
 def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
                                      display_fig, threshold_emo_pres):
-
     display = None
 
     def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, end_of_title):
@@ -293,10 +311,10 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
         emotions += ['neutral']
 
     if label_type == 'dominant':
-        f, axes = plt.subplots(1, num_classes, figsize=(5*num_classes, 5))
+        f, axes = plt.subplots(1, num_classes, figsize=(5 * num_classes, 5))
     else:
-        f, axes = plt.subplots(len(threshold_emo_pres)+1, num_classes,
-                               figsize=(5*num_classes, 5*(len(threshold_emo_pres)+1)))
+        f, axes = plt.subplots(len(threshold_emo_pres) + 1, num_classes,
+                               figsize=(5 * num_classes, 5 * (len(threshold_emo_pres) + 1)))
 
     axes = axes.ravel()
 
@@ -316,9 +334,9 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
             conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}{}'.format(model_id, thres, ext_name),
                                                 pickle_folder="confusion_matrix", root_folder=model_folder)
             if with_cross_val:
-                display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i+1, thres=thres)
+                display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres)
             else:
-                display = hold_out_plot_matrix(conf_matrix_pres, line_id=i+1, thres=thres)
+                display = hold_out_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres)
 
     # Save figure
     plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_{}.png".format(model_id)),
