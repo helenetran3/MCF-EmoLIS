@@ -80,6 +80,7 @@ def get_val_metrics(val_metrics_str, is_tf):
     def zero_one_loss(output, target):
         if is_tf:
             import tensorflow as tf
+            target, output = output, target
             num_diff = tf.math.count_nonzero(output - target, axis=-1)
             loss = tf.where(tf.equal(num_diff, 0), 0, 1)
             loss = tf.cast(loss, tf.float32)
@@ -93,6 +94,7 @@ def get_val_metrics(val_metrics_str, is_tf):
     def hamming_loss(output, target):
         if is_tf:
             import tensorflow as tf
+            target, output = output, target
             num_diff = tf.math.count_nonzero(output - target, axis=-1)
             loss = num_diff / target.shape[-1]
             loss = tf.cast(loss, tf.float32)
@@ -109,26 +111,36 @@ def get_val_metrics(val_metrics_str, is_tf):
     def rank_loss_ml(output, target):  ## Works only for present and dominant classes
         if is_tf:
             import tensorflow as tf
-            target, output = tf.squeeze(output), tf.squeeze(target)  # TODO vérifier pour PyTorch
-            loss = 0.
+            target, output = tf.squeeze(output), tf.squeeze(target)
             index_pos, index_neg = tf.where(target).numpy(), tf.where(tf.math.abs(1-target)).numpy()
-            index_pos, index_neg = list(index_pos), list(index_neg)
             # print("target:", tf.get_static_value(target))
             # print("index_pos:", index_pos)
             # print("index_neg:", index_neg)
-            for i_pos_row, i_pos_col in index_pos:
-                for i_neg_row, i_neg_col in index_neg:
-                    output_pos = output[i_pos_row, i_pos_col]
-                    output_neg = output[i_neg_row, i_neg_col]
-                    if output_pos < output_neg:
-                        loss += 1.
-                    if output_pos == output_neg:
-                        loss += 0.5
-            loss = loss / (len(index_pos) * len(index_neg))
+        else:
+            import torch
+            index_pos, index_neg = torch.nonzero(target).numpy(), torch.nonzero(torch.abs(target-1)).numpy()
+            # print("target:", target)
+            # print("index_pos:", index_pos)
+            # print("index_neg:", index_neg)
+
+        loss = 0.
+        index_pos, index_neg = list(index_pos), list(index_neg)
+        for i_pos_row, i_pos_col in index_pos:
+            for i_neg_row, i_neg_col in index_neg:
+                output_pos = output[i_pos_row, i_pos_col]
+                output_neg = output[i_neg_row, i_neg_col]
+                if output_pos < output_neg:
+                    loss += 1.
+                if output_pos == output_neg:
+                    loss += 0.5
+        loss = loss / (len(index_pos) * len(index_neg))
+
+        if is_tf:
+            import tensorflow as tf
             loss = tf.cast(loss, tf.float32)
         else:
             import torch
-            loss = 0  # TODO
+            loss = torch.tensor(loss, dtype=torch.float32)
         return loss
 
     val_metrics_dict = {
