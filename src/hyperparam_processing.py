@@ -6,7 +6,7 @@ from src.models.mult import model_mult
 
 possible_models = ['ef_from_mfn', 'ef_williams', 'ef_williams_debug', 'late_fusion', 'mfn', 'mult']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce']
-possible_val_metrics = ['mae', 'mse', 'bce', 'cce', 'zero_one_loss', 'hamming_loss', 'rank_loss_ml']
+possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
 

@@ -210,9 +210,10 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
     bin_acc_per_class = compute_accuracy_per_class(is_weighted=False)
     wei_acc_per_class = compute_accuracy_per_class(is_weighted=True)
-    acc_overall = np.round(accuracy_score(true_classes, pred_classes),
-                           round_decimals)  # True and pred class vectors must exactly match
-
+    multilabel_acc = np.round(accuracy_score(true_classes, pred_classes),
+                              round_decimals)  # True and pred class vectors must exactly match
+    bin_acc_macro = np.round(np.mean(bin_acc_per_class), round_decimals)
+    wei_acc_macro = np.round(np.mean(wei_acc_per_class), round_decimals)
     f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
     f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
     f1_weighted = np.round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
@@ -243,7 +244,9 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     if thres is not None:
         print('\n>>> Threshold:', thres)
 
-    print("Multilabel accuracy:", acc_overall)
+    print("Multilabel accuracy:", multilabel_acc)
+    print("Binary accuracy (unweighted mean):", bin_acc_macro)
+    print("Weighted accuracy (unweighted mean):", wei_acc_macro)
     print("Binary accuracy (for each):", bin_acc_per_class)
     print("Weighted accuracy (for each):", wei_acc_per_class)
     print("F1 score (for each):", f1_each_rounded)
@@ -260,7 +263,8 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
         print("ROC AUC (unweighted mean):", roc_auc_macro)
         print("ROC AUC (weighted mean):", roc_auc_weighted)
 
-    res = [acc_overall, f1_macro, f1_weighted, rec_macro, rec_weighted, prec_macro, prec_weighted]
+    res = [multilabel_acc, bin_acc_macro, wei_acc_macro, f1_macro, f1_weighted, rec_macro, rec_weighted,
+           prec_macro, prec_weighted]
     if thres is None:
         res = res + [roc_auc_macro, roc_auc_weighted] + bin_acc_per_class + wei_acc_per_class + f1_each_rounded + \
               rec_each_rounded + prec_each_rounded + roc_auc_each_rounded
