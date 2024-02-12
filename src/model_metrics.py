@@ -208,68 +208,65 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
             acc_list.append(acc_emo_rounded)
         return acc_list
 
+    if thres is not None:
+        print('\n>>> Threshold:', thres)
+
+    # Accuracy
     bin_acc_per_class = compute_accuracy_per_class(is_weighted=False)
     wei_acc_per_class = compute_accuracy_per_class(is_weighted=True)
     multilabel_acc = np.round(accuracy_score(true_classes, pred_classes),
                               round_decimals)  # True and pred class vectors must exactly match
     bin_acc_macro = np.round(np.mean(bin_acc_per_class), round_decimals)
     wei_acc_macro = np.round(np.mean(wei_acc_per_class), round_decimals)
-    f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
-    f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    f1_weighted = np.round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
-    rec_each = recall_score(true_classes, pred_classes, average=None, zero_division=1)
-    rec_macro = np.round(recall_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    rec_weighted = np.round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1),
-                            round_decimals)
-    prec_each = precision_score(true_classes, pred_classes, average=None, zero_division=1)
-    prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1),
-                             round_decimals)
-    true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
-    pred_classes_bin = label_binarize(pred_classes, classes=list(range(num_classes)))
-    # Next block: Compute ROC AUC when NOT defining the presence/absence of an emotion (as this task creates error
-    # when no emotion has a presence score greater than the threshold - ROC AUC needs at least one positive sample)
-    if thres is None:
-        roc_auc_each = roc_auc_score(true_classes_bin, pred_classes_bin, average=None, multi_class='ovr')
-        roc_auc_macro = np.round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro', multi_class='ovr'),
-                                 round_decimals)
-        roc_auc_weighted = np.round(
-            roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr'), round_decimals)
-        roc_auc_each_rounded = [np.round(val, round_decimals) for val in roc_auc_each]
-
-    f1_each_rounded = [np.round(val, round_decimals) for val in f1_each]
-    rec_each_rounded = [np.round(val, round_decimals) for val in rec_each]
-    prec_each_rounded = [np.round(val, round_decimals) for val in prec_each]
-
-    if thres is not None:
-        print('\n>>> Threshold:', thres)
-
+    print("Binary accuracy (for each):", bin_acc_per_class)
+    print("Weighted accuracy (for each):", wei_acc_per_class)
     print("Multilabel accuracy:", multilabel_acc)
     print("Binary accuracy (unweighted mean):", bin_acc_macro)
     print("Weighted accuracy (unweighted mean):", wei_acc_macro)
-    print("Binary accuracy (for each):", bin_acc_per_class)
-    print("Weighted accuracy (for each):", wei_acc_per_class)
+
+    # F1 score
+    f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
+    f1_each_rounded = [np.round(val, round_decimals) for val in f1_each]
+    f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    # f1_weighted = np.round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
     print("F1 score (for each):", f1_each_rounded)
     print("F1 score (unweighted mean):", f1_macro)
-    print("F1 score (weighted mean):", f1_weighted)
+    # print("F1 score (weighted mean):", f1_weighted)  # biased towards the over-presence of negative classes
+
+    # Recall
+    rec_each = recall_score(true_classes, pred_classes, average=None, zero_division=1)
+    rec_each_rounded = [np.round(val, round_decimals) for val in rec_each]
+    rec_macro = np.round(recall_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    # rec_weighted = np.round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1),
+    #                         round_decimals)
     print("Recall (for each):", rec_each_rounded)
     print("Recall (unweighted mean):", rec_macro)
-    print("Recall (weighted mean):", rec_weighted)
+    # print("Recall (weighted mean):", rec_weighted)  # biased towards the over-presence of negative classes
+
+    # Precision
+    prec_each = precision_score(true_classes, pred_classes, average=None, zero_division=1)
+    prec_each_rounded = [np.round(val, round_decimals) for val in prec_each]
+    prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    # prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1),
+    #                          round_decimals)
     print("Precision (for each):", prec_each_rounded)
     print("Precision (unweighted mean):", prec_macro)
-    print("Precision (weighted mean):", prec_weighted)
-    if thres is None:
-        print("ROC AUC (for each):", roc_auc_each_rounded)
-        print("ROC AUC (unweighted mean):", roc_auc_macro)
-        print("ROC AUC (weighted mean):", roc_auc_weighted)
+    # print("Precision (weighted mean):", prec_weighted)  # biased towards the over-presence of negative classes
 
-    res = [multilabel_acc, bin_acc_macro, wei_acc_macro, f1_macro, f1_weighted, rec_macro, rec_weighted,
-           prec_macro, prec_weighted]
-    if thres is None:
-        res = res + [roc_auc_macro, roc_auc_weighted] + bin_acc_per_class + wei_acc_per_class + f1_each_rounded + \
-              rec_each_rounded + prec_each_rounded + roc_auc_each_rounded
-    else:
-        res = res + bin_acc_per_class + wei_acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
+    # ROC AUC score
+    true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
+    pred_classes_bin = label_binarize(pred_classes, classes=list(range(num_classes)))
+    roc_auc_each = roc_auc_score(true_classes_bin, pred_classes_bin, average=None)
+    roc_auc_macro = np.round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro'), round_decimals)
+    # roc_auc_weighted = np.round(
+    #     roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr'), round_decimals)
+    roc_auc_each_rounded = [np.round(val, round_decimals) for val in roc_auc_each]
+    print("ROC AUC (for each):", roc_auc_each_rounded)
+    print("ROC AUC (unweighted mean):", roc_auc_macro)
+    # print("ROC AUC (weighted mean):", roc_auc_weighted)
+
+    res = [multilabel_acc, bin_acc_macro, wei_acc_macro, f1_macro, rec_macro, prec_macro, roc_auc_macro]
+    res = res + bin_acc_per_class + wei_acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded
 
     return res
 
