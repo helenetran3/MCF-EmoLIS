@@ -51,7 +51,8 @@ def get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes,
     return pred_scores
 
 
-def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, num_classes, only_dominant=False):
+def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, num_classes, only_dominant=False,
+                                  pred=False):
     """
     Get the dominant emotion class(es) for each test segment based on the presence scores of emotions.
     If only_dominant, return a binary array, else return a list of len(threshold_emo_pres) binary arrays.
@@ -79,23 +80,29 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
         for seg_id in range(test_size):  # we check every segment
 
             score_seg = score_array[seg_id, :]
-            max_score = max(score_seg)
 
-            if max_score == 0:  # the current segment shows neutral (no emotions)
-                list_emotions.append([6]) if with_neutral_class else list_emotions.append([])
+            if pred:  # For predicted labels
+                tmp = [i for i, val in enumerate(score_seg) if val > 0.5]
+                tmp = [6] if len(tmp) == 0 and with_neutral_class else tmp
+                list_emotions.append(tmp)
 
-            else:  # there is at least one emotion
-                if only_dominant:
+            else:  # For true labels
+                max_score = max(score_seg)
+                if max_score == 0:  # the current segment shows neutral (no emotions)
+                    list_emotions.append([6]) if with_neutral_class else list_emotions.append([])
+                elif only_dominant:
                     # the following takes the index(es) of the maximum value in the presence score vector of emotions
                     list_emotions.append([i for i, val in enumerate(score_seg) if val == max_score])
                 else:
+                    # For emotion present
                     tmp = [i for i, val in enumerate(score_seg) if val > 0] if thres == 0 else \
                         [i for i, val in enumerate(score_seg) if val >= thres]
-                    tmp = [6] if len(tmp) == 0 and with_neutral_class else tmp
+                    tmp = [6] if len(tmp) == 0 and with_neutral_class else tmp  # just for safety
                     list_emotions.append(tmp)
 
         return list_emotions
 
+    # Transform list of indexes to one-hot vector
     mlb = MultiLabelBinarizer(classes=list(range(num_classes)))
 
     if only_dominant:
@@ -235,14 +242,14 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     # Get present emotion classes predicted by the model, based on thresholds
     if compute_pres:
         pred_classes_pres = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                          num_classes)
+                                                          num_classes, pred=True)
         if save_pred:
             save_with_pickle(pred_classes_pres, "pred_classes_pres_{}".format(model_id), pickle_folder="predictions",
                              root_folder=model_folder)
 
     # Get dominant emotion classes predicted by the model
     pred_classes_dom = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                     num_classes, only_dominant=True)
+                                                     num_classes, only_dominant=True, pred=True)
     if save_pred:
         save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
                          root_folder=model_folder)
