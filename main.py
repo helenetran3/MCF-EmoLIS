@@ -56,7 +56,7 @@ def main():
         train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
                        num_steps, model_name, model_id, with_cross_validation)
 
-        loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
                               all_scores, with_cross_validation)
 
@@ -71,7 +71,7 @@ def main():
         train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
                           num_steps, model_name, model_id, device, with_cross_validation)
 
-        loss_function_val, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,
                                  num_steps, model_name, model_id, all_scores, device, with_cross_validation)
 
@@ -79,7 +79,7 @@ def main():
     save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, with_cross_validation)
 
     # Compute and save metrics
-    compute_and_save_model_metrics(test_list, with_cross_validation, loss_function_val,
+    compute_and_save_model_metrics(test_list, with_cross_validation, model_eval_output,
                                    pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    param_task, param_training, param_log, model_name, model_id, all_scores)
 

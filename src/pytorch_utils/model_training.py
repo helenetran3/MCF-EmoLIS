@@ -198,7 +198,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_text = x_text.bfloat16()
                             x_audio = x_audio.bfloat16()
                             x_image = x_image.bfloat16()
-                        pred = model(x_text, x_audio, x_image)
+                        pred = model(x_text, x_image, x_audio)
                         batch_loss = loss_fn(pred, y_sample)
                         batch_monitor = val_metrics(pred, y_sample)
 
@@ -208,7 +208,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_text = x_text.float()
                         x_audio = x_audio.float()
                         x_image = x_image.float()
-                    pred = model(x_text, x_audio, x_image)
+                    pred = model(x_text, x_image, x_audio)
                     batch_loss = loss_fn(pred, y)
                     batch_monitor = val_metrics(pred, y)
 

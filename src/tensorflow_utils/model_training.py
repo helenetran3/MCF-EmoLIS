@@ -95,6 +95,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                                  save_best_only=True)
 
     early_stopping = EarlyStopping(monitor='val_loss',
+                                   min_delta=0.0005,
                                    patience=patience,
                                    verbose=1,
                                    mode='min',

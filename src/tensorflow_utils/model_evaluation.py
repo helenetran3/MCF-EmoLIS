@@ -40,6 +40,7 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     save_pred = param_log['save_predictions']
     batch_size = param_training['batch_size']
     loss_function = get_loss_function(param_training['loss_function'], is_tf=True)
+    val_metrics = param_training['val_metrics']
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if fold_id is not None else model_id
 
     # Load best model
@@ -58,7 +59,7 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     test_dataset = DatasetTf(x_test, y_test, seg_test, num_steps, num_classes, batch_size, train_mode=False).build()
 
     # Model evaluation
-    test_loss = compute_loss_value(model, test_dataset, loss_function, round_decimals)
+    model_eval_output = compute_loss_value(model, test_dataset, loss_function, val_metrics, round_decimals)
 
     # Predicted labels
     pred_raw = model_prediction(model, test_dataset, num_test_samples, save_pred, ext_model_name, model_folder)
@@ -66,7 +67,18 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
         compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
 
-    return test_loss, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    # ## For debugging
+    # import numpy as np
+    # print("pred_raw[0]:", pred_raw[0])
+    # print("mean(pred_raw):", np.mean(np.array(pred_raw), axis=0))
+    # print("max(pred_raw):", np.max(np.array(pred_raw), axis=0))
+    # print("sum(pred_raw > 0.5):", np.sum((np.array(pred_raw) > 0.5), axis=0))
+    # if param_task['label_type'] == 'coarse':
+    #     print("pred_scores_coa[0]:", pred_scores_coa[0])
+    # print("pred_classes_pres[0][0]:", pred_classes_pres[0][0])
+    # print("pred_classes_dom[0]:", pred_classes_dom[0])
+
+    return model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id, all_scores,
@@ -85,24 +97,24 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
     :param all_scores: list of available presence scores
     :param with_cross_valid: boolean (cross_validation or not)
 
-    :returns test_loss, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    :returns model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']
-        test_loss, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
+        model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
         for fold_i in range(num_folds):
             loss_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
                                    all_scores, fold_i)
-            test_loss += [loss_i]
+            model_eval_output += [loss_i]
             pred_raw += [pred_raw_i]
             pred_scores_coa += [pred_coa_i]
             pred_classes_pres += [pred_pres_i]
             pred_classes_dom += [pred_dom_i]
     else:
-        test_loss, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
                                all_scores)
 
-    return test_loss, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom

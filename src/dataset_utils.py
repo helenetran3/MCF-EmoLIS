@@ -343,7 +343,7 @@ def get_length_dataset(train_list, valid_list, test_list, param_task, is_tf):
         return get_maximum_sequence_length_dataset()
     elif set_length == 'avg':
         return get_average_sequence_length_dataset()
-    elif set_length.is_digit() and int(set_length) > 0:
+    elif type(set_length) == int and int(set_length) > 0:
         return int(set_length)
     else:
         raise ValueError("Invalid value for parameter set_length. Please choose value between: 'avg', 'max',"

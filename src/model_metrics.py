@@ -13,13 +13,14 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.metrics import multilabel_confusion_matrix, ConfusionMatrixDisplay
 
 
-def compute_loss_value(model, test_dataset, loss_function, round_decimals):
+def compute_loss_value(model, test_dataset, loss_function, val_metrics, round_decimals):
     """
     Return the loss function value of the model on test dataset.
 
     :param model: The model to evaluate
     :param test_dataset: The TensorFlow dataset for test set
     :param loss_function: Name of the loss function
+    :param val_metrics: Validation metric used for monitoring
     :param round_decimals: number of decimals to be rounded for metrics
     :return: The loss function value
     """
@@ -28,7 +29,7 @@ def compute_loss_value(model, test_dataset, loss_function, round_decimals):
 
     loss_function_val = model.evaluate(test_dataset, verbose=1)
     loss_function_val = np.round(loss_function_val, round_decimals)
-    print("Loss function ({}): {}".format(loss_function, loss_function_val))
+    print("Loss function ({}, {}): {}".format(loss_function, val_metrics, loss_function_val))
 
     return loss_function_val
 
@@ -537,7 +538,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
 
 def compute_and_save_model_metrics(test_list, with_cross_val,
-                                   loss_function_val,
+                                   model_eval_output,
                                    pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    param_task, param_training, param_log, model_name, model_id, all_scores):
     """
@@ -545,7 +546,7 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
 
     :param test_list: [x_test, y_test, seg_test]
     :param with_cross_val: boolean (cross_validation or not)
-    :param loss_function_val: Value of the loss function
+    :param model_eval_output: Loss function + validation metric obtained by the model
     :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
     :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
@@ -566,6 +567,7 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
     plot_confusion_matrix = param_log['plot_confusion_matrix']
     display_fig = param_log['display_fig']
     loss_function = param_training['loss_function']
+    val_metrics_str = param_training['val_metrics']
     num_folds = param_training['cross_val_folds']
 
     model_folder = os.path.join('results', model_name)
@@ -596,6 +598,6 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
                                   model_id, model_folder)
 
     # Save metrics in csv file
-    save_results_in_csv_file(model_name, model_id, loss_function, loss_function_val,
+    save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,
                              metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
                              with_cross_val, predict_neutral_class, threshold_emo_pres)

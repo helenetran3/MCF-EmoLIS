@@ -35,7 +35,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
     test_size = len(test_dataloader.dataset)
     loss_fn = get_loss_function(param_training['loss_function'], is_tf=False)
-    test_loss = 0
+    model_eval_output = 0
     # correct = 0
     pred_raw = []
 
@@ -69,7 +69,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                         y = y.bfloat16()
                     pred = model(x_text, x_audio, x_image)
                     pred_raw += pred
-                    test_loss += loss_fn(pred, y).item()
+                    model_eval_output += loss_fn(pred, y).item()
                     # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
 
                 else:  # Fixed sequence length
@@ -80,15 +80,16 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
                     pred_raw += pred
-                    test_loss += loss_fn(pred, y).item()
+                    model_eval_output += loss_fn(pred, y).item()
 
                 bar()
-    test_loss /= test_size
-    test_loss = np.round(test_loss, round_decimals)
+    model_eval_output /= test_size
+    model_eval_output = np.round(model_eval_output, round_decimals)
 
     # correct /= test_size
-    # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
-    print(f"Avg test loss: {test_loss:>8f} \n")
+    # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {model_eval_output:>8f} \n")
+    print(f"Avg test loss: {model_eval_output[0]:>8f} \n")
+    print(f"Avg validation metric: {model_eval_output[1]:>8f} \n")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
@@ -96,7 +97,18 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
 
-    return test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    # ## For debugging
+    # print("pred_raw[0]:", pred_raw_array[0])
+    # print("mean(pred_raw):", np.mean(np.array(pred_raw_array), axis=0))
+    # print("max(pred_raw):", np.max(np.array(pred_raw_array), axis=0))
+    # print("sum(pred_raw > 0.5):", np.sum((np.array(pred_raw_array) > 0.5), axis=0))
+    # if param_task['label_type'] == 'coarse':
+    #     print("pred_scores_coa[0]:", pred_scores_coa[0])
+    # print("pred_classes_pres[0][0]:", pred_classes_pres[0][0])
+    # print("len(pred_classes_pres):", len(pred_classes_pres))
+    # print("pred_classes_dom[0]:", pred_classes_dom[0])
+
+    return model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps,
@@ -104,19 +116,19 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']
-        test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
+        model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
         for fold_i in range(num_folds):
             loss_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, with_cross_valid, fold_i, param_task, param_model, param_training,
                                    param_log, num_steps, model_name, model_id, all_scores, device)
-            test_loss += [loss_i]
+            model_eval_output += [loss_i]
             pred_raw_array += [pred_raw_i]
             pred_scores_coa += [pred_coa_i]
             pred_classes_pres += [pred_pres_i]
             pred_classes_dom += [pred_dom_i]
     else:
-        test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_training, param_log,
                                num_steps, model_name, model_id, all_scores, device)
 
-    return test_loss, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
