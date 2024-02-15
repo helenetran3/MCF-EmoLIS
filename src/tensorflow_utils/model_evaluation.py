@@ -1,11 +1,32 @@
 import os
+import numpy as np
 
 from tensorflow.keras.models import load_model
 from src.hyperparam_processing import get_loss_function
 from src.tensorflow_utils.dataset_loader import DatasetTf
 from src.pickle_functions import save_with_pickle
-from src.model_metrics import compute_loss_value
 from src.label_processing import compute_pred_labels
+
+
+def compute_loss_value(model, test_dataset, loss_function, val_metrics, round_decimals):
+    """
+    Return the loss function value of the model on test dataset.
+
+    :param model: The model to evaluate
+    :param test_dataset: The TensorFlow dataset for test set
+    :param loss_function: Name of the loss function
+    :param val_metrics: Validation metric used for monitoring
+    :param round_decimals: number of decimals to be rounded for metrics
+    :return: The loss function value
+    """
+
+    print("\n\n================================= Model Evaluation ===========================================\n")
+
+    loss_function_val = model.evaluate(test_dataset, verbose=1)
+    loss_function_val = np.round(loss_function_val, round_decimals)
+    print("Loss function ({}, {}): {}".format(loss_function, val_metrics, loss_function_val))
+
+    return loss_function_val
 
 
 def model_prediction(model, test_dataset, num_test_samples, save_pred, ext_name, model_folder):

@@ -13,27 +13,6 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.metrics import multilabel_confusion_matrix, ConfusionMatrixDisplay
 
 
-def compute_loss_value(model, test_dataset, loss_function, val_metrics, round_decimals):
-    """
-    Return the loss function value of the model on test dataset.
-
-    :param model: The model to evaluate
-    :param test_dataset: The TensorFlow dataset for test set
-    :param loss_function: Name of the loss function
-    :param val_metrics: Validation metric used for monitoring
-    :param round_decimals: number of decimals to be rounded for metrics
-    :return: The loss function value
-    """
-
-    print("\n\n================================= Model Evaluation ===========================================\n")
-
-    loss_function_val = model.evaluate(test_dataset, verbose=1)
-    loss_function_val = np.round(loss_function_val, round_decimals)
-    print("Loss function ({}, {}): {}".format(loss_function, val_metrics, loss_function_val))
-
-    return loss_function_val
-
-
 def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     """
     Compute regression metrics: mean absolute error and mean squared error
