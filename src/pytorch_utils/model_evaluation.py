@@ -80,7 +80,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
                     pred_raw += pred
-                    model_eval_output += loss_fn(pred, y).item()
+                    model_eval_output += loss_fn(pred, y.float()).item()
 
                 bar()
     model_eval_output /= test_size
@@ -88,8 +88,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
     # correct /= test_size
     # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {model_eval_output:>8f} \n")
-    print(f"Avg test loss: {model_eval_output[0]:>8f} \n")
-    print(f"Avg validation metric: {model_eval_output[1]:>8f} \n")
+    print(f"Avg test loss: {model_eval_output:>8f} \n")
+    # print(f"Avg validation metric: {model_eval_output[1]:>8f} \n")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 

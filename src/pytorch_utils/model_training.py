@@ -70,8 +70,8 @@ def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improve
                   .format(patience))
         else:
             print("[Early stopping] {} epoch{} without improvement".format(num_epochs_without_improvement,
-                                                                           's' if num_epochs_without_improvement == 1
-                                                                           else ''))
+                                                                           '' if num_epochs_without_improvement == 1
+                                                                           else 's'))
     else:
         print("[Early stopping] Performance improved: model saved!")
         num_epochs_without_improvement = 0
@@ -209,8 +209,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                         x_audio = x_audio.float()
                     pred = model(x_text, x_image, x_audio)
-                    batch_loss = loss_fn(pred, y)
-                    batch_monitor = val_metrics(pred, y)
+                    batch_loss = loss_fn(pred, y.float())
+                    batch_monitor = val_metrics(pred, y.float())
 
                 optimizer.zero_grad()
                 batch_loss.backward()
@@ -265,8 +265,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_audio = x_audio.float()
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
-                    valid_loss += loss_fn(pred, y).item()
-                    valid_monitor += val_metrics(pred, y).item()
+                    valid_loss += loss_fn(pred, y.float()).item()
+                    valid_monitor += val_metrics(pred, y.float()).item()
 
                 bar()
                 # if idx % 100 == 0 or idx == valid_size-1:
