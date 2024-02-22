@@ -36,6 +36,7 @@ def main():
     num_steps = get_length_dataset(train_list, valid_list, test_list, param_task, is_tf)
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
+    # + remove samples assigned to neutral when predict_neutral_class is False
     train_list, valid_list, test_list = update_labels(train_list, valid_list, test_list, param_task, all_scores)
 
     # Cross-validation

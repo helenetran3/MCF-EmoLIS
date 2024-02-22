@@ -95,8 +95,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
                     list_emotions.append([i for i, val in enumerate(score_seg) if val == max_score])
                 else:
                     # For emotion present
-                    tmp = [i for i, val in enumerate(score_seg) if val > 0] if thres == 0 else \
-                        [i for i, val in enumerate(score_seg) if val >= thres]
+                    tmp = [i for i, val in enumerate(score_seg) if val > thres]
                     tmp = [6] if len(tmp) == 0 and with_neutral_class else tmp  # just for safety
                     list_emotions.append(tmp)
 
@@ -264,6 +263,7 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     - coarse: presence score for each emotion among [0, 1, 2, 3]
     - present: one-hot encoded labels for multi-label classification. 7 classes if predict_neutral_class else 6.
     - dominant: one-hot encoded labels for one-label classification. 7 classes if predict_neutral_class else 6.
+    It also removes samples assigned to neutral when predict_neutral_class is False.
 
     :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
@@ -272,6 +272,26 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     :param all_scores: list of available presence scores
     :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input
     """
+
+    def remove_neutral_class():
+
+        def remove_neutral_class_split(split_list):
+            y_arr = np.vstack(split_list[1])
+            num_emo = np.sum(y_arr, axis=1)
+            non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
+            # Take only samples where at least one emotion class is assigned
+            X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
+            y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
+            seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
+            return [X_list, y_list, seg_list]
+
+        new_train_list = remove_neutral_class_split(train_list)
+        new_valid_list = remove_neutral_class_split(valid_list)
+        new_test_list = remove_neutral_class_split(test_list)
+
+        print("Removed samples with no emotions.")
+
+        return new_train_list, new_valid_list, new_test_list
 
     def change_type_and_shape_for_training(y_array):
         num_output = y_array.shape[-1]
@@ -282,8 +302,12 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     label_type = param_task['label_type']
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
-    ext_name = "_n" if predict_neutral_class else ""
     num_classes = 7 if predict_neutral_class else 6
+
+    # When predict_neutral_class is False (no class created for Neutral),
+    # samples with neutral class belong to any of available classes
+    if not predict_neutral_class:
+        train_list, valid_list, test_list = remove_neutral_class()
 
     y_train = train_list[1]
     y_valid = valid_list[1]
