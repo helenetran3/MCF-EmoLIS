@@ -267,6 +267,9 @@ originally specified in the paper)
 - **late_fusion**: We replicated the model **ef_williams** for the three inputs (text, image, audio) and averaged the 
 scores for each emotion.
 
+- **lf_mesm**: Late fusion based on RNNs used by the authors of 
+[Multimodal End2End Sparse Model](https://github.com/wenliangdai/Multimodal-End2end-Sparse/)
+
 - **mfn**: Zadeh, A., Liang, P. P., Mazumder, N., Poria, S., Cambria, E., & Morency, L. P. (2018, April). [Memory Fusion 
 Network for Multi-view Sequential Learning](https://ojs.aaai.org/index.php/AAAI/article/view/12021/11880). In 
 *Proceedings of the AAAI conference on artificial intelligence* (Vol. 32, No. 1).

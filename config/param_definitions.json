@@ -73,6 +73,11 @@
             "final_activ": "Final activation"
         },
 
+        "lf_mesm":
+        {
+            "is_TensorFlow": "Is TensorFlow"
+        },
+
         "mult":
         {
             "is_TensorFlow": "Is TensorFlow",

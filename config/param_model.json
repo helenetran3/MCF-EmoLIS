@@ -11,7 +11,7 @@
 
         "ef_williams":
         {
-            "is_TensorFlow": 1,
+            "is_TensorFlow": 0,
             "num_layers": 3,
             "num_nodes": 100,
             "dropout_rate": 0.2,
@@ -34,6 +34,11 @@
             "num_nodes": 100,
             "dropout_rate": 0.2,
             "final_activ": "linear"
+        },
+
+        "lf_mesm":
+        {
+            "is_TensorFlow": 0
         },
 
         "mfn":

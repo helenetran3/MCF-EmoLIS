@@ -1,9 +1,9 @@
 {
   "task":
   {
-    "model_name": "ef_williams",
-    "label_type": "all",
-    "set_length": "avg",
+    "model_name": "lf_mesm",
+    "label_type": "present",
+    "set_length": "max",
     "threshold_emo_present": 0,
     "predict_neutral_class": 0,
     "align_to_text": 1,
@@ -13,16 +13,16 @@
 
   "training":
   {
-    "num_epochs": 1000,
-    "patience": 10,
-    "batch_size": 64,
+    "num_epochs": 30,
+    "patience": 8,
+    "batch_size": 32,
     "optimizer": "adam",
     "loss_function": "mae",
-    "val_metrics": "hamming_loss",
-    "learning_rate": 0.001,
-    "cross_val_folds": 5,
+    "val_metrics": "mae",
+    "learning_rate": 5e-4,
+    "cross_val_folds": -1,
     "random_state": 42,
-    "clip": -1,
+    "clip": 2,
     "when": -1
   }
 }
