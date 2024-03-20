@@ -2,10 +2,11 @@ import json
 
 from src.models import ef_from_mfn, ef_williams_tf, ef_williams_torch, late_fusion, lf_mesm, mfn
 from src.models.mult import model_mult
+from src.models.me2e import mme2e
 # from sklearn.metrics import zero_one_loss, hamming_loss
 
-possible_models = ['ef_from_mfn', 'ef_williams', 'ef_williams_debug', 'late_fusion', 'lf_mesm', 'mfn', 'mult']
-possible_loss_fn = ['mae', 'mse', 'bce', 'cce']
+possible_models = ['ef_from_mfn', 'ef_williams', 'ef_williams_debug', 'late_fusion', 'lf_mesm', 'mfn', 'mme2e', 'mult']
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
@@ -26,6 +27,7 @@ def get_model_module(model_str, is_tf):
         'late_fusion': late_fusion,
         'lf_mesm': lf_mesm,
         'mfn': mfn,
+        'mme2e': mme2e,
         'mult': model_mult
     }
 
@@ -50,16 +52,21 @@ def get_loss_function(loss_function_str, is_tf):
             'mae': 'mean_absolute_error',
             'mse': 'mean_squared_error',
             'bce': 'binary_crossentropy',
-            'cce': 'categorical_crossentropy'
+            'cce': 'categorical_crossentropy',
+            'wei_bce': None
         }
 
     else:  # PyTorch
+        import torch
         from torch import nn
+        pos_weight = torch.tensor([0.86721177, 2.86069315, 3.63110931, 8.98950131, 4.65247525, 11.07615019],
+                                  dtype=torch.float32)
         loss_fn_dict = {
             'mae': nn.L1Loss(),
             'mse': nn.MSELoss(),
             'bce': nn.BCELoss(),
-            'cce': nn.CrossEntropyLoss()
+            'cce': nn.CrossEntropyLoss(),
+            'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         }
 
     if loss_function_str.lower() in loss_fn_dict.keys():
@@ -149,6 +156,7 @@ def get_val_metrics(val_metrics_str, is_tf):
         'mse': get_loss_function('mse', is_tf),
         'bce': get_loss_function('bce', is_tf),
         'cce': get_loss_function('cce', is_tf),
+        'wei_bce': get_loss_function('wei_bce', is_tf),
         'zero_one_loss': zero_one_loss,
         'hamming_loss': hamming_loss,
         'rank_loss_ml': rank_loss_ml

@@ -69,6 +69,15 @@
             "out_drop": 0.2
         },
 
+        "mme2e":
+        {
+            "is_TensorFlow": 0,
+            "trans_dim": 64,
+            "trans_nlayers": 4,
+            "trans_nheads": 4,
+            "text_model_size": "base"
+        },
+
         "mult":
         {
             "is_TensorFlow": 0,

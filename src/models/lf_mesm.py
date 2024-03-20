@@ -9,6 +9,17 @@ unk_token_id = 1
 
 
 class MModel(nn.Module):
+    """
+    Build the model described in the paper (cf. README for the reference).
+    Works only when the number of steps is the same for all datapoints.
+
+    :param model_id: Model id (int)
+    :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
+    :param num_features_text: size of text feature vector (it should be the same at each step)
+    :param num_features_image: size of image feature vector (it should be the same at each step)
+    :param num_features_audio: size of audio feature vector (it should be the same at each step)
+    :param num_classes: number of classes to predict
+    """
     def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio, num_classes,
                  num_layers=1, dropout=0.1, bi=True):
 
@@ -52,21 +63,24 @@ class MModel(nn.Module):
             't': nn.Sequential(
                 nn.Linear(linear_in_sizes[0], linear_in_sizes[0] // 2),
                 nn.ReLU(),
-                nn.Linear(linear_in_sizes[0] // 2, num_classes)
+                nn.Linear(linear_in_sizes[0] // 2, num_classes),
+                nn.Sigmoid()
             ),
             'a': nn.Sequential(
                 nn.Linear(linear_in_sizes[1], linear_in_sizes[1] // 2),
                 nn.ReLU(),
-                nn.Linear(linear_in_sizes[1] // 2, num_classes)
+                nn.Linear(linear_in_sizes[1] // 2, num_classes),
+                nn.Sigmoid()
             ),
             'v': nn.Sequential(
                 nn.Linear(linear_in_sizes[2], linear_in_sizes[2] // 2),
                 nn.ReLU(),
-                nn.Linear(linear_in_sizes[2] // 2, num_classes)
+                nn.Linear(linear_in_sizes[2] // 2, num_classes),
+                nn.Sigmoid()
             )
         })
 
-        self.weighted_fusion = nn.Linear(len(self.mods), 1, bias=False)
+        self.weighted_fusion = nn.Sequential(nn.Linear(len(self.mods), 1, bias=False), nn.Sigmoid())
 
     def forward(self, x_text, x_image, x_audio):
 
