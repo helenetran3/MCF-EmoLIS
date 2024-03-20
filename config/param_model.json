@@ -46,6 +46,12 @@
             "is_TensorFlow": 0
         },
 
+        "lf_trans_me2e":
+        {
+            "is_TensorFlow": 0,
+            "trans_nlayers": 2
+        },
+
         "mfn":
         {
             "is_TensorFlow": 0,

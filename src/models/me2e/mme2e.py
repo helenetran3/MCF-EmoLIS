@@ -139,14 +139,15 @@ class MModel(nn.Module):
     #     cropped = img[:, off:off + target_size, off - target_size // 2:off + target_size // 2]
     #     return cropped
 
-    def get_len_samples(self, x_feat, mod_name):
+    @staticmethod
+    def get_len_samples(x_feat, mod_name):
         """
         Return a list of the sequence length of each sample from x_feat, based on the last index with non-zero value.
         
         x_feat: array of shape (num_samples, num_features) where padding has already been performed.
         mod_name: name of the modality ('image' or 'audio')
         """
-        def get_len_one_sample(x_feat_i, i, mod_name):
+        def get_len_one_sample(x_feat_i, i):
             real_len = np.max(np.nonzero(x_feat_i)) +1  # +1 because we want the length
             if real_len == 0:
                 print("Note from mme2e.py: {}-th feature from modality {} is a zero vector.".format(i, mod_name))
@@ -154,5 +155,5 @@ class MModel(nn.Module):
 
         num_samples = x_feat.size(0)
         x = x_feat.numpy()
-        lens = [get_len_one_sample(x[i,:], i, mod_name) for i in range(num_samples)]
+        lens = [get_len_one_sample(x[i,:], i) for i in range(num_samples)]
         return lens

@@ -1,12 +1,13 @@
 import json
 
-from src.models import ef_from_mfn, ef_rnn_me2e, ef_williams_tf, ef_williams_torch, late_fusion, lf_rnn_me2e, mfn
+from src.models import ef_from_mfn, ef_rnn_me2e, ef_williams_tf, ef_williams_torch, late_fusion, lf_rnn_me2e, \
+    lf_trans_me2e, mfn
 from src.models.mult import model_mult
 from src.models.me2e import mme2e
 # from sklearn.metrics import zero_one_loss, hamming_loss
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_williams', 'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e',
-                   'mfn', 'mme2e', 'mult']
+                   'lf_trans_me2e', 'mfn', 'mme2e', 'mult']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
@@ -28,6 +29,7 @@ def get_model_module(model_str, is_tf):
         'ef_williams_debug': ef_williams_tf if is_tf else ef_williams_torch,
         'late_fusion': late_fusion,
         'lf_rnn_me2e': lf_rnn_me2e,
+        'lf_trans_me2e': lf_trans_me2e,
         'mfn': mfn,
         'mme2e': mme2e,
         'mult': model_mult

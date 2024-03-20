@@ -2,10 +2,6 @@ import numpy as np
 import torch
 from torch import nn
 
-pad_token_id = 0
-unk_token_id = 1
-
-
 class MModel(nn.Module):
     """
     Build the model described in the paper (cf. README for the reference).
