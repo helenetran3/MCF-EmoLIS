@@ -36,7 +36,7 @@
             "final_activ": "linear"
         },
 
-        "lf_mesm":
+        "lf_rnn_me2e":
         {
             "is_TensorFlow": 0
         },

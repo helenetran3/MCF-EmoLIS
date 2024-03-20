@@ -1,8 +1,6 @@
 import numpy as np
 import torch
 from torch import nn
-# from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from typing import List
 
 pad_token_id = 0
 unk_token_id = 1
@@ -25,7 +23,7 @@ class MModel(nn.Module):
 
         super(MModel, self).__init__()
 
-        self.model_name = 'lf_mesm'
+        self.model_name = 'lf_rnn_me2e'
         self.model_id = model_id
         self.num_features_text = num_features_text
         self.num_features_image = num_features_image
