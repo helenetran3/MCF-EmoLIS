@@ -36,16 +36,16 @@ class MModel(nn.Module):
                            dropout=(dropout if num_layers > 1 else 0),
                            bidirectional=bi)
 
-        linear_in_sizes = num_features_tav if not bi else num_features_tav * 2
+        linear_in_size = num_features_tav if not bi else num_features_tav * 2
 
-        self.affine = nn.Sequential(nn.Linear(linear_in_sizes[0], linear_in_sizes[0] // 2),
+        self.affine = nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
                                     nn.ReLU(),
-                                    nn.Linear(linear_in_sizes[0] // 2, num_classes),
+                                    nn.Linear(linear_in_size // 2, num_classes),
                                     nn.Sigmoid())
 
     def forward(self, x_text, x_image, x_audio):
 
-        x = self.concatenate((x_text, x_image, x_audio), 1)
+        x = self.concatenate((x_text, x_image, x_audio), 2)
         x = x.transpose(0, 1)
         _, (x_hn, _) = self.rnn(x)
         x_hn = x_hn.transpose(0, 1).flatten(start_dim=1)

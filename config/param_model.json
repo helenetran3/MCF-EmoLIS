@@ -9,6 +9,11 @@
             "num_layers": 2
         },
 
+        "ef_rnn_me2e":
+        {
+            "is_TensorFlow": 0
+        },
+
         "ef_williams":
         {
             "is_TensorFlow": 0,

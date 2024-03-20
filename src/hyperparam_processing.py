@@ -217,8 +217,8 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
             if key not in list_existing_keys:
                 if check_model_in_dict:
                     raise ValueError(
-                        "Model name '{}' not found in {}.json file. Please create a dictionary with '{}' key or"
-                        " choose among {}.".format(model_name, model_name, json_name, list_existing_keys))
+                        "Model name '{}' not found in config/param_model.json file. Please create a dictionary with "
+                        "'{}' key or choose among {}.".format(model_name, model_name, json_name, list_existing_keys))
                 else:
                     raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
                                       .format(root_key, key, json_name))
