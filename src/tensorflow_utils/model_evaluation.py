@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 from tensorflow.keras.models import load_model
-from src.hyperparam_processing import get_loss_function
+from src.hyperparam_processing import get_loss_function, get_val_metrics
 from src.tensorflow_utils.dataset_loader import DatasetTf
 from src.pickle_functions import save_with_pickle
 from src.label_processing import compute_pred_labels
@@ -80,13 +80,15 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     test_dataset = DatasetTf(x_test, y_test, seg_test, num_steps, num_classes, batch_size, train_mode=False).build()
 
     # Model evaluation
-    model_eval_output = compute_loss_value(model, test_dataset, loss_function, val_metrics, round_decimals)
+    loss_fn_value = compute_loss_value(model, test_dataset, loss_function, val_metrics, round_decimals)
 
     # Predicted labels
     pred_raw = model_prediction(model, test_dataset, num_test_samples, save_pred, ext_model_name, model_folder)
     pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
+
+    val_met_value = get_val_metrics(param_training['val_metrics'], is_tf=True)(pred_raw, y_test)
 
     # ## For debugging
     # import numpy as np
@@ -99,7 +101,7 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     # print("pred_classes_pres[0][0]:", pred_classes_pres[0][0])
     # print("pred_classes_dom[0]:", pred_classes_dom[0])
 
-    return model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return [loss_fn_value, val_met_value], pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id, all_scores,
@@ -125,10 +127,10 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
         num_folds = param_training['cross_val_folds']
         model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
         for fold_i in range(num_folds):
-            loss_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
+            loss_vals_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
                                    all_scores, fold_i)
-            model_eval_output += [loss_i]
+            model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw += [pred_raw_i]
             pred_scores_coa += [pred_coa_i]
             pred_classes_pres += [pred_pres_i]

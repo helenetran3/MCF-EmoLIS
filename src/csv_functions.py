@@ -141,7 +141,7 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     :param model_id: Model id (int)
     :param loss_function: Loss function
     :param val_metrics: Validation metric used for monitoring
-    :param model_eval_output: Loss function + validation metric obtained by the model
+    :param model_eval_output: List of [loss function, validation metric] obtained by the model
     :param metrics_regression: List of metrics for regression (w.r.t the presence scores)
     :param metrics_score_coa: List of metrics for classifying the presence score of each emotion
     :param metrics_presence: T lists of lists of metrics for detecting the presence/absence of an emotion

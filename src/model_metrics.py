@@ -516,8 +516,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     return met_reg, met_coa, met_pres, met_dom
 
 
-def compute_and_save_model_metrics(test_list, with_cross_val,
-                                   model_eval_output,
+def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
                                    pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    param_task, param_training, param_log, model_name, model_id, all_scores):
     """
@@ -525,7 +524,7 @@ def compute_and_save_model_metrics(test_list, with_cross_val,
 
     :param test_list: [x_test, y_test, seg_test]
     :param with_cross_val: boolean (cross_validation or not)
-    :param model_eval_output: Loss function + validation metric obtained by the model
+    :param model_eval_output: List of [loss function, validation metric] obtained by the model
     :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
     :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of

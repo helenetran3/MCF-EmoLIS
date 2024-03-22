@@ -1,7 +1,6 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
 from src.label_processing import compute_pred_labels
-from src.hyperparam_processing import get_model_module, get_loss_function
-from src.pickle_functions import save_with_pickle
+from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics
 
 import os
 import numpy as np
@@ -18,6 +17,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     label_type = param_task['label_type']
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
+    loss_fn_str = param_training['loss_function']
+    val_met_str = param_training['val_metrics']
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
 
     x_test = test_list[0]  # list of lists of 3 arrays
@@ -34,9 +35,9 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     test_dataloader = DataLoader(test_data)
 
     test_size = len(test_dataloader.dataset)
-    loss_fn = get_loss_function(param_training['loss_function'], is_tf=False)
-    model_eval_output = 0
-    # correct = 0
+    loss_fn = get_loss_function(loss_fn_str, is_tf=False)
+    val_metrics = get_val_metrics(val_met_str, is_tf=False)
+    loss_fn_value, val_met_value = 0, 0
     pred_raw = []
 
     # Load best model
@@ -67,10 +68,6 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                         x_audio = x_audio.bfloat16()
                         x_image = x_image.bfloat16()
                         y = y.bfloat16()
-                    pred = model(x_text, x_audio, x_image)
-                    pred_raw += pred
-                    model_eval_output += loss_fn(pred, y).item()
-                    # correct += (pred.argmax(1) == y).type(torch.float).sum().item()  # TODO Accuracy, might not need this
 
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X
@@ -78,18 +75,20 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                         x_text = x_text.float()
                         x_audio = x_audio.float()
                         x_image = x_image.float()
-                    pred = model(x_text, x_audio, x_image)
-                    pred_raw += pred
-                    model_eval_output += loss_fn(pred, y.float()).item()
+
+                pred = model(x_text, x_audio, x_image)
+                pred_raw += pred
+                loss_fn_value += loss_fn(pred, y).item()
+                val_met_value += val_metrics(pred, y).item()
 
                 bar()
-    model_eval_output /= test_size
-    model_eval_output = np.round(model_eval_output, round_decimals)
+    loss_fn_value /= test_size
+    loss_fn_value = np.round(loss_fn_value, round_decimals)
+    val_met_value /= test_size
+    val_met_value = np.round(val_met_value, round_decimals)
 
-    # correct /= test_size
-    # print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {model_eval_output:>8f} \n")
-    print(f"Avg test loss: {model_eval_output:>8f} \n")
-    # print(f"Avg validation metric: {model_eval_output[1]:>8f} \n")
+    print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f} \n")
+    print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f} \n")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
@@ -108,7 +107,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     # print("len(pred_classes_pres):", len(pred_classes_pres))
     # print("pred_classes_dom[0]:", pred_classes_dom[0])
 
-    return model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps,
@@ -118,10 +117,10 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
         num_folds = param_training['cross_val_folds']
         model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
         for fold_i in range(num_folds):
-            loss_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
+            loss_vals_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, with_cross_valid, fold_i, param_task, param_model, param_training,
                                    param_log, num_steps, model_name, model_id, all_scores, device)
-            model_eval_output += [loss_i]
+            model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw_array += [pred_raw_i]
             pred_scores_coa += [pred_coa_i]
             pred_classes_pres += [pred_pres_i]
