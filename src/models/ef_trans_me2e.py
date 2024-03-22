@@ -16,25 +16,28 @@ class MModel(nn.Module):
         self.mods = 'tav'  # we use the three modalities here
 
         nlayers = param_model['trans_nlayers']
-        num_features_tav = num_features_text + num_features_image + num_features_audio
+        num_features_tav_incr = num_features_text + num_features_image + num_features_audio + 1 # 409+1 for div by 5
 
         self.concatenate = torch.cat
 
-        self.transformer = WrappedTransformerEncoder(dim=num_features_tav,
+        self.transformer = WrappedTransformerEncoder(dim=num_features_tav_incr,
                                                      num_layers=nlayers,
-                                                     num_heads=4)  # Vary between 4, 2 and 5
+                                                     num_heads=5)
 
-        self.affine = nn.Sequential(nn.Linear(num_features_tav, num_features_tav // 2),
+        self.affine = nn.Sequential(nn.Linear(num_features_tav_incr, num_features_tav_incr // 2),
                                     nn.ReLU(),
-                                    nn.Linear(num_features_tav // 2, num_classes),
+                                    nn.Linear(num_features_tav_incr // 2, num_classes),
                                     nn.Sigmoid())
 
     def forward(self, x_text, x_image, x_audio):
 
         max_all_lens = x_text.size(1)
         assert max_all_lens == x_image.size(1) == x_audio.size(1)
+        num_samples = x_text.size(0)
+        assert num_samples == x_image.size(0) == x_audio.size(0)
 
-        x = self.concatenate((x_text, x_image, x_audio), 2)
+        zero_vector = torch.zeros(num_samples, max_all_lens, 1)
+        x = self.concatenate((x_text, x_image, x_audio, zero_vector), 2)
         feat_lens = self.get_len_samples(x)
         x_trans = self.transformers(x, feat_lens, max_all_lens, get_cls=True)
         x_aff = self.affines(x_trans)
