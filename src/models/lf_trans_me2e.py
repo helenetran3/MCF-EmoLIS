@@ -63,22 +63,29 @@ class MModel(nn.Module):
                                              nn.Sigmoid())
 
     def forward(self, x_text, x_image, x_audio):
+
         all_logits = []
+
+        max_all_lens = x_text.size(1)
+        assert max_all_lens == x_image.size(1) == x_audio.size(1)
+
+        text_features_lens = self.get_len_samples(x_text, 'text')
         audio_features_lens = self.get_len_samples(x_audio, 'audio')
         img_features_lens = self.get_len_samples(x_image, 'image')
 
         if 't' in self.mods:
-            texts = self.transformers['t'](x_text, get_cls=True)
+            # Added text_features_lens from original code
+            texts = self.transformers['t'](x_text, text_features_lens, max_all_lens, get_cls=True)
             texts = self.affines['t'](texts)
             all_logits.append(texts)
 
         if 'a' in self.mods:
-            audio_features = self.transformers['a'](x_audio, audio_features_lens, get_cls=True)
+            audio_features = self.transformers['a'](x_audio, audio_features_lens, max_all_lens, get_cls=True)
             audio_features = self.affines['a'](audio_features)
             all_logits.append(audio_features)
 
         if 'v' in self.mods:
-            img_features = self.transformers['v'](x_image, img_features_lens, get_cls=True)
+            img_features = self.transformers['v'](x_image, img_features_lens, max_all_lens, get_cls=True)
             img_features = self.affines['v'](img_features)
             all_logits.append(img_features)
 
@@ -96,13 +103,22 @@ class MModel(nn.Module):
         mod_name: name of the modality ('image' or 'audio')
         """
 
+        def squeeze_feat_dim(x_array):
+            x_sq = []
+            for ind in range(num_samples):
+                x_sq += [[int(any(x_array[ind, i, :])) for i in range(seq_len)]]  # (seq_len,)
+            x_sq = np.array(x_sq)
+            return x_sq
+
         def get_len_one_sample(x_feat_i, i):
-            real_len = np.max(np.nonzero(x_feat_i)) + 1  # +1 because we want the length
-            if real_len == 0:
-                print("Note from mme2e.py: {}-th feature from modality {} is a zero vector.".format(i, mod_name))
+            x_nonzero = np.nonzero(x_feat_i)
+            real_len = 0 if x_nonzero[0].shape[0] == 0 else np.max(x_nonzero) + 1  # +1 because we want the length
+            # if real_len == 0:
+            #     print("Note from mme2e.py: {}-th feature from modality {} is a zero vector.".format(i, mod_name))
             return real_len
 
-        num_samples = x_feat.size(0)
-        x = x_feat.numpy()
-        lens = [get_len_one_sample(x[i, :], i) for i in range(num_samples)]
+        num_samples, seq_len = x_feat.size(0), x_feat.size(1)
+        x = x_feat.numpy()  # (num_samples, seq, feat)
+        x_squeezed = squeeze_feat_dim(x)  # (num_samples, seq)
+        lens = [get_len_one_sample(x_squeezed[i, :], i) for i in range(num_samples)]
         return lens

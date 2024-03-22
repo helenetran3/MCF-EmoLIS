@@ -20,11 +20,12 @@ class WrappedTransformerEncoder(nn.Module):
         outputs = torch.cat((cls_emb, inputs), dim=1)
         return outputs
 
-    def forward(self, inputs: torch.Tensor, lens: Optional[List[int]] = None, get_cls: Optional[bool] = False):
-        if lens is not None:
-            max_len = max(lens)
+    def forward(self, inputs: torch.Tensor, lens: Optional[List[int]] = None, max_all_lens: Optional[int] = None,
+                get_cls: Optional[bool] = False):
 
-            mask = [([False] * (l + int(get_cls)) + [True] * (max_len - l)) for l in lens]
+        if lens is not None and max_all_lens is not None:
+
+            mask = [([False] * (l + int(get_cls)) + [True] * (max_all_lens - l)) for l in lens]
             mask = torch.tensor(mask).to(device=inputs.device)
 
             ## Block commented from original code
