@@ -39,8 +39,8 @@ class MModel(nn.Module):
         zero_vector = torch.zeros(num_samples, max_all_lens, 1)
         x = self.concatenate((x_text, x_image, x_audio, zero_vector), 2)
         feat_lens = self.get_len_samples(x)
-        x_trans = self.transformers(x, feat_lens, max_all_lens, get_cls=True)
-        x_aff = self.affines(x_trans)
+        x_trans = self.transformer(x, feat_lens, max_all_lens, get_cls=True)
+        x_aff = self.affine(x_trans)
 
         return x_aff
 
