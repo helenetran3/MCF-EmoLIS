@@ -56,10 +56,10 @@ def get_loss_function(loss_function_str, is_tf):
         from tensorflow.keras.losses import MeanAbsoluteError, MeanSquaredError, \
             BinaryCrossentropy, CategoricalCrossentropy
         loss_fn_dict = {
-            'mae': MeanAbsoluteError,
-            'mse': MeanSquaredError,
-            'bce': BinaryCrossentropy,
-            'cce': CategoricalCrossentropy,
+            'mae': MeanAbsoluteError(),
+            'mse': MeanSquaredError(),
+            'bce': BinaryCrossentropy(),
+            'cce': CategoricalCrossentropy(),
             'wei_bce': None
         }
 

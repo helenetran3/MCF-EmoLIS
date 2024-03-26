@@ -24,9 +24,10 @@ def compute_loss_value(model, test_dataset, loss_function, val_metrics, round_de
 
     loss_function_val = model.evaluate(test_dataset, verbose=1)
     loss_function_val = np.round(loss_function_val, round_decimals)
-    print("Loss function ({}, {}): {}".format(loss_function, val_metrics, loss_function_val))
+    print("Loss function ({}): {}".format(loss_function, loss_function_val[0]))
+    print("Validation metric ({}): {}".format(val_metrics, loss_function_val[1]))
 
-    return loss_function_val
+    return list(loss_function_val)
 
 
 def model_prediction(model, test_dataset, num_test_samples, save_pred, ext_name, model_folder):
@@ -60,8 +61,8 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
     batch_size = param_training['batch_size']
-    loss_function = get_loss_function(param_training['loss_function'], is_tf=True)
-    val_metrics = param_training['val_metrics']
+    loss_function_str = param_training['loss_function']
+    val_metrics_str = param_training['val_metrics']
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if fold_id is not None else model_id
 
     # Load best model
@@ -80,15 +81,13 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     test_dataset = DatasetTf(x_test, y_test, seg_test, num_steps, num_classes, batch_size, train_mode=False).build()
 
     # Model evaluation
-    loss_fn_value = compute_loss_value(model, test_dataset, loss_function, val_metrics, round_decimals)
+    loss_fn_value = compute_loss_value(model, test_dataset, loss_function_str, val_metrics_str, round_decimals)
 
     # Predicted labels
     pred_raw = model_prediction(model, test_dataset, num_test_samples, save_pred, ext_model_name, model_folder)
     pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
-
-    val_met_value = get_val_metrics(param_training['val_metrics'], is_tf=True)(pred_raw, y_test)
 
     # ## For debugging
     # import numpy as np
@@ -101,7 +100,7 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     # print("pred_classes_pres[0][0]:", pred_classes_pres[0][0])
     # print("pred_classes_dom[0]:", pred_classes_dom[0])
 
-    return [loss_fn_value, val_met_value], pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return loss_fn_value, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id, all_scores,

@@ -75,6 +75,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                         x_text = x_text.float()
                         x_audio = x_audio.float()
                         x_image = x_image.float()
+                        y = y.float()
 
                 pred = model(x_text, x_audio, x_image)
                 pred_raw += pred
