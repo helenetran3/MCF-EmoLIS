@@ -292,7 +292,12 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_binary('align_to_text', hyperparam_task['align_to_text'])
         check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])
         check_set_length_param(hyperparam_task['set_length'])
-        check_value_is_in_list('model_name', hyperparam_task['model_name'], possible_models)
+        model = hyperparam_task['model_name']
+        if type(model) == list:
+            for model_i in model:
+                check_value_is_in_list('model_name', model_i, possible_models)
+        else:
+            check_value_is_in_list('model_name', model, possible_models)
         check_value_is_in_list('label_type', hyperparam_task['label_type'],
                                ['all', 'coarse', 'coarse_prob', 'present', 'dominant'])
         check_value_is_in_list('image_feature', hyperparam_task['image_feature'], ['facet', 'openface'])
