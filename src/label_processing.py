@@ -145,7 +145,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on label_type value
     """
 
-    ext_name = "_n" if predict_neutral_class else ""
+    ext_name = "_pred-neu" if predict_neutral_class else "_rm-neu"
     true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
 
     # if not pickle_file_exists(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei'):
@@ -156,6 +156,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
         save_with_pickle(true_scores_all, root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei')
     else:
         true_scores_all = load_from_pickle(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei')
+
     # Compute true presence scores: arrays of shape (4654, 6)
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     # Coarse-grained values: [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
@@ -284,19 +285,22 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
             y_arr = np.vstack(split_list[1])
             num_emo = np.sum(y_arr, axis=1)
             non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
+            neutral_samples_split = np.sum((num_emo == 0))
             # Take only samples where at least one emotion class is assigned
             X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
             y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
             seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
-            return [X_list, y_list, seg_list]
+            return [X_list, y_list, seg_list], neutral_samples_split
 
-        new_train_list = remove_neutral_class_split(train_list)
-        new_valid_list = remove_neutral_class_split(valid_list)
-        new_test_list = remove_neutral_class_split(test_list)
+        new_train_l, neutral_train = remove_neutral_class_split(train_list)
+        new_valid_l, neutral_valid = remove_neutral_class_split(valid_list)
+        new_test_l, neutral_test = remove_neutral_class_split(test_list)
 
-        print("Removed samples with no emotions.")
+        neutral_samples = neutral_train + neutral_valid + neutral_test
+        print(f'Removed {neutral_samples} samples with no emotions '
+              f'(train: {neutral_train}, valid: {neutral_valid}, test: {neutral_test}).')
 
-        return new_train_list, new_valid_list, new_test_list
+        return new_train_l, new_valid_l, new_test_l
 
     def change_type_and_shape_for_training(y_array):
         num_output = y_array.shape[-1]
