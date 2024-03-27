@@ -11,9 +11,6 @@ def main():
 
     param_log = get_hyperparam_from_json("param_logistics")
     param_training, param_task = get_hyperparam_from_json("param_training_task")
-    model_name = param_task['model_name']
-    param_model = get_hyperparam_from_json("param_model", model_name=model_name)
-    is_tf = bool(param_model['is_TensorFlow'])
     with_cross_validation = (param_training['cross_val_folds'] != -1)
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
@@ -33,7 +30,6 @@ def main():
                                                                       param_task, param_log)
 
     all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
-    num_steps = get_length_dataset(train_list, valid_list, test_list, param_task, is_tf)
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, present, dominant)
     # + remove samples assigned to neutral when predict_neutral_class is False
@@ -46,43 +42,55 @@ def main():
     # Balance dataset  #TODO
     balance_dataset(train_list, valid_list, test_list, param_task, all_scores)
 
-    # Return model id
-    model_id = get_current_model_id(model_name)
+    def run_one_experiment(model_name):
+        param_model = get_hyperparam_from_json("param_model", model_name=model_name)
+        model_id = get_current_model_id(model_name)
+        is_tf = bool(param_model['is_TensorFlow'])
+        num_steps = get_length_dataset(train_list, valid_list, test_list, param_task, is_tf)
 
-    # Model training
-    if is_tf:
-        from src.tensorflow_utils.model_training import train_tf_model
-        from src.tensorflow_utils.model_evaluation import evaluate_tf_model
+        # Model training
+        if is_tf:
+            from src.tensorflow_utils.model_training import train_tf_model
+            from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
-        train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                       num_steps, model_name, model_id, with_cross_validation)
+            train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
+                           num_steps, model_name, model_id, with_cross_validation)
 
-        model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                              all_scores, with_cross_validation)
+            model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+                evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
+                                  all_scores, with_cross_validation)
 
+        else:
+            import torch
+            from src.pytorch_utils.model_training import train_torch_model
+            from src.pytorch_utils.model_evaluation import evaluate_torch_model
+
+            device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+            print(f"\nUsing {device} device")
+
+            train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
+                              num_steps, model_name, model_id, device, with_cross_validation)
+
+            model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+                evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,
+                                     num_steps, model_name, model_id, all_scores, device, with_cross_validation)
+
+        # Save model parameters in csv file
+        save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name,
+                                     with_cross_validation)
+
+        # Compute and save metrics
+        compute_and_save_model_metrics(test_list, with_cross_validation, model_eval_output,
+                                       pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                                       param_task, param_training, param_log, model_name, model_id, all_scores)
+
+    # Model parameters
+    model = param_task['model_name']
+    if type(model) == list:
+        for model_i in model:
+            run_one_experiment(model_i)
     else:
-        import torch
-        from src.pytorch_utils.model_training import train_torch_model
-        from src.pytorch_utils.model_evaluation import evaluate_torch_model
-
-        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-        print(f"\nUsing {device} device")
-
-        train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                          num_steps, model_name, model_id, device, with_cross_validation)
-
-        model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,
-                                 num_steps, model_name, model_id, all_scores, device, with_cross_validation)
-
-    # Save model parameters in csv file
-    save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, with_cross_validation)
-
-    # Compute and save metrics
-    compute_and_save_model_metrics(test_list, with_cross_validation, model_eval_output,
-                                   pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                   param_task, param_training, param_log, model_name, model_id, all_scores)
+        run_one_experiment(model)
 
     # Summary files
     csv_summary(with_cross_validation, param_log)
