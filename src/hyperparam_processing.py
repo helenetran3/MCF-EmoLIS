@@ -293,7 +293,8 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])
         check_set_length_param(hyperparam_task['set_length'])
         check_value_is_in_list('model_name', hyperparam_task['model_name'], possible_models)
-        check_value_is_in_list('label_type', hyperparam_task['label_type'], ['all', 'coarse', 'present', 'dominant'])
+        check_value_is_in_list('label_type', hyperparam_task['label_type'],
+                               ['all', 'coarse', 'coarse_prob', 'present', 'dominant'])
         check_value_is_in_list('image_feature', hyperparam_task['image_feature'], ['facet', 'openface'])
 
     if json_name == 'param_logistics':

@@ -44,7 +44,7 @@ def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     return [mae, mse, r2] + mae_emo + mse_emo + r2_emo
 
 
-def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes, round_decimals):
+def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes, round_decimals, prob):
     """
     Return unweighted mean of all the classification metrics for the case of coarse scores.
 
@@ -52,6 +52,7 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     :param pred_scores_coa: Array of shape (test_size, 6) giving the predicted presence scores among [0, 1, 2, 3]
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
+    :param prob: If we use probabilities for coarse scores [0, 1/3, 2/3, 1]
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
@@ -81,6 +82,12 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
 
     true_scores_for_each_emo = [true_scores_coa[:, i] for i in range(num_classes)]
     pred_scores_for_each_emo = [pred_scores_coa[:, i] for i in range(num_classes)]
+
+    # If working with probabilities, go back to integers between 0, 1, 2, 3 to avoid metric miscalculation due to
+    # floating points
+    if prob:
+        true_scores_for_each_emo = [int(ts*3) for ts in true_scores_for_each_emo]
+        pred_scores_for_each_emo = [int(ts*3) for ts in true_scores_for_each_emo]
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
@@ -459,7 +466,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     # Some metrics do not make sense for the targeted task (label_type): we do not print them
     if label_type == 'all':
         compute_reg, compute_coa, compute_pres = True, True, True
-    elif label_type == 'coarse':
+    elif 'coarse' in label_type:
         compute_reg, compute_coa, compute_pres = False, True, True
     elif label_type == 'present':
         compute_reg, compute_coa, compute_pres = False, False, True
@@ -479,7 +486,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         if compute_coa:
             print("\n------- Presence score classification [0,1,2,3] -------\n")
             metrics_score_coa = get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa_i, num_classes,
-                                                                     round_decimals)
+                                                                     round_decimals, prob=('prob' in label_type))
         else:
             metrics_score_coa = None
             # metrics_score_coa = ['-' for _ in range(43)]

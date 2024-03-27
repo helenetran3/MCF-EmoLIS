@@ -31,7 +31,7 @@ def get_available_presence_scores_arr(train_list, valid_list, test_list):
     return list(all_y_uniq_rounded)
 
 
-def get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes, coarse=False):
+def get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes, coarse=False, prob=False):
     """
     Get the presence score from a finer grained presence score
     (raw predictions -> 12 or 4 presence scores, or 12 presence scores -> 4 presence scores)
@@ -41,10 +41,11 @@ def get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes,
     :param num_classes: number of emotion classes (7 with neutral class, else 6)
     :param coarse: if True, the resulting presence scores in [0, 1, 2, 3].
                    Default: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
+    :param prob: whether we turn coarse score to probabilities [0, 1/3, 2/3, 1]
     :return: array of shape (test_size, 6) giving the presence score of all the 6 emotions
     """
 
-    classes = all_scores if not coarse else [0, 1, 2, 3]
+    classes = all_scores if not coarse else [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
     pred_raw = pred_raw.flatten()
     pred_scores = [min(list(classes), key=lambda x: abs(x - pred_raw[i])) for i in range(pred_raw.shape[0])]
     pred_scores = np.reshape(np.array(pred_scores), (-1, num_classes))
@@ -138,8 +139,9 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :param num_classes: number of emotion classes (7 with neutral class, else 6)
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
-                         scores provided by the dataset), coarse (presence score for each emotion among "
-                         [0, 1, 2, 3]), present (multi-label classification), dominant (multi-label classification)
+                         scores provided by the dataset), coarse (presence score for each emotion among [0, 1, 2, 3]),
+                         coarse_prob (presence score for each emotion among [0, 1/3, 2/3, 1]),
+                         present (multi-label classification), dominant (multi-label classification)
     :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on label_type value
     """
 
@@ -156,9 +158,10 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
         true_scores_all = load_from_pickle(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei')
     # Compute true presence scores: arrays of shape (4654, 6)
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
-    # Coarse-grained values: [0, 1, 2, 3]
-    if label_type == 'coarse' or label_type is None:
-        true_scores_coa = get_presence_score_from_finer_grained_val(true_scores_all, all_scores, 6, coarse=True)
+    # Coarse-grained values: [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
+    if 'coarse' in label_type or label_type is None:
+        true_scores_coa = get_presence_score_from_finer_grained_val(true_scores_all, all_scores, 6,
+                                                                    coarse=True, prob=('prob' in label_type))
         save_with_pickle(true_scores_coa, root_name + "_true_scores_coa" + ext_name, 'processed_folds', 'cmu_mosei')
 
     # Compute true classes: binary arrays of shape (4654, 6 or 7)
@@ -182,7 +185,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
         return true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom
     elif label_type == 'all':
         return true_scores_all
-    elif label_type == 'coarse':
+    elif 'coarse' in label_type:
         return true_scores_coa
     elif label_type == 'present':
         return true_classes_pres
@@ -216,7 +219,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     pred_scores_coa, pred_classes_pres = None, None
     if label_type == 'all':
         compute_coa, compute_pres = True, True
-    elif label_type == 'coarse':
+    elif 'coarse' in label_type:
         compute_coa, compute_pres = True, True
     elif label_type == 'present':
         compute_coa, compute_pres = False, True
@@ -233,7 +236,8 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
 
     # Get coarse presence scores from raw predictions
     if compute_coa:
-        pred_scores_coa = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes, coarse=True)
+        pred_scores_coa = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes,
+                                                                    coarse=True, prob=('prob' in label_type))
         if save_pred:
             save_with_pickle(pred_scores_coa, "pred_scores_coa_{}".format(model_id), pickle_folder="predictions",
                              root_folder=model_folder)
@@ -261,6 +265,7 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
     - coarse: presence score for each emotion among [0, 1, 2, 3]
+    - coarse_prob: presence score for each emotion among [0, 1/3, 2/3, 1]
     - present: one-hot encoded labels for multi-label classification. 7 classes if predict_neutral_class else 6.
     - dominant: one-hot encoded labels for one-label classification. 7 classes if predict_neutral_class else 6.
     It also removes samples assigned to neutral when predict_neutral_class is False.
