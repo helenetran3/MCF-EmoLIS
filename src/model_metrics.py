@@ -86,8 +86,8 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     # If working with probabilities, go back to integers between 0, 1, 2, 3 to avoid metric miscalculation due to
     # floating points
     if prob:
-        true_scores_for_each_emo = [int(ts*3) for ts in true_scores_for_each_emo]
-        pred_scores_for_each_emo = [int(ts*3) for ts in true_scores_for_each_emo]
+        true_scores_for_each_emo = [np.round(ts*3).astype(int) for ts in true_scores_for_each_emo]
+        pred_scores_for_each_emo = [np.round(ts*3).astype(int) for ts in true_scores_for_each_emo]
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
