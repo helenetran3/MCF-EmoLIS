@@ -122,7 +122,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
 
 
 def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
-                        label_type=None):
+                        label_type, return_all_tasks=False):
     """
     Compute the true labels from a list of 2D arrays of shape (1, num_classes) (y_list)
     The results are all 3D arrays, true_classes_pres is a list of arrays of this type)
@@ -142,7 +142,9 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
                          scores provided by the dataset), coarse (presence score for each emotion among [0, 1, 2, 3]),
                          coarse_prob (presence score for each emotion among [0, 1/3, 2/3, 1]),
                          present (multi-label classification), dominant (multi-label classification)
-    :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on label_type value
+    :param return_all_tasks: Whether we return the true vectors of the four tasks (True) or return the vector
+                               corresponding to the label type (False)
+    :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on return_all_tasks
     """
 
     ext_name = "_pred-neu" if predict_neutral_class else "_rm-neu"
@@ -160,18 +162,18 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     # Compute true presence scores: arrays of shape (4654, 6)
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     # Coarse-grained values: [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
-    if 'coarse' in label_type or label_type is None:
+    if return_all_tasks or 'coarse' in label_type:
         true_scores_coa = get_presence_score_from_finer_grained_val(true_scores_all, all_scores, 6,
                                                                     coarse=True, prob=('prob' in label_type))
         save_with_pickle(true_scores_coa, root_name + "_true_scores_coa" + ext_name, 'processed_folds', 'cmu_mosei')
 
     # Compute true classes: binary arrays of shape (4654, 6 or 7)
-    if label_type == 'present' or label_type is None:
+    if return_all_tasks or label_type == 'present':
         true_classes_pres = get_class_from_presence_score(true_scores_all, predict_neutral_class,
                                                           threshold_emo_pres, num_classes)
         save_with_pickle(true_classes_pres, root_name + "_true_classes_pres" + ext_name, 'processed_folds', 'cmu_mosei')
 
-    if label_type == 'dominant' or label_type is None:
+    if return_all_tasks or label_type == 'dominant':
         true_classes_dom = get_class_from_presence_score(true_scores_all, predict_neutral_class,
                                                          threshold_emo_pres, num_classes, only_dominant=True)
         save_with_pickle(true_classes_dom, root_name + "_true_classes_dom" + ext_name, 'processed_folds', 'cmu_mosei')
@@ -182,7 +184,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     #     true_classes_pres = load_from_pickle(root_name + "_true_classes_pres" + ext_name, 'processed_folds', 'cmu_mosei')
     #     true_classes_dom = load_from_pickle(root_name + "_true_classes_dom" + ext_name, 'processed_folds', 'cmu_mosei')
 
-    if label_type is None:
+    if return_all_tasks:
         return true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom
     elif label_type == 'all':
         return true_scores_all

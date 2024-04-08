@@ -563,7 +563,8 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
 
     # True labels
     true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
-        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, threshold_emo_pres, num_classes)
+        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
+                            label_type, return_all_tasks=True)
 
     # Confusion matrix
     if label_type != 'dominant':
