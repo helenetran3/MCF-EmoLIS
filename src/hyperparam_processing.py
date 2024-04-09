@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 from src.models import ef_from_mfn, ef_rnn_me2e, ef_trans_me2e, ef_williams_tf, ef_williams_torch, late_fusion, \
     lf_rnn_me2e, lf_trans_me2e, mfn
@@ -8,8 +9,8 @@ from src.models.me2e import mme2e
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams', 'ef_williams_debug', 'late_fusion',
                    'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mme2e', 'mult']
-possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce']
-possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml']
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce']
+possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
 
@@ -60,20 +61,39 @@ def get_loss_function(loss_function_str, is_tf):
             'mse': MeanSquaredError(),
             'bce': BinaryCrossentropy(),
             'cce': CategoricalCrossentropy(),
-            'wei_bce': None
+            'wei_bce': None,
+            'wei_cce': None
         }
 
     else:  # PyTorch
         import torch
         from torch import nn
+        import torch.nn.functional as F
         pos_weight = torch.tensor([0.86721177, 2.86069315, 3.63110931, 8.98950131, 4.65247525, 11.07615019],
                                   dtype=torch.float32)
+
+        pos_weight_coarse = [[7218, 4370, 2609, 5251], [13533, 2826, 1957, 1132], [14517, 1943, 1362, 1626], [17162, 1592, 492, 202], [15408, 1876, 1098, 1066], [17557, 1156, 548, 187]]
+        neg_weight_coarse = [[12230, 15078, 16839, 14197], [5915, 16622, 17491, 18316], [4931, 17505, 18086, 17822], [2286, 17856, 18956, 19246], [4040, 17572, 18350, 18382], [1891, 18292, 18900, 19261]]
+        weight_coarse = [[1.6943751731781658, 3.4503432494279176, 6.454197010348793, 2.703675490382784], [0.43707973102785785, 5.881811748053786, 8.937659683188555, 16.180212014134277], [0.3396707308672591, 9.009264024704066, 13.279001468428781, 10.960639606396064], [0.1332012585945694, 11.21608040201005, 38.52845528455285, 95.27722772277228], [0.26220145379023885, 9.366737739872068, 16.712204007285976, 17.24390243902439], [0.10770632796035769, 15.823529411764707, 34.48905109489051, 103.0]]
+
+        def wei_cce(output, target):
+            # TODO Work in progress
+            num_classes = target.shape[-1]
+            target_oh = F.one_hot(target, num_classes=4)  # 4 classes for [0,1,2,3]
+            assert(target_oh.size() == output.size())
+            loss = []
+            for cl in range(num_classes):
+                loss += nn.CrossEntropyLoss(weight=torch.Tensor(weight_coarse[cl]))(output[:, cl], target_oh[:, cl])
+            loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
+            return loss
+
         loss_fn_dict = {
             'mae': nn.L1Loss(),
             'mse': nn.MSELoss(),
             'bce': nn.BCELoss(),
             'cce': nn.CrossEntropyLoss(),
-            'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+            'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight),
+            'wei_cce': None #wei_cce
         }
 
     if loss_function_str.lower() in loss_fn_dict.keys():
@@ -140,15 +160,19 @@ def get_val_metrics(val_metrics_str, is_tf):
 
         loss = 0.
         index_pos, index_neg = list(index_pos), list(index_neg)
-        for i_pos_row, i_pos_col in index_pos:
-            for i_neg_row, i_neg_col in index_neg:
-                output_pos = output[i_pos_row, i_pos_col]
-                output_neg = output[i_neg_row, i_neg_col]
-                if output_pos < output_neg:
-                    loss += 1.
-                if output_pos == output_neg:
-                    loss += 0.5
-        loss = loss / (len(index_pos) * len(index_neg))
+        # The following line checks if we did not miss any values
+        assert(len(index_pos) + len(index_neg) == target.shape[0]*target.shape[1])
+
+        if len(index_pos) * len(index_neg) != 0:
+            for i_pos_row, i_pos_col in index_pos:
+                for i_neg_row, i_neg_col in index_neg:
+                    output_pos = output[i_pos_row, i_pos_col]
+                    output_neg = output[i_neg_row, i_neg_col]
+                    if output_pos < output_neg:
+                        loss += 1.
+                    if output_pos == output_neg:
+                        loss += 0.5
+            loss = loss / (len(index_pos) * len(index_neg))
 
         if is_tf:
             import tensorflow as tf
@@ -158,15 +182,52 @@ def get_val_metrics(val_metrics_str, is_tf):
             loss = torch.tensor(loss, dtype=torch.float32)
         return loss
 
+    def rank_loss_gml(output, target):
+        scores = [0, 1/3, 2/3, 1]
+
+        if is_tf:
+            import tensorflow as tf
+            target, output = tf.squeeze(output), tf.squeeze(target)
+            index_scores = [tf.where(tf.equal(target, sc)).numpy() for sc in scores]
+
+        else:
+            import torch
+            index_scores = [torch.nonzero(target == sc).numpy() for sc in scores]
+
+        index_scores = [list(ind) for ind in index_scores]
+        # The following line checks if we did not miss any values
+        assert(np.sum([len(ind) for ind in index_scores]) == target.shape[0]*target.shape[1])
+
+        loss, total_values = 0., 0
+        for i in range(len(scores)-1):
+            for j in range(1, len(scores)):
+                if i < j:
+                    index_inf, index_sup = index_scores[i], index_scores[j]
+                    if len(index_inf) * len(index_sup) != 0:
+                        total_values += len(index_inf) * len(index_sup)
+                        for i_sup_row, i_sup_col in index_sup:
+                            for i_inf_row, i_inf_col in index_inf:
+                                output_sup = output[i_sup_row, i_sup_col]
+                                output_inf = output[i_inf_row, i_inf_col]
+                                if output_sup < output_inf:
+                                    loss += 1.
+                                if output_sup == output_inf:
+                                    loss += 0.5
+        loss = loss / total_values
+
+        return loss
+
     val_metrics_dict = {
         'mae': get_loss_function('mae', is_tf),
         'mse': get_loss_function('mse', is_tf),
         'bce': get_loss_function('bce', is_tf),
         'cce': get_loss_function('cce', is_tf),
         'wei_bce': get_loss_function('wei_bce', is_tf),
+        'wei_cce': get_loss_function('wei_cce', is_tf),
         'zero_one_loss': zero_one_loss,
         'hamming_loss': hamming_loss,
-        'rank_loss_ml': rank_loss_ml
+        'rank_loss_ml': rank_loss_ml,
+        'rank_loss_gml': rank_loss_gml
     }
 
     if val_metrics_str.lower() in val_metrics_dict.keys():
