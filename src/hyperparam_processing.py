@@ -215,6 +215,13 @@ def get_val_metrics(val_metrics_str, is_tf):
                                     loss += 0.5
         loss = loss / total_values
 
+        if is_tf:
+            import tensorflow as tf
+            loss = tf.cast(loss, tf.float32)
+        else:
+            import torch
+            loss = torch.tensor(loss, dtype=torch.float32)
+
         return loss
 
     val_metrics_dict = {
