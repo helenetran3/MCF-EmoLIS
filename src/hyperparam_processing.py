@@ -3,7 +3,7 @@ import numpy as np
 
 from src.models import ef_from_mfn, ef_rnn_me2e, ef_trans_me2e, ef_williams_tf, ef_williams_torch, late_fusion, \
     lf_rnn_me2e, lf_trans_me2e, mfn
-from src.models.mult import model_mult
+from src.models.mult import model_mult, model_mult_gml
 from src.models.me2e import mme2e
 # from sklearn.metrics import zero_one_loss, hamming_loss
 
@@ -34,7 +34,8 @@ def get_model_module(model_str, is_tf):
         'lf_trans_me2e': lf_trans_me2e,
         'mfn': mfn,
         'mme2e': mme2e,
-        'mult': model_mult
+        'mult': model_mult,
+        'mult_gml': model_mult_gml
     }
 
     if model_str.lower() in model_dict.keys():
