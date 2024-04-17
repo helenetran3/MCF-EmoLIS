@@ -5,6 +5,7 @@ from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
 from src.label_processing import get_available_presence_scores_arr, update_labels, balance_dataset
 from src.model_metrics import compute_and_save_model_metrics
+import itertools
 
 
 def main():
@@ -42,7 +43,7 @@ def main():
     # Balance dataset  #TODO
     balance_dataset(train_list, valid_list, test_list, param_task, all_scores)
 
-    def run_one_experiment(model_name):
+    def run_one_experiment(model_name, loss_function, val_metrics):
         param_model = get_hyperparam_from_json("param_model", model_name=model_name)
         model_id = get_current_model_id(model_name)
         is_tf = bool(param_model['is_TensorFlow'])
@@ -54,11 +55,11 @@ def main():
             from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
             train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                           num_steps, model_name, model_id, with_cross_validation)
+                           num_steps, model_name, model_id, loss_function, val_metrics, with_cross_validation)
 
             model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                                  all_scores, with_cross_validation)
+                                  loss_function, val_metrics, all_scores, with_cross_validation)
 
         else:
             import torch
@@ -69,11 +70,12 @@ def main():
             print(f"\nUsing {device} device")
 
             train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                              num_steps, model_name, model_id, device, with_cross_validation)
+                              num_steps, model_name, model_id, loss_function, val_metrics, device, with_cross_validation)
 
             model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,
-                                     num_steps, model_name, model_id, all_scores, device, with_cross_validation)
+                                     num_steps, model_name, model_id, loss_function, val_metrics, all_scores,
+                                     device, with_cross_validation)
 
         # Save model parameters in csv file
         save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name,
@@ -86,11 +88,18 @@ def main():
 
     # Model parameters
     model = param_task['model_name']
+    loss_function_str = param_training['loss_function']
+    val_metrics_str = param_training['val_metrics']
+    loss_function_list = loss_function_str if type(loss_function_str) == list else list(loss_function_str)
+    val_metrics_list = val_metrics_str if type(val_metrics_str) == list else list(val_metrics_str)
     if type(model) == list:
         for model_i in model:
-            run_one_experiment(model_i)
+            # Iterate over all pairs (loss_function, val_metrics)
+            for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
+                run_one_experiment(model_i, lf_i, vm_i)
     else:
-        run_one_experiment(model)
+        for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
+            run_one_experiment(model, lf_i, vm_i)
 
     # Summary files
     csv_summary(with_cross_validation, param_log)

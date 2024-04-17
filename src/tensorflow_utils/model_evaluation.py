@@ -52,8 +52,8 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, ext_name,
     return pred_raw
 
 
-def run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id, all_scores,
-                       fold_id=None):
+def run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
+                       loss_function_str, val_metrics_str, all_scores, fold_id=None):
 
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
@@ -61,8 +61,6 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
     batch_size = param_training['batch_size']
-    loss_function_str = param_training['loss_function']
-    val_metrics_str = param_training['val_metrics']
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if fold_id is not None else model_id
 
     # Load best model
@@ -103,8 +101,8 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     return loss_fn_value, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
-def evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id, all_scores,
-                      with_cross_valid):
+def evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id, loss_function,
+                      val_metrics, all_scores, with_cross_valid):
     """
     Evaluate the performance of the best model.
     Returns 5 metrics. if cross-validation, each object is a list of num_folds elements.
@@ -116,6 +114,8 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
     :param num_steps: Maximum length for all sequences in the dataset
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
+    :param loss_function: Name of the loss function (str)
+    :param val_metrics: Name of the validation metric used for monitoring (str)
     :param all_scores: list of available presence scores
     :param with_cross_valid: boolean (cross_validation or not)
 
@@ -128,7 +128,7 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
         for fold_i in range(num_folds):
             loss_vals_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                                   all_scores, fold_i)
+                                   loss_function, val_metrics, all_scores, fold_i)
             model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw += [pred_raw_i]
             pred_scores_coa += [pred_coa_i]
@@ -137,6 +137,6 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
     else:
         model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                               all_scores)
+                               loss_function, val_metrics, all_scores)
 
     return model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom

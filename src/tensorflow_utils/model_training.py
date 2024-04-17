@@ -61,11 +61,9 @@ def save_and_plot_history(history, ext_name, history_folder, root_folder, displa
 
 
 def run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                     num_steps, model_name, model_id, with_cross_val, fold_id=None):
+                     num_steps, model_name, model_id, loss_function_str, val_metrics_str, with_cross_val, fold_id=None):
 
     batch_size = param_training['batch_size']
-    loss_function_str = param_training['loss_function']
-    val_metrics_str = param_training['val_metrics']
     optimizer_name = param_training['optimizer']
     learning_rate = param_training['learning_rate']
     num_epochs = param_training['num_epochs']
@@ -144,7 +142,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
 
 def train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
-                   model_name, model_id, with_cross_valid):
+                   model_name, model_id, loss_function, val_metrics, with_cross_valid):
     """
     Train the model using TensorFlow.
     Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
@@ -161,18 +159,21 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
     :param num_steps: Fixed length for all sequences in the dataset
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
+    :param loss_function: Name of the loss function (str)
+    :param val_metrics: Name of the validation metric used for monitoring (str)
     :param with_cross_valid: boolean (cross_validation or not)
     """
 
     print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
-                              param_task, param_model, param_training, num_steps, model_name, model_id, is_tf=True)
+                              param_task, param_model, param_training, num_steps, model_name, model_id,
+                              loss_function, val_metrics, is_tf=True)
 
     if with_cross_valid:
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
             run_one_training(train_list_i, valid_list_i, param_model, param_training, param_log,
-                             num_steps, model_name, model_id, with_cross_valid, fold_id)
+                             num_steps, model_name, model_id, loss_function, val_metrics, with_cross_valid, fold_id)
 
     else:
         run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                         num_steps, model_name, model_id, with_cross_valid)
+                         num_steps, model_name, model_id, loss_function, val_metrics, with_cross_valid)
 

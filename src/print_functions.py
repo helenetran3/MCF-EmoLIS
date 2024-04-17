@@ -1,7 +1,7 @@
 from src.hyperparam_processing import get_hyperparam_from_json, get_model_module
 
 
-def print_hyperparameters(model_name, model_id, param_value_to_print, print_archi):
+def print_hyperparameters(model_name, model_id, param_value_to_print, print_archi, loss_function=None, val_metrics=None):
     if print_archi:
         print("Model name:", model_name)
         print("Model id:", model_id)
@@ -12,12 +12,17 @@ def print_hyperparameters(model_name, model_id, param_value_to_print, print_arch
                 print("{}: {}".format(param_def_to_print[key], param_value_to_print[key]))
     else:
         for key, value in param_value_to_print.items():
-            print("{}: {}".format(key, value))
+            if key == 'loss_function':
+                print("loss_function: {}".format(loss_function))
+            elif key == 'val_metrics':
+                print("val_metrics: {}".format(val_metrics))
+            else:
+                print("{}: {}".format(key, value))
 
 
 def print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
                               param_task, param_model, param_training, num_steps, model_name, model_id,
-                              is_tf):
+                              loss_function, val_metrics, is_tf):
 
     predict_neutral_class = param_task['predict_neutral_class']
     label_type = param_task['label_type']
@@ -44,7 +49,8 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     if label_type == 'dominant' or label_type == 'present':
         print("Predict neutral class:", predict_neutral_class)
     print("Library: {}".format("TensorFlow" if is_tf else "PyTorch"))
-    print_hyperparameters(model_name, model_id, param_training, print_archi=False)
+    print_hyperparameters(model_name, model_id, param_training, print_archi=False, loss_function=loss_function,
+                          val_metrics=val_metrics)
     print("Fixed number of steps:", num_steps)
     print("\n>>> Model parameters")
     print_hyperparameters(model_name, model_id, param_model, print_archi=True)
