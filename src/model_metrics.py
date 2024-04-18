@@ -458,11 +458,6 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :return: metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
     """
 
-    print("\n\n")
-    print("In the following, all the metrics displayed for each emotion are in this order: happiness, sadness, "
-          "anger, surprise, disgust, fear", end="")
-    print(", neutral.\n") if predict_neutral_class else print(".\n")
-
     # Some metrics do not make sense for the targeted task (label_type): we do not print them
     if label_type == 'all':
         compute_reg, compute_coa, compute_pres = True, True, True
@@ -525,7 +520,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
 def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
                                    pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                   param_task, param_training, param_log, model_name, model_id, all_scores):
+                                   param_task, param_training, param_log, model_name, model_id, loss_function,
+                                   val_metrics_str, all_scores):
     """
     Compute and save model metrics, based on loss function value and prediction scores.
 
@@ -542,6 +538,8 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
+    :param loss_function: Name of the loss function (str)
+    :param val_metrics_str: Name of the validation metric used for monitoring (str)
     :param all_scores: list of available presence scores
     """
 
@@ -551,8 +549,6 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
     round_decimals = param_log['round_decimals']
     plot_confusion_matrix = param_log['plot_confusion_matrix']
     display_fig = param_log['display_fig']
-    loss_function = param_training['loss_function']
-    val_metrics_str = param_training['val_metrics']
     num_folds = param_training['cross_val_folds']
 
     model_folder = os.path.join('results', model_name)
@@ -575,6 +571,18 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
     if plot_confusion_matrix:
         plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
                                          display_fig, threshold_emo_pres)
+
+    print("\n\n")
+    print("In the following, all the metrics displayed for each emotion are in this order: happiness, sadness, "
+          "anger, surprise, disgust, fear", end="")
+    print(", neutral.\n") if predict_neutral_class else print(".\n")
+
+    print("\n----------- Model training characteristics ------------\n")
+    print("Model name:", model_name)
+    print("Model id:", model_id)
+    print("Label type:", param_task['label_type'])
+    print("Loss function:", loss_function)
+    print("Validation metrics:", val_metrics_str)
 
     # Compute all metrics
     metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \

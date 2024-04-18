@@ -54,7 +54,6 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     print("Fixed number of steps:", num_steps)
     print("\n>>> Model parameters")
     print_hyperparameters(model_name, model_id, param_model, print_archi=True)
-    print("\n")
     if is_tf:
         x_train = train_list[0][0] if with_cross_valid else train_list[0]
         num_features_text = x_train[0][0].shape[1]

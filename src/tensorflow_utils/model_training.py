@@ -114,7 +114,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     model_tf = model_class.build()
 
     fold_text = ": Fold {}".format(fold_id) if with_cross_val else ""
-    print("\n\n================================= Model Training{} =============================================\n"
+    print("================================= Model Training{} =============================================\n"
           .format(fold_text))
 
     model_tf.compile(loss=loss_function,

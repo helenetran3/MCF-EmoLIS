@@ -174,7 +174,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     history_valid_monitor = []
 
     fold_text = ": Fold {}".format(fold_id) if with_cross_valid else ""
-    print("\n\n================================= Model Training{} =============================================\n"
+    print("================================= Model Training{} =============================================\n"
           .format(fold_text))
 
     for epoch in range(num_epochs):

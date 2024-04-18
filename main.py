@@ -79,19 +79,20 @@ def main():
 
         # Save model parameters in csv file
         save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name,
-                                     with_cross_validation)
+                                     loss_function, val_metrics, with_cross_validation)
 
         # Compute and save metrics
         compute_and_save_model_metrics(test_list, with_cross_validation, model_eval_output,
                                        pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                       param_task, param_training, param_log, model_name, model_id, all_scores)
+                                       param_task, param_training, param_log, model_name, model_id,
+                                       loss_function, val_metrics, all_scores)
 
     # Model parameters
     model = param_task['model_name']
     loss_function_str = param_training['loss_function']
     val_metrics_str = param_training['val_metrics']
-    loss_function_list = loss_function_str if type(loss_function_str) == list else list(loss_function_str)
-    val_metrics_list = val_metrics_str if type(val_metrics_str) == list else list(val_metrics_str)
+    loss_function_list = loss_function_str if type(loss_function_str) == list else [loss_function_str]
+    val_metrics_list = val_metrics_str if type(val_metrics_str) == list else [val_metrics_str]
     if type(model) == list:
         for model_i in model:
             # Iterate over all pairs (loss_function, val_metrics)

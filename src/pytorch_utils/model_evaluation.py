@@ -86,8 +86,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     val_met_value /= test_size
     val_met_value = np.round(val_met_value, round_decimals)
 
-    print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f} \n")
-    print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f} \n")
+    print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f}")
+    print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 

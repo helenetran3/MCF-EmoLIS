@@ -216,7 +216,8 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
                             metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant)
 
 
-def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, with_cross_val):
+def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, loss_function,
+                                 val_metrics, with_cross_val):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
@@ -225,6 +226,9 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
     :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model_name: Name of the model
+    :param loss_function: Name of the loss function (str)
+    :param val_metrics: Name of the validation metric used for monitoring (str)
+    :param with_cross_val: Whether it is cross_validation or not (boolean)
     """
 
     predict_neutral_class = param_task['predict_neutral_class']
@@ -242,6 +246,12 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
     # Model training hyperparameters
     data_training = list(param_training.values())
     header_training = list(param_training.keys())
+    assert len(header_training) == len(data_training)
+    for i in range(len(data_training)):
+        if header_training[i] == 'loss_function' and type(data_training[i]) == list:
+            data_training[i] = loss_function
+        if header_training[i] == 'val_metrics' and type(data_training[i]) == list:
+            data_training[i] = val_metrics
     data = data + data_training + [predict_neutral_class, label_type, set_length, with_cross_val]
     header = header + header_training + ['neutral_class', 'label_type', 'set_length', 'cross_val']
 

@@ -327,6 +327,13 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
             raise ValueError("Invalid value for parameter set_length. Please choose value between: 'avg', 'max',"
                              " any strictly positive number, 'none'")
 
+    def check_hyperparam_in_form_of_lists(hp_value, str_values, possible_values):
+        if type(hp_value) == list:
+            for hp_i in hp_value:
+                check_value_is_in_list(str_values, hp_i, possible_values)
+        else:
+            check_value_is_in_list(str_values, hp_value, possible_values)
+
     if json_name == 'param_model':
         check_if_key_is_in_list_actual_keys([model_name], hyperparam_dict['models'], 'models', check_model_in_dict=True)
         hyperparam_model = hyperparam_dict['models'][model_name]
@@ -349,7 +356,8 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_number('learning_rate', hyperparam_training['learning_rate'])
         check_value_is_number('clip', hyperparam_training['clip'])
         check_value_is_in_list('optimizer', hyperparam_training['optimizer'], possible_optimizers)
-        check_value_is_in_list('loss_function', hyperparam_training['loss_function'], possible_loss_fn)
+        check_hyperparam_in_form_of_lists(hyperparam_training['loss_function'], 'loss_function', possible_loss_fn)
+        check_hyperparam_in_form_of_lists(hyperparam_training['val_metrics'], 'val_metrics', possible_val_metrics)
 
         # Task
         hyperparam_task = hyperparam_dict['task']
