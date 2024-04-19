@@ -7,7 +7,7 @@ from src.pickle_functions import save_with_pickle, load_from_pickle
 from src.csv_functions import save_results_in_csv_file
 from src.label_processing import compute_true_labels
 
-from sklearn.preprocessing import label_binarize
+from sklearn.preprocessing import label_binarize, LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.metrics import multilabel_confusion_matrix, ConfusionMatrixDisplay
@@ -44,7 +44,7 @@ def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     return [mae, mse, r2] + mae_emo + mse_emo + r2_emo
 
 
-def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes, round_decimals, prob):
+def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes, round_decimals, prob, one_hot):
     """
     Return unweighted mean of all the classification metrics for the case of coarse scores.
 
@@ -53,6 +53,7 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
     :param prob: If we use probabilities for coarse scores [0, 1/3, 2/3, 1]
+    :param one_hot: whether we turn coarse scores to one hot encoders
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
@@ -87,7 +88,13 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     # floating points
     if prob:
         true_scores_for_each_emo = [np.round(ts*3).astype(int) for ts in true_scores_for_each_emo]
-        pred_scores_for_each_emo = [np.round(ts*3).astype(int) for ts in true_scores_for_each_emo]
+        pred_scores_for_each_emo = [np.round(ps*3).astype(int) for ps in pred_scores_for_each_emo]
+
+    if one_hot:
+        lb = LabelBinarizer()
+        _ = lb.fit([0, 1, 2, 3])
+        true_scores_for_each_emo = [lb.inverse_transform(ts) for ts in true_scores_for_each_emo]
+        pred_scores_for_each_emo = [lb.inverse_transform(ps) for ps in pred_scores_for_each_emo]
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
@@ -431,8 +438,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                               pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom, with_cross_val,
-                              threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
-                              model_id, model_folder):
+                              threshold_emo_pres, num_classes, round_decimals, model_id, model_folder):
     """
     Compute metrics for four tasks: estimation of presence score (regression), classification of presence score among
     [0, 1, 2, 3], binary classification for each emotion, and prediction of dominant classes (multilabel classification)
@@ -451,7 +457,6 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :param with_cross_val: boolean (cross_validation or not)
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :param num_classes: number of classes (7 with neutral class, else 6)
-    :param predict_neutral_class: Whether we predict the neutral class
     :param round_decimals: Number of decimals to be rounded for metrics
     :param model_id: Model id (int)
     :param model_folder: The folder where the result will be saved
@@ -481,7 +486,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         if compute_coa:
             print("\n------- Presence score classification [0,1,2,3] -------\n")
             metrics_score_coa = get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa_i, num_classes,
-                                                                     round_decimals, prob=('prob' in label_type))
+                                                                     round_decimals, prob=('prob' in label_type),
+                                                                     one_hot=('oh' in label_type))
         else:
             metrics_score_coa = None
             # metrics_score_coa = ['-' for _ in range(43)]
@@ -588,8 +594,7 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
     metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                                   pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom, with_cross_val,
-                                  threshold_emo_pres, num_classes, predict_neutral_class, round_decimals,
-                                  model_id, model_folder)
+                                  threshold_emo_pres, num_classes, round_decimals, model_id, model_folder)
 
     # Save metrics in csv file
     save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,
