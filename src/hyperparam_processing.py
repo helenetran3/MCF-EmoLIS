@@ -9,7 +9,7 @@ from src.models.me2e import mme2e
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams', 'ef_williams_debug', 'late_fusion',
                    'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mme2e', 'mult']
-possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce']
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
@@ -56,14 +56,15 @@ def get_loss_function(loss_function_str, is_tf):
 
     if is_tf:  # TensorFlow
         from tensorflow.keras.losses import MeanAbsoluteError, MeanSquaredError, \
-            BinaryCrossentropy, CategoricalCrossentropy
+            BinaryCrossentropy, CategoricalCrossentropy, KLDivergence
         loss_fn_dict = {
             'mae': MeanAbsoluteError(),
             'mse': MeanSquaredError(),
             'bce': BinaryCrossentropy(),
             'cce': CategoricalCrossentropy(),
             'wei_bce': None,
-            'wei_cce': None
+            'wei_cce': None,
+            'kl_div': KLDivergence()
         }
 
     else:  # PyTorch
@@ -94,7 +95,8 @@ def get_loss_function(loss_function_str, is_tf):
             'bce': nn.BCELoss(),
             'cce': nn.CrossEntropyLoss(),
             'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight),
-            'wei_cce': None #wei_cce
+            'wei_cce': None, # wei_cce
+            'kl_div': nn.KLDivLoss(reduction='batchmean')
         }
 
     if loss_function_str.lower() in loss_fn_dict.keys():
