@@ -8,7 +8,7 @@ from src.models.me2e import mme2e
 # from sklearn.metrics import zero_one_loss, hamming_loss
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams', 'ef_williams_debug', 'late_fusion',
-                   'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mme2e', 'mult']
+                   'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mme2e', 'mult', 'mult_gml']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
@@ -75,6 +75,7 @@ def get_loss_function(loss_function_str, is_tf):
     else:
         import torch
         from torch import nn
+        from torch.autograd import Variable
         pos_weight = torch.tensor([0.86721177, 2.86069315, 3.63110931, 8.98950131, 4.65247525, 11.07615019],
                                   dtype=torch.float32)
 
@@ -88,8 +89,9 @@ def get_loss_function(loss_function_str, is_tf):
 
             loss = []
             for cl_i, weight_i in enumerate(weight_coarse):
-                loss += nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
+                loss += [nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])]
             loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
+            loss = Variable(loss, requires_grad=True)
             return loss
 
         def wei_cce_gml(output, target):
@@ -98,8 +100,9 @@ def get_loss_function(loss_function_str, is_tf):
 
             loss = []
             for cl_i, weight_i in enumerate(weight_coarse):
-                loss += nn.CrossEntropyLoss(weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
+                loss += [nn.CrossEntropyLoss(weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])]
             loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
+            loss = Variable(loss, requires_grad=True)
             return loss
 
         loss_fn_dict = {
@@ -398,7 +401,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         else:
             check_value_is_in_list('model_name', model, possible_models)
         check_value_is_in_list('label_type', hyperparam_task['label_type'],
-                               ['all', 'coarse', 'coarse_prob', 'present', 'dominant'])
+                               ['all', 'coarse', 'coarse_prob', 'coarse_oh', 'present', 'dominant'])
         check_value_is_in_list('image_feature', hyperparam_task['image_feature'], ['facet', 'openface'])
 
     if json_name == 'param_logistics':

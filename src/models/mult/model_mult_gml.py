@@ -41,6 +41,7 @@ class MModel(nn.Module):
         self.out_dropout = param_model['out_dropout']
         self.attn_mask = param_model['attn_mask']
         self.num_classes = num_classes
+        self.num_scores = 4
 
         combined_dim = self.d_l + self.d_a + self.d_v
 
@@ -55,7 +56,7 @@ class MModel(nn.Module):
         else:
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
 
-        self.output_dim = num_classes      # This is actually not a hyperparameter :-)
+        self.output_dim = self.num_scores
 
         # 1. Temporal convolutional layers
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
@@ -84,8 +85,8 @@ class MModel(nn.Module):
         # Projection layers
         self.proj_1, self.proj_2, self.out_layer = [], [], []
         for _ in range(self.num_classes):
-            self.proj1 += [nn.Linear(combined_dim, combined_dim)]
-            self.proj2 += [nn.Linear(combined_dim, combined_dim)]
+            self.proj_1 += [nn.Linear(combined_dim, combined_dim)]
+            self.proj_2 += [nn.Linear(combined_dim, combined_dim)]
             self.out_layer += [nn.Linear(combined_dim, self.output_dim)]
 
     def get_network(self, self_type='l', layers=-1):
@@ -176,11 +177,12 @@ class MModel(nn.Module):
         # A residual block
         output = []
         for i in range(self.num_classes):
-            last_hs_proj_i = self.proj2[i](F.dropout(F.relu(self.proj1[i](last_hs[i])), p=self.out_dropout,
-                                                     training=self.training))
+            last_hs_proj_i = self.proj_2[i](F.dropout(F.relu(self.proj_1[i](last_hs[i])), p=self.out_dropout,
+                                                      training=self.training))
             last_hs_proj_i += last_hs[i]
             output += [self.out_layer[i](last_hs_proj_i)]
 
         output = [o.unsqueeze(-1) for o in output]
-        output = torch.concat(output, axis=-1)
+        output = torch.concat(output, axis=-1)  # (batch_size, num_scores, num_classes)
+        output = output.permute(0, 2, 1)  # (batch_size, num_classes, num_scores)
         return output#, last_hs

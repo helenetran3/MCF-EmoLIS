@@ -15,6 +15,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
     label_type = param_task['label_type']
+    one_hot = ('oh' in label_type)
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
@@ -22,14 +23,15 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     x_test = test_list[0]  # list of lists of 3 arrays
     y_test = test_list[1]
     seg_test = test_list[2]
-    num_classes = y_test[0].shape[1]
+    # In the following, predict neutral class is already inferred from label preprocessing
+    num_classes = y_test[0].shape[1] if not one_hot else y_test[0].shape[0]
 
     num_features_text = x_test[0][0].shape[1]
     num_features_image = x_test[0][1].shape[1]
     num_features_audio = x_test[0][2].shape[1]
 
     # Create dataloader for test data
-    test_data = DatasetTorch(x_test, y_test, seg_test, num_steps, device)
+    test_data = DatasetTorch(x_test, y_test, seg_test, num_steps, one_hot, device)
     test_dataloader = DataLoader(test_data)
 
     test_size = len(test_dataloader.dataset)
@@ -89,8 +91,12 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f}")
     print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
-    pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
+    if one_hot:
+        pred_raw_array = np.array(pred_raw_list).reshape((test_size, -1, 4))  # 4 for number of scores
+    else:
+        pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
+    print("pred raw array shape:", pred_raw_array.shape)
     pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)

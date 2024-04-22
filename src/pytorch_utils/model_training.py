@@ -112,7 +112,7 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
 
 
 def run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                     num_steps, model_name, model_id, loss_function_str, val_metrics_str, device,
+                     num_steps, model_name, model_id, loss_function_str, val_metrics_str, label_type, device,
                      with_cross_valid, fold_id=None):
 
     batch_size = param_training['batch_size']
@@ -122,6 +122,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     patience = param_training['patience']
     num_training_prints = param_log['num_training_prints']
     display_fig = param_log['display_fig']
+    one_hot = ("oh" in label_type)
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
 
     # Writer for Tensorboard
@@ -134,11 +135,12 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     x_valid = valid_list[0]  # list of lists of 3 arrays
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
-    num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
+    # In the following, predict neutral class is already inferred from label preprocessing
+    num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
 
     # Create dataloaders for training and validation data
-    training_data = DatasetTorch(x_train, y_train, seg_train, num_steps, device)
-    valid_data = DatasetTorch(x_valid, y_valid, seg_valid, num_steps, device)
+    training_data = DatasetTorch(x_train, y_train, seg_train, num_steps, one_hot, device)
+    valid_data = DatasetTorch(x_valid, y_valid, seg_valid, num_steps, one_hot, device)
     my_collate_fn = None if num_steps is not None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
@@ -317,8 +319,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     writer.close()
 
 
-def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                      num_steps, model_name, model_id, loss_function, val_metrics, device, with_cross_valid):
+def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
+                      model_name, model_id, loss_function, val_metrics, label_type, device, with_cross_valid):
 
     print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
                               param_task, param_model, param_training, num_steps, model_name, model_id,
@@ -327,9 +329,10 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
     if with_cross_valid:
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
             run_one_training(train_list_i, valid_list_i, param_model, param_training, param_log,
-                             num_steps, model_name, model_id, loss_function, val_metrics, device,
+                             num_steps, model_name, model_id, loss_function, val_metrics, label_type, device,
                              with_cross_valid, fold_id)
 
     else:
         run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                         num_steps, model_name, model_id, loss_function, val_metrics, device, with_cross_valid)
+                         num_steps, model_name, model_id, loss_function, val_metrics, label_type, device,
+                         with_cross_valid)

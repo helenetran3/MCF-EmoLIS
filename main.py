@@ -48,6 +48,7 @@ def main():
         model_id = get_current_model_id(model_name)
         is_tf = bool(param_model['is_TensorFlow'])
         num_steps = get_length_dataset(train_list, valid_list, test_list, param_task, is_tf)
+        label_type = param_task['label_type']
 
         # Model training
         if is_tf:
@@ -69,8 +70,10 @@ def main():
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             print(f"\nUsing {device} device")
 
-            train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                              num_steps, model_name, model_id, loss_function, val_metrics, device, with_cross_validation)
+            #train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
+            #                  num_steps, model_name, model_id, loss_function, val_metrics, label_type, device,
+            #                  with_cross_validation)
+            model_id = 1
 
             model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,

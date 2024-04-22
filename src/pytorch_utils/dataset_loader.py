@@ -4,7 +4,7 @@ import numpy as np
 
 class DatasetTorch(torch.utils.data.Dataset):
 
-    def __init__(self, x_list, y_list, seg_list, num_steps, device):
+    def __init__(self, x_list, y_list, seg_list, num_steps, one_hot, device):
         """
         :param x_list: list of lists of 3 arrays of shape (number steps, number features)
         :param y_list: list of arrays of shape (1, 7), for the 7 emotions
@@ -14,6 +14,7 @@ class DatasetTorch(torch.utils.data.Dataset):
         self.y_list = y_list
         self.seg_list = seg_list
         self.num_steps = num_steps
+        self.oh = one_hot
         self.device = device
 
     @staticmethod
@@ -55,7 +56,9 @@ class DatasetTorch(torch.utils.data.Dataset):
         x_image_i = torch.from_numpy(x_image_i).to(self.device)
         x_audio_i = torch.from_numpy(x_audio_i).to(self.device)
 
-        y_i = torch.from_numpy(self.y_list[index].flatten()).to(self.device)
+        y_i = self.y_list[index]
+        y_i = y_i if self.oh else y_i.flatten()  # To deal with one-hot encoded labels
+        y_i = torch.from_numpy(y_i).to(self.device)
         return (x_text_i, x_image_i, x_audio_i), y_i  # , seg_i
 
     def __len__(self):

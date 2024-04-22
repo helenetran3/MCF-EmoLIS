@@ -194,10 +194,12 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     # Coarse-grained values: [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
     if return_all_tasks or 'coarse' in label_type:
+        ext_name_coa = '_prob' if ('prob' in label_type) else '_oh' if ('oh' in label_type) else ''
         true_scores_coa = get_presence_score_from_finer_grained_val(true_scores_all, all_scores, 6,
                                                                     coarse=True, prob=('prob' in label_type),
                                                                     one_hot=('oh' in label_type))
-        save_with_pickle(true_scores_coa, root_name + "_true_scores_coa" + ext_name, 'processed_folds', 'cmu_mosei')
+        save_with_pickle(true_scores_coa, root_name + "_true_scores_coa" + ext_name + ext_name_coa,
+                         'processed_folds', 'cmu_mosei')
 
     # Compute true classes: binary arrays of shape (4654, 6 or 7)
     if return_all_tasks or label_type == 'present':
