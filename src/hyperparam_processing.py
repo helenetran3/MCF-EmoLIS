@@ -9,7 +9,7 @@ from src.models.me2e import mme2e
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams', 'ef_williams_debug', 'late_fusion',
                    'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mme2e', 'mult']
-possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'kl_div']
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
@@ -54,7 +54,13 @@ def get_loss_function(loss_function_str, is_tf):
     :return: TensorFlow or Pytorch loss function
     """
 
-    if is_tf:  # TensorFlow
+    # Initialization
+    loss_fn_dict = {}
+    for loss_fn in possible_loss_fn:
+        loss_fn_dict[loss_fn] = None
+
+    # TensorFlow
+    if is_tf:
         from tensorflow.keras.losses import MeanAbsoluteError, MeanSquaredError, \
             BinaryCrossentropy, CategoricalCrossentropy, KLDivergence
         loss_fn_dict = {
@@ -62,15 +68,13 @@ def get_loss_function(loss_function_str, is_tf):
             'mse': MeanSquaredError(),
             'bce': BinaryCrossentropy(),
             'cce': CategoricalCrossentropy(),
-            'wei_bce': None,
-            'wei_cce': None,
             'kl_div': KLDivergence()
         }
 
-    else:  # PyTorch
+    # PyTorch
+    else:
         import torch
         from torch import nn
-        import torch.nn.functional as F
         pos_weight = torch.tensor([0.86721177, 2.86069315, 3.63110931, 8.98950131, 4.65247525, 11.07615019],
                                   dtype=torch.float32)
 
@@ -78,14 +82,23 @@ def get_loss_function(loss_function_str, is_tf):
         neg_weight_coarse = [[12230, 15078, 16839, 14197], [5915, 16622, 17491, 18316], [4931, 17505, 18086, 17822], [2286, 17856, 18956, 19246], [4040, 17572, 18350, 18382], [1891, 18292, 18900, 19261]]
         weight_coarse = [[1.6943751731781658, 3.4503432494279176, 6.454197010348793, 2.703675490382784], [0.43707973102785785, 5.881811748053786, 8.937659683188555, 16.180212014134277], [0.3396707308672591, 9.009264024704066, 13.279001468428781, 10.960639606396064], [0.1332012585945694, 11.21608040201005, 38.52845528455285, 95.27722772277228], [0.26220145379023885, 9.366737739872068, 16.712204007285976, 17.24390243902439], [0.10770632796035769, 15.823529411764707, 34.48905109489051, 103.0]]
 
-        def wei_cce(output, target):
-            # TODO Work in progress
-            num_classes = target.shape[-1]
-            target_oh = F.one_hot(target, num_classes=4)  # 4 classes for [0,1,2,3]
-            assert(target_oh.size() == output.size())
+        def wei_bce_gml(output, target):
+            assert(target.size() == output.size())
+            assert(target.dim() == 3)  # (num_samples, num_classes, num_scores)
+
             loss = []
-            for cl in range(num_classes):
-                loss += nn.CrossEntropyLoss(weight=torch.Tensor(weight_coarse[cl]))(output[:, cl], target_oh[:, cl])
+            for cl_i, weight_i in enumerate(weight_coarse):
+                loss += nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
+            loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
+            return loss
+
+        def wei_cce_gml(output, target):
+            assert(target.size() == output.size())
+            assert(target.dim() == 3)  # (num_samples, num_classes, num_scores)
+
+            loss = []
+            for cl_i, weight_i in enumerate(weight_coarse):
+                loss += nn.CrossEntropyLoss(weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
             loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
             return loss
 
@@ -95,12 +108,21 @@ def get_loss_function(loss_function_str, is_tf):
             'bce': nn.BCELoss(),
             'cce': nn.CrossEntropyLoss(),
             'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight),
-            'wei_cce': None, # wei_cce
+            'wei_cce': nn.CrossEntropyLoss(weight=pos_weight),
+            'wei_bce_gml': wei_bce_gml,
+            'wei_cce_gml': wei_cce_gml,
             'kl_div': nn.KLDivLoss(reduction='batchmean')
         }
 
     if loss_function_str.lower() in loss_fn_dict.keys():
-        return loss_fn_dict[loss_function_str]
+        loss_fn = loss_fn_dict[loss_function_str]
+        if loss_fn is not None:
+            return loss_fn
+        else:
+            lib_name = "TensorFlow" if is_tf else "PyTorch"
+            raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is not implemented yet"
+                             "for {} library. Please choose among {}."
+                             .format(loss_function_str, lib_name, possible_loss_fn))
     else:
         raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is invalid."
                          " Please choose among {}.".format(loss_function_str, possible_loss_fn))
@@ -228,17 +250,15 @@ def get_val_metrics(val_metrics_str, is_tf):
         return loss
 
     val_metrics_dict = {
-        'mae': get_loss_function('mae', is_tf),
-        'mse': get_loss_function('mse', is_tf),
-        'bce': get_loss_function('bce', is_tf),
-        'cce': get_loss_function('cce', is_tf),
-        'wei_bce': get_loss_function('wei_bce', is_tf),
-        'wei_cce': get_loss_function('wei_cce', is_tf),
         'zero_one_loss': zero_one_loss,
         'hamming_loss': hamming_loss,
         'rank_loss_ml': rank_loss_ml,
         'rank_loss_gml': rank_loss_gml
     }
+
+    # Add loss functions to val_metrics_dict
+    for loss_fn in possible_loss_fn:
+        val_metrics_dict[loss_fn] = get_loss_function(loss_fn, is_tf)
 
     if val_metrics_str.lower() in val_metrics_dict.keys():
         return val_metrics_dict[val_metrics_str]
