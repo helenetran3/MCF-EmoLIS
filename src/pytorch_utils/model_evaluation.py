@@ -96,7 +96,6 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     else:
         pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
-    print("pred raw array shape:", pred_raw_array.shape)
     pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)

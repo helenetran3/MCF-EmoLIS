@@ -70,10 +70,9 @@ def main():
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             print(f"\nUsing {device} device")
 
-            #train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-            #                  num_steps, model_name, model_id, loss_function, val_metrics, label_type, device,
-            #                  with_cross_validation)
-            model_id = 1
+            train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
+                              num_steps, model_name, model_id, loss_function, val_metrics, label_type, device,
+                              with_cross_validation)
 
             model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,

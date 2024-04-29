@@ -94,7 +94,7 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
         lb = LabelBinarizer()
         _ = lb.fit([0, 1, 2, 3])
         true_scores_for_each_emo = [lb.inverse_transform(ts) for ts in true_scores_for_each_emo]
-        pred_scores_for_each_emo = [lb.inverse_transform(ps) for ps in pred_scores_for_each_emo]
+        # pred_scores_for_each_emo = [lb.inverse_transform(ps) for ps in pred_scores_for_each_emo]
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
@@ -561,7 +561,7 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
 
     # Extract x, y and seg_ids for test set
     y_test = test_list[1]  # each element of shape (1, 6 or 7)
-    num_classes = y_test[0].shape[1]
+    num_classes = y_test[0].shape[1] if not ('oh' in label_type) else y_test[0].shape[0]
 
     # True labels
     true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \

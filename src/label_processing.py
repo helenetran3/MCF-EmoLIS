@@ -31,8 +31,7 @@ def get_available_presence_scores_arr(train_list, valid_list, test_list):
     return list(all_y_uniq_rounded)
 
 
-def get_presence_score_from_finer_grained_val(scores_array, all_scores, num_classes, coarse=False, prob=False,
-                                              one_hot=False, pred=False):
+def get_presence_score_from_finer_grained_val(scores_array, all_scores, num_classes, coarse, prob, one_hot=False):
     """
     Get the presence score from a finer grained presence score
     (raw predictions -> 12 or 4 presence scores, or 12 presence scores -> 4 presence scores)
@@ -42,49 +41,31 @@ def get_presence_score_from_finer_grained_val(scores_array, all_scores, num_clas
     :param num_classes: number of emotion classes (7 with neutral class, else 6)
     :param coarse: if True, the resulting presence scores in [0, 1, 2, 3].
                    Default: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
-    :param prob: whether we turn coarse scores to probabilities [0, 1/3, 2/3, 1]
-    :param one_hot: whether the output score is one hot encoded
-    :param pred: whether the input array is obtained by prediction or not (bool)
+    :param prob: whether we turn coarse scores to probabilities [0, 1/3, 2/3, 1] (bool)
+    :param one_hot: whether the output score is one hot encoded (bool)
     :return: array of shape (test_size, num_classes) [or (test_size, num_classes, num_scores) if one_hot] giving the
     presence score of all the 6 emotions
     """
 
-    # True labels OR prediction & not one hot
-    if not pred or (pred and not one_hot):
-        scores = all_scores if not coarse else [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
-        scores_array = scores_array.flatten()
+    scores = all_scores if not coarse else [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
+    scores_array = scores_array.flatten()
 
-        # The following line returns the class closest to the input value
-        out_scores = [min(list(scores), key=lambda x: abs(x - scores_array[i])) for i in range(scores_array.shape[0])]
+    # The following line returns the class closest to the input value
+    out_scores = [min(list(scores), key=lambda x: abs(x - scores_array[i])) for i in range(scores_array.shape[0])]
 
-        if one_hot:
-            lb = LabelBinarizer()
-            _ = lb.fit(scores)
-            out_scores = lb.transform(out_scores)
-            out_scores = np.reshape(np.array(out_scores), (-1, num_classes, len(scores)))
-        else:
-            out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
-
-    # Prediction on one_hot, keep in one-hot format
+    if one_hot:
+        # One-hot encode the true labels (that will be used for model training)
+        lb = LabelBinarizer()
+        _ = lb.fit(scores)
+        out_scores = lb.transform(out_scores)
+        out_scores = np.reshape(np.array(out_scores), (-1, num_classes, len(scores)))
     else:
-        # Check if the input score array is in one hot format
-        if scores_array.shape[-1] != 4 or scores_array.shape[-2] != num_classes:
-            raise ValueError("The output of the model is not in shape (num_samples, num_classes, num_scores=4)"
-                             " as the label type requires one-hot encoding. Please check your model output.")
-
-        out_scores = []
-        for sample_i in range(scores_array.shape[0]):
-            for class_j in range(num_classes):
-                max_ind_ij = np.argmax(scores_array[sample_i, class_j])  # array (4,) for a given sample and class
-                # For a given sample and class, loop over scores and assign 1 if maximum value else 0
-                out_scores += [[int(k == max_ind_ij) for k in range(4)]]
-        out_scores = np.array(out_scores)
+        out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
 
     return out_scores
 
 
-def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, num_classes, only_dominant=False,
-                                  pred=False):
+def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, num_classes, only_dominant, pred):
     """
     Get the dominant emotion class(es) for each test segment based on the presence scores of emotions.
     If only_dominant, return a binary array, else return a list of len(threshold_emo_pres) binary arrays.
@@ -178,6 +159,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on return_all_tasks
     """
 
+    is_one_hot = 'oh' in label_type
     ext_name = "_pred-neu" if predict_neutral_class else "_rm-neu"
     true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
 
@@ -204,12 +186,14 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     # Compute true classes: binary arrays of shape (4654, 6 or 7)
     if return_all_tasks or label_type == 'present':
         true_classes_pres = get_class_from_presence_score(true_scores_all, predict_neutral_class,
-                                                          threshold_emo_pres, num_classes)
+                                                          threshold_emo_pres, num_classes, only_dominant=False,
+                                                          pred=False)
         save_with_pickle(true_classes_pres, root_name + "_true_classes_pres" + ext_name, 'processed_folds', 'cmu_mosei')
 
     if return_all_tasks or label_type == 'dominant':
         true_classes_dom = get_class_from_presence_score(true_scores_all, predict_neutral_class,
-                                                         threshold_emo_pres, num_classes, only_dominant=True)
+                                                         threshold_emo_pres, num_classes, only_dominant=True,
+                                                         pred=False)
         save_with_pickle(true_classes_dom, root_name + "_true_classes_dom" + ext_name, 'processed_folds', 'cmu_mosei')
 
     # else:
@@ -252,6 +236,26 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     :return: pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
 
+    def from_one_hot_to_plain(scores_array):
+        # Prediction given in one_hot, go back to plain scores for model metric calculation
+        # Check if the input score array is in one hot format
+        if scores_array.shape[-1] != 4 or scores_array.shape[-2] != num_classes:
+            raise ValueError("The output of the model is not in shape (num_samples, num_classes, num_scores=4)"
+                             " as the label type requires one-hot encoding. Please check your model output.")
+
+        all_samples_scores = []
+        for sample_i in range(scores_array.shape[0]):
+            sample_i_scores = []
+            for class_j in range(num_classes):
+                max_ind_ij = np.argmax(scores_array[sample_i, class_j])  # array (4,) for a given sample and class
+                # sample_i_scores += [max_ind_ij]
+                sample_i_scores += [[int(k == max_ind_ij) for k in range(4)]]
+            sample_i_scores_plain = np.argmax(np.array(sample_i_scores), axis=1)
+            all_samples_scores += [list(sample_i_scores_plain)]
+        out_scores = np.array(all_samples_scores)
+        # out_scores = np.reshape(np.array(all_samples_scores), (-1, num_classes))
+        return out_scores
+
     # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
     pred_scores_coa, pred_classes_pres = None, None
     if label_type == 'all':
@@ -268,14 +272,14 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
         save_with_pickle(pred_raw, "pred_raw_{}".format(model_id), pickle_folder="predictions",
                          root_folder=model_folder)
 
-    # # Get the closest presence score from raw prediction (useful for getting the other metrics)
-    # pred_scores_all = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes)
+    # Pass from one-hot encoded to plain values
+    if 'oh' in label_type:
+        pred_raw = from_one_hot_to_plain(pred_raw)
 
     # Get coarse presence scores from raw predictions
     if compute_coa:
         pred_scores_coa = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes,
-                                                                    coarse=True, prob=('prob' in label_type),
-                                                                    one_hot=('oh' in label_type), pred=True)
+                                                                    coarse=True, prob=('prob' in label_type))
         if save_pred:
             save_with_pickle(pred_scores_coa, "pred_scores_coa_{}".format(model_id), pickle_folder="predictions",
                              root_folder=model_folder)
@@ -283,7 +287,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     # Get present emotion classes predicted by the model, based on thresholds
     if compute_pres:
         pred_classes_pres = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                          num_classes, pred=True)
+                                                          num_classes, only_dominant=False, pred=True)
         if save_pred:
             save_with_pickle(pred_classes_pres, "pred_classes_pres_{}".format(model_id), pickle_folder="predictions",
                              root_folder=model_folder)
