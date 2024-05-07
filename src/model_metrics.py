@@ -569,9 +569,9 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
                             label_type, return_all_tasks=True)
 
     # Confusion matrix
-    if label_type != 'dominant' and label_type != 'present':
-        compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa, with_cross_val, num_classes,
-                                            model_id, model_folder, "coa")
+    # if label_type != 'dominant' and label_type != 'present':
+    #     compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa, with_cross_val, num_classes,
+    #                                         model_id, model_folder, "coa")
     if label_type != 'dominant':
         compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, with_cross_val, num_classes,
                                             model_id, model_folder, "pres", threshold_emo_pres)
