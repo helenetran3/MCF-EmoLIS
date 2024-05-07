@@ -63,7 +63,18 @@
             "is_TensorFlow": 0
         },
 
+        "lf_rnn_me2e_gml":
+        {
+            "is_TensorFlow": 0
+        },
+
         "lf_trans_me2e":
+        {
+            "is_TensorFlow": 0,
+            "trans_nlayers": 2
+        },
+
+        "lf_trans_me2e_gml":
         {
             "is_TensorFlow": 0,
             "trans_nlayers": 2
