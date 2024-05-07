@@ -5,6 +5,27 @@ from src.pickle_functions import *
 from sklearn.preprocessing import LabelEncoder, LabelBinarizer, MultiLabelBinarizer
 
 
+def from_one_hot_to_plain(scores_array, num_classes):
+    # Prediction given in one_hot, go back to plain scores for model metric calculation
+    # Check if the input score array is in one hot format
+    if scores_array.shape[-1] != 4 or scores_array.shape[-2] != num_classes:
+        raise ValueError("The output of the model is not in shape (num_samples, num_classes, num_scores=4)"
+                         " as the label type requires one-hot encoding. Please check your model output.")
+
+    all_samples_scores = []
+    for sample_i in range(scores_array.shape[0]):
+        sample_i_scores = []
+        for class_j in range(num_classes):
+            max_ind_ij = np.argmax(scores_array[sample_i, class_j])  # array (4,) for a given sample and class
+            # sample_i_scores += [max_ind_ij]
+            sample_i_scores += [[int(k == max_ind_ij) for k in range(4)]]
+        sample_i_scores_plain = np.argmax(np.array(sample_i_scores), axis=1)
+        all_samples_scores += [list(sample_i_scores_plain)]
+    out_scores = np.array(all_samples_scores)
+    # out_scores = np.reshape(np.array(all_samples_scores), (-1, num_classes))
+    return out_scores
+
+
 def get_available_presence_scores(true_scores_all):
     le = LabelEncoder()
     le.fit(true_scores_all.flatten())
@@ -31,7 +52,29 @@ def get_available_presence_scores_arr(train_list, valid_list, test_list):
     return list(all_y_uniq_rounded)
 
 
-def get_presence_score_from_finer_grained_val(scores_array, all_scores, num_classes, coarse, prob, one_hot=False):
+def get_presence_score_for_training(y_list, all_scores, num_classes, coarse, one_hot, prob):
+
+    scores = all_scores if not coarse else [0, 1, 2, 3]  # all_scores are values between 0 and 3
+    scores_array = np.concatenate(y_list, axis=0).flatten()
+
+    # The following line returns the class closest to the input value
+    out_scores = [min(list(scores), key=lambda x: abs(x - scores_array[i])) for i in range(scores_array.shape[0])]
+
+    if one_hot:
+        # One-hot encode the true labels (that will be used for model training)
+        lb = LabelBinarizer()
+        _ = lb.fit(scores)
+        out_scores = lb.transform(out_scores)
+        out_scores = np.reshape(np.array(out_scores), (-1, num_classes, len(scores)))
+
+    if prob:
+        out_scores = [sc_i/3 for sc_i in out_scores]
+        out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
+
+    return out_scores
+
+
+def get_presence_score_for_metrics(scores_array, all_scores, num_classes, coarse, prob, one_hot=False):
     """
     Get the presence score from a finer grained presence score
     (raw predictions -> 12 or 4 presence scores, or 12 presence scores -> 4 presence scores)
@@ -47,20 +90,21 @@ def get_presence_score_from_finer_grained_val(scores_array, all_scores, num_clas
     presence score of all the 6 emotions
     """
 
-    scores = all_scores if not coarse else [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
+    if prob:
+        scores_array = np.round(scores_array*3).astype(int)
+    # if one_hot:
+    #     scores_array = from_one_hot_to_plain(scores_array, num_classes)
+        # lb = LabelBinarizer()
+        # _ = lb.fit([0, 1, 2, 3])
+        # scores_for_each_emo = [scores_array[:, i] for i in range(num_classes)]
+        # scores_array = [lb.inverse_transform(sc_j) for sc_j in scores_for_each_emo]
+
+    scores_val = all_scores if not coarse else [0, 1, 2, 3]
     scores_array = scores_array.flatten()
 
     # The following line returns the class closest to the input value
-    out_scores = [min(list(scores), key=lambda x: abs(x - scores_array[i])) for i in range(scores_array.shape[0])]
-
-    if one_hot:
-        # One-hot encode the true labels (that will be used for model training)
-        lb = LabelBinarizer()
-        _ = lb.fit(scores)
-        out_scores = lb.transform(out_scores)
-        out_scores = np.reshape(np.array(out_scores), (-1, num_classes, len(scores)))
-    else:
-        out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
+    out_scores = [min(list(scores_val), key=lambda x: abs(x - scores_array[i])) for i in range(scores_array.shape[0])]
+    out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
 
     return out_scores
 
@@ -159,7 +203,6 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on return_all_tasks
     """
 
-    is_one_hot = 'oh' in label_type
     ext_name = "_pred-neu" if predict_neutral_class else "_rm-neu"
     true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
 
@@ -175,13 +218,16 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     # Compute true presence scores: arrays of shape (4654, 6)
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     # Coarse-grained values: [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
-    if return_all_tasks or 'coarse' in label_type:
+    if not return_all_tasks and 'coarse' in label_type:  # for training
         ext_name_coa = '_prob' if ('prob' in label_type) else '_oh' if ('oh' in label_type) else ''
-        true_scores_coa = get_presence_score_from_finer_grained_val(true_scores_all, all_scores, 6,
-                                                                    coarse=True, prob=('prob' in label_type),
-                                                                    one_hot=('oh' in label_type))
+        true_scores_coa = get_presence_score_for_training(true_scores_all, all_scores, 6, coarse=True,
+                                                          prob=('prob' in label_type), one_hot=('oh' in label_type))
         save_with_pickle(true_scores_coa, root_name + "_true_scores_coa" + ext_name + ext_name_coa,
                          'processed_folds', 'cmu_mosei')
+    if return_all_tasks:  # for metrics
+        true_scores_coa = get_presence_score_for_metrics(true_scores_all, all_scores, 6, coarse=True,
+                                                         prob=('prob' in label_type), one_hot=('oh' in label_type))
+        save_with_pickle(true_scores_coa, root_name + "_true_scores_coa" + ext_name, 'processed_folds', 'cmu_mosei')
 
     # Compute true classes: binary arrays of shape (4654, 6 or 7)
     if return_all_tasks or label_type == 'present':
@@ -236,26 +282,6 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     :return: pred_scores_coa, pred_classes_pres, pred_classes_dom
     """
 
-    def from_one_hot_to_plain(scores_array):
-        # Prediction given in one_hot, go back to plain scores for model metric calculation
-        # Check if the input score array is in one hot format
-        if scores_array.shape[-1] != 4 or scores_array.shape[-2] != num_classes:
-            raise ValueError("The output of the model is not in shape (num_samples, num_classes, num_scores=4)"
-                             " as the label type requires one-hot encoding. Please check your model output.")
-
-        all_samples_scores = []
-        for sample_i in range(scores_array.shape[0]):
-            sample_i_scores = []
-            for class_j in range(num_classes):
-                max_ind_ij = np.argmax(scores_array[sample_i, class_j])  # array (4,) for a given sample and class
-                # sample_i_scores += [max_ind_ij]
-                sample_i_scores += [[int(k == max_ind_ij) for k in range(4)]]
-            sample_i_scores_plain = np.argmax(np.array(sample_i_scores), axis=1)
-            all_samples_scores += [list(sample_i_scores_plain)]
-        out_scores = np.array(all_samples_scores)
-        # out_scores = np.reshape(np.array(all_samples_scores), (-1, num_classes))
-        return out_scores
-
     # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
     pred_scores_coa, pred_classes_pres = None, None
     if label_type == 'all':
@@ -274,12 +300,12 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
 
     # Pass from one-hot encoded to plain values
     if 'oh' in label_type:
-        pred_raw = from_one_hot_to_plain(pred_raw)
+        pred_raw = from_one_hot_to_plain(pred_raw, num_classes)
 
     # Get coarse presence scores from raw predictions
     if compute_coa:
-        pred_scores_coa = get_presence_score_from_finer_grained_val(pred_raw, all_scores, num_classes,
-                                                                    coarse=True, prob=('prob' in label_type))
+        pred_scores_coa = get_presence_score_for_metrics(pred_raw, all_scores, num_classes, coarse=True,
+                                                         prob=('prob' in label_type), one_hot=('oh' in label_type))
         if save_pred:
             save_with_pickle(pred_scores_coa, "pred_scores_coa_{}".format(model_id), pickle_folder="predictions",
                              root_folder=model_folder)
@@ -344,6 +370,11 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
         return new_train_l, new_valid_l, new_test_l
 
     def change_type_and_shape_for_training(y_array):
+        """
+        Create a list of arrays of shape (1, num_classes)
+        :param y_array: array of shape (num_samples, num_classes)
+        :return: a list of arrays of shape (1, num_classes)
+        """
         num_output = y_array.shape[-1]
         y_list = list(y_array)
         y_list_res = [y.reshape((-1, num_output)) for y in y_list]

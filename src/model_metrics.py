@@ -84,17 +84,17 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     true_scores_for_each_emo = [true_scores_coa[:, i] for i in range(num_classes)]
     pred_scores_for_each_emo = [pred_scores_coa[:, i] for i in range(num_classes)]
 
-    # If working with probabilities, go back to integers between 0, 1, 2, 3 to avoid metric miscalculation due to
-    # floating points
-    if prob:
-        true_scores_for_each_emo = [np.round(ts*3).astype(int) for ts in true_scores_for_each_emo]
-        pred_scores_for_each_emo = [np.round(ps*3).astype(int) for ps in pred_scores_for_each_emo]
-
-    if one_hot:
-        lb = LabelBinarizer()
-        _ = lb.fit([0, 1, 2, 3])
-        true_scores_for_each_emo = [lb.inverse_transform(ts) for ts in true_scores_for_each_emo]
-        # pred_scores_for_each_emo = [lb.inverse_transform(ps) for ps in pred_scores_for_each_emo]
+    # # If working with probabilities, go back to integers between 0, 1, 2, 3 to avoid metric miscalculation due to
+    # # floating points
+    # if prob:
+    #     true_scores_for_each_emo = [np.round(ts*3).astype(int) for ts in true_scores_for_each_emo]
+    #     pred_scores_for_each_emo = [np.round(ps*3).astype(int) for ps in pred_scores_for_each_emo]
+    #
+    # if one_hot:
+    #     lb = LabelBinarizer()
+    #     _ = lb.fit([0, 1, 2, 3])
+    #     true_scores_for_each_emo = [lb.inverse_transform(ts) for ts in true_scores_for_each_emo]
+    #     # pred_scores_for_each_emo = [lb.inverse_transform(ps) for ps in pred_scores_for_each_emo]
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
@@ -383,7 +383,7 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
 
 
 def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
-                                        model_id, model_folder, threshold_emo_pres=None):
+                                        model_id, model_folder, task_name, threshold_emo_pres=None):
     """
     Compute the multilabel confusion matrix for each emotion (whether the emotion is present or not).
     Pickle file generated.
@@ -413,11 +413,11 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
                          pickle_folder="confusion_matrix", root_folder=model_folder)
 
     def hold_out_conf_matrix(thres=None, thres_id=None):
-        task_name = "pres_t_{}".format(thres) if thres is not None else "dom"
+        task_n = "pres_t_{}".format(thres) if thres is not None else task_name
         tc = true_classes[thres_id] if thres_id is not None else true_classes
         pc = pred_classes[thres_id] if thres_id is not None else pred_classes
         conf_matrix = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
-        save_with_pickle(conf_matrix, 'conf_matrix_{}_{}'.format(model_id, task_name),
+        save_with_pickle(conf_matrix, 'conf_matrix_{}_{}'.format(model_id, task_n),
                          pickle_folder="confusion_matrix", root_folder=model_folder)
 
     # emotions present
@@ -569,11 +569,14 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
                             label_type, return_all_tasks=True)
 
     # Confusion matrix
+    if label_type != 'dominant' and label_type != 'present':
+        compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa, with_cross_val, num_classes,
+                                            model_id, model_folder, "coa")
     if label_type != 'dominant':
         compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, with_cross_val, num_classes,
-                                            model_id, model_folder, threshold_emo_pres)
+                                            model_id, model_folder, "pres", threshold_emo_pres)
     compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, with_cross_val, num_classes,
-                                        model_id, model_folder)
+                                        model_id, model_folder, "dom")
     if plot_confusion_matrix:
         plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
                                          display_fig, threshold_emo_pres)

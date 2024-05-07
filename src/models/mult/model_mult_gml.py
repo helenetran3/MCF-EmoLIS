@@ -180,7 +180,7 @@ class MModel(nn.Module):
             last_hs_proj_i = self.proj_2[i](F.dropout(F.relu(self.proj_1[i](last_hs[i])), p=self.out_dropout,
                                                       training=self.training))
             last_hs_proj_i += last_hs[i]
-            output += [self.out_layer[i](last_hs_proj_i)]
+            output += [F.softmax(self.out_layer[i](last_hs_proj_i), dim = 1)]
 
         output = [o.unsqueeze(-1) for o in output]
         output = torch.concat(output, axis=-1)  # (batch_size, num_scores, num_classes)
