@@ -1,13 +1,14 @@
 import json
 import numpy as np
 
-from src.models import ef_from_mfn, ef_rnn_me2e, ef_trans_me2e, ef_williams_tf, ef_williams_torch, late_fusion, \
-    lf_rnn_me2e, lf_trans_me2e, mfn
+from src.models import ef_from_mfn, ef_rnn_me2e, ef_rnn_me2e_gml, ef_trans_me2e, ef_williams_tf, \
+    ef_williams_torch, late_fusion, lf_rnn_me2e, lf_trans_me2e, mfn
 from src.models.mult import model_mult, model_mult_gml
 from src.models.me2e import mme2e
 # from sklearn.metrics import zero_one_loss, hamming_loss
 
-possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams', 'ef_williams_debug', 'late_fusion',
+possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_rnn_me2e_gml', 'ef_trans_me2e', 'ef_trans_me2e_gml', 'ef_williams',
+                   'ef_williams_debug', 'late_fusion',
                    'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mme2e', 'mult', 'mult_gml']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
@@ -26,6 +27,7 @@ def get_model_module(model_str, is_tf):
     model_dict = {
         'ef_from_mfn': ef_from_mfn,
         'ef_rnn_me2e': ef_rnn_me2e,
+        'ef_rnn_me2e_gml': ef_rnn_me2e_gml,
         'ef_trans_me2e': ef_trans_me2e,
         'ef_williams': ef_williams_tf if is_tf else ef_williams_torch,
         'ef_williams_debug': ef_williams_tf if is_tf else ef_williams_torch,
