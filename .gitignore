@@ -19,3 +19,4 @@ run_cluster_test.sh
 label_statistics_old.ipynb
 config/default_parameters.json
 results*
+slurm*
