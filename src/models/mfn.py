@@ -127,4 +127,5 @@ class MModel(nn.Module):
         last_mem = all_mems[-1]
         last_hs = torch.cat([last_h_l, last_h_a, last_h_v, last_mem], dim=1)
         output = self.out_fc2(self.out_dropout(F.relu(self.out_fc1(last_hs))))
+        output = F.sigmoid(output)
         return output
