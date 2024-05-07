@@ -89,7 +89,9 @@ def get_loss_function(loss_function_str, is_tf):
 
             loss = []
             for cl_i, weight_i in enumerate(weight_coarse):
-                loss += [nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])]
+                loss_i = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
+                loss_i = loss_i * pos_weight[cl_i]
+                loss += [loss_i]
             loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
             loss = Variable(loss, requires_grad=True)
             return loss
@@ -100,7 +102,9 @@ def get_loss_function(loss_function_str, is_tf):
 
             loss = []
             for cl_i, weight_i in enumerate(weight_coarse):
-                loss += [nn.CrossEntropyLoss(weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])]
+                loss_i = nn.CrossEntropyLoss(weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
+                loss_i = loss_i * pos_weight[cl_i]
+                loss += [loss_i]
             loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
             loss = Variable(loss, requires_grad=True)
             return loss
