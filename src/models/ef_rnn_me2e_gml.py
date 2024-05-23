@@ -20,7 +20,7 @@ class MModel(nn.Module):
 
         super(MModel, self).__init__()
 
-        self.model_name = 'ef_rnn_me2e'
+        self.model_name = 'ef_rnn_me2e_gml'
         self.model_id = model_id
         self.num_features_text = num_features_text
         self.num_features_image = num_features_image

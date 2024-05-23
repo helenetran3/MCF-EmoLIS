@@ -23,7 +23,7 @@ class MModel(nn.Module):
         Construct a mult model.
         """
         super(MModel, self).__init__()
-        self.model_name = "mult"
+        self.model_name = "mult_gml"
         self.model_id = model_id
         self.orig_d_l, self.orig_d_a, self.orig_d_v = num_features_text, num_features_audio, num_features_image
         self.d_l, self.d_a, self.d_v = 30, 30, 30
@@ -52,11 +52,9 @@ class MModel(nn.Module):
             self.partial_mode = 3  # lonly + vonly + aonly
 
         if self.partial_mode == 1:
-            combined_dim = 2 * self.d_l   # assuming d_l == d_a == d_v
+            combined_dim = 2 * self.d_l  # assuming d_l == d_a == d_v
         else:
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
-
-        self.output_dim = self.num_scores
 
         # 1. Temporal convolutional layers
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
@@ -73,21 +71,17 @@ class MModel(nn.Module):
         if self.vonly:
             self.trans_v_with_l = self.get_network(self_type='vl')
             self.trans_v_with_a = self.get_network(self_type='va')
-        
+
         # 3. Self Attentions (Could be replaced by LSTMs, GRUs, etc.)
         #    [e.g., self.trans_x_mem = nn.LSTM(self.d_x, self.d_x, 1)
-        self.trans_l_mem, self.trans_a_mem, self.trans_v_mem = [], [], []
-        for _ in range(self.num_classes):
-            self.trans_l_mem += [self.get_network(self_type='l_mem', layers=3)]
-            self.trans_a_mem += [self.get_network(self_type='a_mem', layers=3)]
-            self.trans_v_mem += [self.get_network(self_type='v_mem', layers=3)]
-       
+        self.trans_l_mem = self.get_network(self_type='l_mem', layers=3)
+        self.trans_a_mem = self.get_network(self_type='a_mem', layers=3)
+        self.trans_v_mem = self.get_network(self_type='v_mem', layers=3)
+
         # Projection layers
-        self.proj_1, self.proj_2, self.out_layer = [], [], []
-        for _ in range(self.num_classes):
-            self.proj_1 += [nn.Linear(combined_dim, combined_dim)]
-            self.proj_2 += [nn.Linear(combined_dim, combined_dim)]
-            self.out_layer += [nn.Linear(combined_dim, self.output_dim)]
+        self.proj1 = nn.Linear(combined_dim, combined_dim)
+        self.proj2 = nn.Linear(combined_dim, combined_dim)
+        self.out_layer = nn.Linear(combined_dim, self.num_classes * self.num_scores)
 
     def get_network(self, self_type='l', layers=-1):
         if self_type in ['l', 'al', 'vl']:
@@ -97,14 +91,14 @@ class MModel(nn.Module):
         elif self_type in ['v', 'lv', 'av']:
             embed_dim, attn_dropout = self.d_v, self.attn_dropout_v
         elif self_type == 'l_mem':
-            embed_dim, attn_dropout = 2*self.d_l, self.attn_dropout
+            embed_dim, attn_dropout = 2 * self.d_l, self.attn_dropout
         elif self_type == 'a_mem':
-            embed_dim, attn_dropout = 2*self.d_a, self.attn_dropout
+            embed_dim, attn_dropout = 2 * self.d_a, self.attn_dropout
         elif self_type == 'v_mem':
-            embed_dim, attn_dropout = 2*self.d_v, self.attn_dropout
+            embed_dim, attn_dropout = 2 * self.d_v, self.attn_dropout
         else:
             raise ValueError("Unknown network type")
-        
+
         return TransformerEncoder(embed_dim=embed_dim,
                                   num_heads=self.num_heads,
                                   layers=max(self.layers, layers),
@@ -135,54 +129,41 @@ class MModel(nn.Module):
 
         if self.lonly:
             # (V,A) --> L
-            h_l_with_as = self.trans_l_with_a(proj_x_l, proj_x_a, proj_x_a)    # Dimension (L, N, d_l)
-            h_l_with_vs = self.trans_l_with_v(proj_x_l, proj_x_v, proj_x_v)    # Dimension (L, N, d_l)
+            h_l_with_as = self.trans_l_with_a(proj_x_l, proj_x_a, proj_x_a)  # Dimension (L, N, d_l)
+            h_l_with_vs = self.trans_l_with_v(proj_x_l, proj_x_v, proj_x_v)  # Dimension (L, N, d_l)
             h_ls = torch.cat([h_l_with_as, h_l_with_vs], dim=2)
-            h_ls_classes = []
-            for i in range(self.num_classes):
-                h_ls_i = self.trans_l_mem[i](h_ls)
-                h_ls_i = h_ls_i[0] if type(h_ls_i) == tuple else h_ls_i
-                h_ls_classes += [h_ls_i]
-            last_h_l = last_hs = [h_ls_i[-1] for h_ls_i in h_ls_classes]   # Take the last output for prediction
+            h_ls = self.trans_l_mem(h_ls)
+            if type(h_ls) == tuple:
+                h_ls = h_ls[0]
+            last_h_l = last_hs = h_ls[-1]  # Take the last output for prediction
 
         if self.aonly:
             # (L,V) --> A
             h_a_with_ls = self.trans_a_with_l(proj_x_a, proj_x_l, proj_x_l)
             h_a_with_vs = self.trans_a_with_v(proj_x_a, proj_x_v, proj_x_v)
             h_as = torch.cat([h_a_with_ls, h_a_with_vs], dim=2)
-            h_as_classes = []
-            for i in range(self.num_classes):
-                h_as_i = self.trans_a_mem[i](h_as)
-                h_as_i = h_as_i[0] if type(h_as_i) == tuple else h_as_i
-                h_as_classes += [h_as_i]
-            last_h_a = last_hs = [h_as_i[-1] for h_as_i in h_as_classes]
+            h_as = self.trans_a_mem(h_as)
+            if type(h_as) == tuple:
+                h_as = h_as[0]
+            last_h_a = last_hs = h_as[-1]
 
         if self.vonly:
             # (L,A) --> V
             h_v_with_ls = self.trans_v_with_l(proj_x_v, proj_x_l, proj_x_l)
             h_v_with_as = self.trans_v_with_a(proj_x_v, proj_x_a, proj_x_a)
             h_vs = torch.cat([h_v_with_ls, h_v_with_as], dim=2)
-            h_vs_classes = []
-            for i in range(self.num_classes):
-                h_vs_i = self.trans_v_mem[i](h_vs)
-                h_vs_i = h_vs_i[0] if type(h_vs_i) == tuple else h_vs_i
-                h_vs_classes += [h_vs_i]
-            last_h_v = last_hs = [h_vs_i[-1] for h_vs_i in h_vs_classes]
-        
-        if self.partial_mode == 3:
-            last_hs = []
-            for last_h_l_i, last_h_a_i, last_h_v_i in zip(last_h_l, last_h_a, last_h_v):
-                last_hs += [torch.cat([last_h_l_i, last_h_a_i, last_h_v_i], dim=1)]
-        
-        # A residual block
-        output = []
-        for i in range(self.num_classes):
-            last_hs_proj_i = self.proj_2[i](F.dropout(F.relu(self.proj_1[i](last_hs[i])), p=self.out_dropout,
-                                                      training=self.training))
-            last_hs_proj_i += last_hs[i]
-            output += [F.softmax(self.out_layer[i](last_hs_proj_i), dim = 1)]
+            h_vs = self.trans_v_mem(h_vs)
+            if type(h_vs) == tuple:
+                h_vs = h_vs[0]
+            last_h_v = last_hs = h_vs[-1]
 
-        output = [o.unsqueeze(-1) for o in output]
-        output = torch.concat(output, axis=-1)  # (batch_size, num_scores, num_classes)
-        output = output.permute(0, 2, 1)  # (batch_size, num_classes, num_scores)
-        return output#, last_hs
+        if self.partial_mode == 3:
+            last_hs = torch.cat([last_h_l, last_h_a, last_h_v], dim=1)
+
+        # A residual block
+        last_hs_proj = self.proj2(F.dropout(F.relu(self.proj1(last_hs)), p=self.out_dropout, training=self.training))
+        last_hs_proj += last_hs
+
+        output = self.out_layer(last_hs_proj).view(-1, self.num_classes, self.num_scores)
+        output = F.softmax(output, dim=2)
+        return output  # , last_hs
