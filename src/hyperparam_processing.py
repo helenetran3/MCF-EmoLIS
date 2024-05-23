@@ -9,7 +9,7 @@ from src.models.me2e import mme2e
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_rnn_me2e_gml', 'ef_trans_me2e', 'ef_trans_me2e_gml', 'ef_williams',
                    'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_rnn_me2e_gml', 'lf_trans_me2e',
-                   'lf_trans_me2e_gml', 'mfn', 'mme2e', 'mult', 'mult_gml']
+                   'lf_trans_me2e_gml', 'mfn', 'mfn_gml', 'mme2e', 'mult', 'mult_gml', 'mult_gml_2']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
