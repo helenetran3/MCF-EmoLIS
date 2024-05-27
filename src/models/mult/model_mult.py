@@ -54,7 +54,8 @@ class MModel(nn.Module):
         if self.partial_mode == 1:
             combined_dim = 2 * self.d_l   # assuming d_l == d_a == d_v
         else:
-            combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
+            combined_dim = 2 * (self.d_l + self.d_a + self.d_v) if not self.dominant_mod else \
+                self.d_l + 2 * (self.d_a + self.d_v)
 
         self.output_dim = num_classes      # This is actually not a hyperparameter :-)
 
@@ -64,7 +65,7 @@ class MModel(nn.Module):
         self.proj_v = nn.Conv1d(self.orig_d_v, self.d_v, kernel_size=1, padding=0, bias=False)
 
         # 2. Crossmodal Attentions
-        if self.lonly:
+        if self.lonly and self.dominant_mod:
             self.trans_l_with_a = self.get_network(self_type='la')
             self.trans_l_with_v = self.get_network(self_type='lv')
         if self.aonly:
@@ -96,7 +97,7 @@ class MModel(nn.Module):
         elif self_type in ['v', 'lv', 'av']:
             embed_dim, attn_dropout = self.d_v, self.attn_dropout_v
         elif self_type == 'l_mem':
-            embed_dim, attn_dropout = 2*self.d_l, self.attn_dropout
+            embed_dim, attn_dropout = self.d_l if self.dominant_mod else 2*self.d_l, self.attn_dropout
         elif self_type == 'a_mem':
             embed_dim, attn_dropout = 2*self.d_a, self.attn_dropout
         elif self_type == 'v_mem':
@@ -138,12 +139,15 @@ class MModel(nn.Module):
 
         if self.lonly:
             # (V,A) --> L
-            h_l_with_as = self.trans_l_with_a(proj_x_l, proj_x_a, proj_x_a)    # Dimension (L, N, d_l)
-            h_l_with_vs = self.trans_l_with_v(proj_x_l, proj_x_v, proj_x_v)    # Dimension (L, N, d_l)
-            if self.cross_module:
-                h_all_s += [h_l_with_as, h_l_with_vs]
-            h_ls = torch.cat([h_l_with_as, h_l_with_vs], dim=2)
-            h_ls = self.trans_l_mem(h_ls)
+            if not self.dominant_mod:
+                h_l_with_as = self.trans_l_with_a(proj_x_l, proj_x_a, proj_x_a)    # Dimension (L, N, d_l)
+                h_l_with_vs = self.trans_l_with_v(proj_x_l, proj_x_v, proj_x_v)    # Dimension (L, N, d_l)
+                if self.cross_module:
+                    h_all_s += [h_l_with_as, h_l_with_vs]
+                h_ls = torch.cat([h_l_with_as, h_l_with_vs], dim=2)
+                h_ls = self.trans_l_mem(h_ls)
+            else:
+                h_ls = self.trans_l_mem(proj_x_l)
             if type(h_ls) == tuple:
                 h_ls = h_ls[0]
             last_h_l = last_hs = h_ls[-1]   # Take the last output for prediction
