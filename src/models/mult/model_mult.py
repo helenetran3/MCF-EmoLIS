@@ -40,6 +40,8 @@ class MModel(nn.Module):
         self.res_dropout = param_model['res_dropout']
         self.out_dropout = param_model['out_dropout']
         self.attn_mask = param_model['attn_mask']
+        self.dominant_mod = param_model['dominant_mod']
+        self.cross_module = param_model['with_cross_module']
 
         combined_dim = self.d_l + self.d_a + self.d_v
 
@@ -77,8 +79,11 @@ class MModel(nn.Module):
         self.trans_l_mem = self.get_network(self_type='l_mem', layers=3)
         self.trans_a_mem = self.get_network(self_type='a_mem', layers=3)
         self.trans_v_mem = self.get_network(self_type='v_mem', layers=3)
+        if self.cross_module:
+            self.trans_all_mem = self.get_network(self_type='all_mem', layers=3)
        
         # Projection layers
+        combined_dim = combined_dim*2 if self.cross_module else combined_dim
         self.proj1 = nn.Linear(combined_dim, combined_dim)
         self.proj2 = nn.Linear(combined_dim, combined_dim)
         self.out_layer = nn.Linear(combined_dim, self.output_dim)
@@ -96,6 +101,8 @@ class MModel(nn.Module):
             embed_dim, attn_dropout = 2*self.d_a, self.attn_dropout
         elif self_type == 'v_mem':
             embed_dim, attn_dropout = 2*self.d_v, self.attn_dropout
+        elif self_type == 'all_mem':
+            embed_dim, attn_dropout = 2*(self.d_v + self.d_a + self.d_l), self.attn_dropout
         else:
             raise ValueError("Unknown network type")
         
@@ -127,10 +134,14 @@ class MModel(nn.Module):
         proj_x_v = proj_x_v.permute(2, 0, 1)
         proj_x_l = proj_x_l.permute(2, 0, 1)
 
+        h_all_s = []
+
         if self.lonly:
             # (V,A) --> L
             h_l_with_as = self.trans_l_with_a(proj_x_l, proj_x_a, proj_x_a)    # Dimension (L, N, d_l)
             h_l_with_vs = self.trans_l_with_v(proj_x_l, proj_x_v, proj_x_v)    # Dimension (L, N, d_l)
+            if self.cross_module:
+                h_all_s += [h_l_with_as, h_l_with_vs]
             h_ls = torch.cat([h_l_with_as, h_l_with_vs], dim=2)
             h_ls = self.trans_l_mem(h_ls)
             if type(h_ls) == tuple:
@@ -141,6 +152,8 @@ class MModel(nn.Module):
             # (L,V) --> A
             h_a_with_ls = self.trans_a_with_l(proj_x_a, proj_x_l, proj_x_l)
             h_a_with_vs = self.trans_a_with_v(proj_x_a, proj_x_v, proj_x_v)
+            if self.cross_module:
+                h_all_s += [h_a_with_ls, h_a_with_vs]
             h_as = torch.cat([h_a_with_ls, h_a_with_vs], dim=2)
             h_as = self.trans_a_mem(h_as)
             if type(h_as) == tuple:
@@ -151,14 +164,25 @@ class MModel(nn.Module):
             # (L,A) --> V
             h_v_with_ls = self.trans_v_with_l(proj_x_v, proj_x_l, proj_x_l)
             h_v_with_as = self.trans_v_with_a(proj_x_v, proj_x_a, proj_x_a)
+            if self.cross_module:
+                h_all_s += [h_v_with_ls, h_v_with_as]
             h_vs = torch.cat([h_v_with_ls, h_v_with_as], dim=2)
             h_vs = self.trans_v_mem(h_vs)
             if type(h_vs) == tuple:
                 h_vs = h_vs[0]
             last_h_v = last_hs = h_vs[-1]
+
+        if self.cross_module:
+            h_all_s = torch.cat(h_all_s, dim=2)
+            h_all_s = self.trans_all_mem(h_all_s)
+            if type(h_all_s) == tuple:
+                h_all_s = h_all_s[0]
+            last_h_all = last_hs = h_all_s[-1]
         
         if self.partial_mode == 3:
-            last_hs = torch.cat([last_h_l, last_h_a, last_h_v], dim=1)
+            last_h_list = [last_h_l, last_h_a, last_h_v, last_h_all] if self.cross_module else \
+                [last_h_l, last_h_a, last_h_v]
+            last_hs = torch.cat(last_h_list, dim=1)
         
         # A residual block
         last_hs_proj = self.proj2(F.dropout(F.relu(self.proj1(last_hs)), p=self.out_dropout, training=self.training))
