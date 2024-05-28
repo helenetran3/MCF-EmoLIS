@@ -66,15 +66,29 @@ class MModel(nn.Module):
 
         # 2. Crossmodal Attentions
         if self.lonly and not self.dominant_mod:
+            self.trans_l_with_av = self.get_network(self_type='l')
+        if self.aonly:
+            self.trans_a_with_lv = self.get_network(self_type='a')
+        if self.vonly:
+            self.trans_v_with_al = self.get_network(self_type='v')
+
+        # 2. Crossmodal Attentions
+        if self.lonly and not self.dominant_mod:
             self.trans_l_with_a = self.get_network(self_type='la')
             self.trans_l_with_v = self.get_network(self_type='lv')
         if self.aonly:
-            self.trans_a_with_l = self.get_network(self_type='al')
-            self.trans_a_with_v = self.get_network(self_type='av')
+            if self.dominant_mod:
+                self.trans_a_with_lv = self.get_network(self_type='a_dom')
+            else:
+                self.trans_a_with_l = self.get_network(self_type='al')
+                self.trans_a_with_v = self.get_network(self_type='av')
         if self.vonly:
-            self.trans_v_with_l = self.get_network(self_type='vl')
-            self.trans_v_with_a = self.get_network(self_type='va')
-        
+            if self.dominant_mod:
+                self.trans_v_with_al = self.get_network(self_type='v_dom')
+            else:
+                self.trans_v_with_l = self.get_network(self_type='vl')
+                self.trans_v_with_a = self.get_network(self_type='va')
+
         # 3. Self Attentions (Could be replaced by LSTMs, GRUs, etc.)
         #    [e.g., self.trans_x_mem = nn.LSTM(self.d_x, self.d_x, 1)
         self.trans_l_mem = self.get_network(self_type='l_mem', layers=3)
@@ -92,16 +106,16 @@ class MModel(nn.Module):
     def get_network(self, self_type='l', layers=-1):
         if self_type in ['l', 'al', 'vl']:
             embed_dim, attn_dropout = self.d_l, self.attn_dropout
-        elif self_type in ['a', 'la', 'va']:
+        elif self_type in ['a', 'la', 'va', 'a_dom']:
             embed_dim, attn_dropout = self.d_a, self.attn_dropout_a
-        elif self_type in ['v', 'lv', 'av']:
+        elif self_type in ['v', 'lv', 'av', 'v_dom']:
             embed_dim, attn_dropout = self.d_v, self.attn_dropout_v
         elif self_type == 'l_mem':
             embed_dim, attn_dropout = self.d_l if self.dominant_mod else 2*self.d_l, self.attn_dropout
         elif self_type == 'a_mem':
-            embed_dim, attn_dropout = 2*self.d_a, self.attn_dropout
+            embed_dim, attn_dropout = self.d_a if self.dominant_mod else 2*self.d_a, self.attn_dropout
         elif self_type == 'v_mem':
-            embed_dim, attn_dropout = 2*self.d_v, self.attn_dropout
+            embed_dim, attn_dropout = self.d_v if self.dominant_mod else 2*self.d_v, self.attn_dropout
         elif self_type == 'all_mem':
             embed_dim, attn_dropout = 2*(self.d_v + self.d_a + self.d_l), self.attn_dropout
         else:
@@ -120,9 +134,6 @@ class MModel(nn.Module):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
-        #print("x_l.size():", x_l.size())
-        #print("x_v.size():", x_v.size())
-        #print("x_a.size():", x_a.size())
         x_l = F.dropout(x_l.transpose(1, 2), p=self.embed_dropout, training=self.training)
         x_a = x_a.transpose(1, 2)
         x_v = x_v.transpose(1, 2)
@@ -154,24 +165,34 @@ class MModel(nn.Module):
 
         if self.aonly:
             # (L,V) --> A
-            h_a_with_ls = self.trans_a_with_l(proj_x_a, proj_x_l, proj_x_l)
-            h_a_with_vs = self.trans_a_with_v(proj_x_a, proj_x_v, proj_x_v)
-            if self.cross_module:
-                h_all_s += [h_a_with_ls, h_a_with_vs]
-            h_as = torch.cat([h_a_with_ls, h_a_with_vs], dim=2)
-            h_as = self.trans_a_mem(h_as)
+            if not self.dominant_mod:
+                h_a_with_ls = self.trans_a_with_l(proj_x_a, proj_x_l, proj_x_l)
+                h_a_with_vs = self.trans_a_with_v(proj_x_a, proj_x_v, proj_x_v)
+                if self.cross_module:
+                    h_all_s += [h_a_with_ls, h_a_with_vs]
+                h_as = torch.cat([h_a_with_ls, h_a_with_vs], dim=2)
+                h_as = self.trans_a_mem(h_as)
+            else:
+                proj_x_lv = torch.cat([proj_x_l, proj_x_v], dim=2)
+                h_a_with_lvs = self.trans_a_with_lv(proj_x_a, proj_x_lv, proj_x_lv)
+                h_as = self.trans_a_mem(h_a_with_lvs)
             if type(h_as) == tuple:
                 h_as = h_as[0]
             last_h_a = last_hs = h_as[-1]
 
         if self.vonly:
             # (L,A) --> V
-            h_v_with_ls = self.trans_v_with_l(proj_x_v, proj_x_l, proj_x_l)
-            h_v_with_as = self.trans_v_with_a(proj_x_v, proj_x_a, proj_x_a)
-            if self.cross_module:
-                h_all_s += [h_v_with_ls, h_v_with_as]
-            h_vs = torch.cat([h_v_with_ls, h_v_with_as], dim=2)
-            h_vs = self.trans_v_mem(h_vs)
+            if not self.dominant_mod:
+                h_v_with_ls = self.trans_v_with_l(proj_x_v, proj_x_l, proj_x_l)
+                h_v_with_as = self.trans_v_with_a(proj_x_v, proj_x_a, proj_x_a)
+                if self.cross_module:
+                    h_all_s += [h_v_with_ls, h_v_with_as]
+                h_vs = torch.cat([h_v_with_ls, h_v_with_as], dim=2)
+                h_vs = self.trans_v_mem(h_vs)
+            else:
+                proj_x_al = torch.cat([proj_x_a, proj_x_l], dim=2)
+                h_v_with_al = self.trans_v_with_al(proj_x_v, proj_x_al, proj_x_al)
+                h_vs = self.trans_v_mem(h_v_with_al)
             if type(h_vs) == tuple:
                 h_vs = h_vs[0]
             last_h_v = last_hs = h_vs[-1]
