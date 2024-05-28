@@ -27,6 +27,7 @@ class MModel(nn.Module):
         self.model_id = model_id
         self.orig_d_l, self.orig_d_a, self.orig_d_v = num_features_text, num_features_audio, num_features_image
         self.d_l, self.d_a, self.d_v = 30, 30, 30
+        self.d_lv, self.d_al = 30, 30
         self.vonly = param_model['vonly']
         self.aonly = param_model['aonly']
         self.lonly = param_model['lonly']
@@ -55,7 +56,7 @@ class MModel(nn.Module):
             combined_dim = 2 * self.d_l   # assuming d_l == d_a == d_v
         else:
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v) if not self.dominant_mod else \
-                self.d_l + 2 * (self.d_a + self.d_v)
+                self.d_l + self.d_a + self.d_v
 
         self.output_dim = num_classes      # This is actually not a hyperparameter :-)
 
@@ -63,6 +64,8 @@ class MModel(nn.Module):
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
         self.proj_a = nn.Conv1d(self.orig_d_a, self.d_a, kernel_size=1, padding=0, bias=False)
         self.proj_v = nn.Conv1d(self.orig_d_v, self.d_v, kernel_size=1, padding=0, bias=False)
+        self.proj_lv = nn.Conv1d(self.orig_d_l+self.orig_d_v, self.d_lv, kernel_size=1, padding=0, bias=False)
+        self.proj_al = nn.Conv1d(self.orig_d_a+self.orig_d_l, self.d_al, kernel_size=1, padding=0, bias=False)
 
         # 2. Crossmodal Attentions
         if self.lonly and not self.dominant_mod:
@@ -142,6 +145,13 @@ class MModel(nn.Module):
         proj_x_l = x_l if self.orig_d_l == self.d_l else self.proj_l(x_l)
         proj_x_a = x_a if self.orig_d_a == self.d_a else self.proj_a(x_a)
         proj_x_v = x_v if self.orig_d_v == self.d_v else self.proj_v(x_v)
+        if self.dominant_mod:
+            x_lv = torch.concat([x_l, x_v], dim=1)
+            x_al = torch.concat([x_a, x_l], dim=1)
+            proj_x_lv = x_lv if self.orig_d_l == self.d_l and self.orig_d_v == self.d_v else self.proj_lv(x_lv)
+            proj_x_al = x_al if self.orig_d_l == self.d_l and self.orig_d_a == self.d_a else self.proj_al(x_al)
+            proj_x_lv = proj_x_lv.permute(2, 0, 1)
+            proj_x_al = proj_x_al.permute(2, 0, 1)
         proj_x_a = proj_x_a.permute(2, 0, 1)
         proj_x_v = proj_x_v.permute(2, 0, 1)
         proj_x_l = proj_x_l.permute(2, 0, 1)
@@ -173,7 +183,6 @@ class MModel(nn.Module):
                 h_as = torch.cat([h_a_with_ls, h_a_with_vs], dim=2)
                 h_as = self.trans_a_mem(h_as)
             else:
-                proj_x_lv = torch.cat([proj_x_l, proj_x_v], dim=2)
                 h_a_with_lvs = self.trans_a_with_lv(proj_x_a, proj_x_lv, proj_x_lv)
                 h_as = self.trans_a_mem(h_a_with_lvs)
             if type(h_as) == tuple:
@@ -190,7 +199,6 @@ class MModel(nn.Module):
                 h_vs = torch.cat([h_v_with_ls, h_v_with_as], dim=2)
                 h_vs = self.trans_v_mem(h_vs)
             else:
-                proj_x_al = torch.cat([proj_x_a, proj_x_l], dim=2)
                 h_v_with_al = self.trans_v_with_al(proj_x_v, proj_x_al, proj_x_al)
                 h_vs = self.trans_v_mem(h_v_with_al)
             if type(h_vs) == tuple:
@@ -203,15 +211,15 @@ class MModel(nn.Module):
             if type(h_all_s) == tuple:
                 h_all_s = h_all_s[0]
             last_h_all = last_hs = h_all_s[-1]
-        
+
         if self.partial_mode == 3:
             last_h_list = [last_h_l, last_h_a, last_h_v, last_h_all] if self.cross_module else \
                 [last_h_l, last_h_a, last_h_v]
             last_hs = torch.cat(last_h_list, dim=1)
-        
+
         # A residual block
         last_hs_proj = self.proj2(F.dropout(F.relu(self.proj1(last_hs)), p=self.out_dropout, training=self.training))
         last_hs_proj += last_hs
-        
+
         output = self.out_layer(last_hs_proj)
         return output#, last_hs

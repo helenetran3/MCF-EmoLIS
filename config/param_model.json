@@ -148,8 +148,8 @@
         "mult":
         {
             "is_TensorFlow": 0,
-            "dominant_mod": 0,
-            "with_cross_module": 1,
+            "dominant_mod": 1,
+            "with_cross_module": 0,
 
             "vonly": 0,
             "aonly": 0,
