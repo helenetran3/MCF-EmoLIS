@@ -65,7 +65,7 @@ class MModel(nn.Module):
         self.proj_v = nn.Conv1d(self.orig_d_v, self.d_v, kernel_size=1, padding=0, bias=False)
 
         # 2. Crossmodal Attentions
-        if self.lonly and self.dominant_mod:
+        if self.lonly and not self.dominant_mod:
             self.trans_l_with_a = self.get_network(self_type='la')
             self.trans_l_with_v = self.get_network(self_type='lv')
         if self.aonly:
