@@ -27,7 +27,7 @@ class MModel(nn.Module):
         self.model_id = model_id
         self.orig_d_l, self.orig_d_a, self.orig_d_v = num_features_text, num_features_audio, num_features_image
         self.d_l, self.d_a, self.d_v = 30, 30, 30
-        self.d_lv, self.d_al = 30, 30
+        self.d_lv, self.d_al, self.d_lav = 30, 30, 30
         self.vonly = param_model['vonly']
         self.aonly = param_model['aonly']
         self.lonly = param_model['lonly']
@@ -41,10 +41,14 @@ class MModel(nn.Module):
         self.res_dropout = param_model['res_dropout']
         self.out_dropout = param_model['out_dropout']
         self.attn_mask = param_model['attn_mask']
-        self.dominant_mod = param_model['dominant_mod']
+        self.dominant_mod = param_model['dominant_modality']
         self.cross_module = param_model['with_cross_module']
+        self.lav_as_mod = param_model['lav_as_modality']
 
-        combined_dim = self.d_l + self.d_a + self.d_v
+        # if self.dominant_mod + self.cross_module + self.lav_as_mod > 1:
+        #     raise ValueError("Error hyperparameter values mult: at most one value between 'dominant_modality', "
+        #                      "'with_cross_module' and 'lav_as_modality' is set to 1. "
+        #                      "Please change in config/param_model.json.")
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
@@ -52,11 +56,13 @@ class MModel(nn.Module):
             self.lonly = self.vonly = self.aonly = True
             self.partial_mode = 3  # lonly + vonly + aonly
 
+        # Combined dimension for dense layers
         if self.partial_mode == 1:
             combined_dim = 2 * self.d_l   # assuming d_l == d_a == d_v
         else:
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v) if not self.dominant_mod else \
                 self.d_l + self.d_a + self.d_v
+        combined_dim = combined_dim*2 if self.cross_module else combined_dim
 
         self.output_dim = num_classes      # This is actually not a hyperparameter :-)
 
@@ -66,6 +72,8 @@ class MModel(nn.Module):
         self.proj_v = nn.Conv1d(self.orig_d_v, self.d_v, kernel_size=1, padding=0, bias=False)
         self.proj_lv = nn.Conv1d(self.orig_d_l+self.orig_d_v, self.d_lv, kernel_size=1, padding=0, bias=False)
         self.proj_al = nn.Conv1d(self.orig_d_a+self.orig_d_l, self.d_al, kernel_size=1, padding=0, bias=False)
+        self.proj_lav = nn.Conv1d(self.orig_d_l+self.orig_d_a+self.orig_d_v, self.d_lav, kernel_size=1, padding=0,
+                                  bias=False)
 
         # 2. Crossmodal Attentions
         if self.lonly and not self.dominant_mod:
@@ -101,7 +109,6 @@ class MModel(nn.Module):
             self.trans_all_mem = self.get_network(self_type='all_mem', layers=3)
        
         # Projection layers
-        combined_dim = combined_dim*2 if self.cross_module else combined_dim
         self.proj1 = nn.Linear(combined_dim, combined_dim)
         self.proj2 = nn.Linear(combined_dim, combined_dim)
         self.out_layer = nn.Linear(combined_dim, self.output_dim)
@@ -120,7 +127,8 @@ class MModel(nn.Module):
         elif self_type == 'v_mem':
             embed_dim, attn_dropout = self.d_v if self.dominant_mod else 2*self.d_v, self.attn_dropout
         elif self_type == 'all_mem':
-            embed_dim, attn_dropout = 2*(self.d_v + self.d_a + self.d_l), self.attn_dropout
+            embed_dim, attn_dropout = self.d_v + self.d_a + self.d_l if self.dominant_mod else \
+                                          2*(self.d_v + self.d_a + self.d_l), self.attn_dropout
         else:
             raise ValueError("Unknown network type")
         
@@ -145,16 +153,20 @@ class MModel(nn.Module):
         proj_x_l = x_l if self.orig_d_l == self.d_l else self.proj_l(x_l)
         proj_x_a = x_a if self.orig_d_a == self.d_a else self.proj_a(x_a)
         proj_x_v = x_v if self.orig_d_v == self.d_v else self.proj_v(x_v)
+        proj_x_a = proj_x_a.permute(2, 0, 1)
+        proj_x_v = proj_x_v.permute(2, 0, 1)
+        proj_x_l = proj_x_l.permute(2, 0, 1)
         if self.dominant_mod:
             x_lv = torch.concat([x_l, x_v], dim=1)
-            x_al = torch.concat([x_a, x_l], dim=1)
+            x_al = torch.concat([x_l, x_a], dim=1)
             proj_x_lv = x_lv if self.orig_d_l == self.d_l and self.orig_d_v == self.d_v else self.proj_lv(x_lv)
             proj_x_al = x_al if self.orig_d_l == self.d_l and self.orig_d_a == self.d_a else self.proj_al(x_al)
             proj_x_lv = proj_x_lv.permute(2, 0, 1)
             proj_x_al = proj_x_al.permute(2, 0, 1)
-        proj_x_a = proj_x_a.permute(2, 0, 1)
-        proj_x_v = proj_x_v.permute(2, 0, 1)
-        proj_x_l = proj_x_l.permute(2, 0, 1)
+        if self.lav_as_mod:
+            x_lav = torch.concat([x_l, x_a, x_v], dim=1)
+            orig_d_is_d = (self.orig_d_l == self.d_l and self.orig_d_a == self.d_a and self.orig_d_v == self.d_v)
+            proj_x_lav = x_lav if orig_d_is_d else self.proj_lv(x_lav)
 
         h_all_s = []
 
@@ -168,6 +180,8 @@ class MModel(nn.Module):
                 h_ls = torch.cat([h_l_with_as, h_l_with_vs], dim=2)
                 h_ls = self.trans_l_mem(h_ls)
             else:
+                if self.cross_module:
+                    h_all_s += [proj_x_l]
                 h_ls = self.trans_l_mem(proj_x_l)
             if type(h_ls) == tuple:
                 h_ls = h_ls[0]
@@ -184,6 +198,8 @@ class MModel(nn.Module):
                 h_as = self.trans_a_mem(h_as)
             else:
                 h_a_with_lvs = self.trans_a_with_lv(proj_x_a, proj_x_lv, proj_x_lv)
+                if self.cross_module:
+                    h_all_s += [h_a_with_lvs]
                 h_as = self.trans_a_mem(h_a_with_lvs)
             if type(h_as) == tuple:
                 h_as = h_as[0]
@@ -199,8 +215,10 @@ class MModel(nn.Module):
                 h_vs = torch.cat([h_v_with_ls, h_v_with_as], dim=2)
                 h_vs = self.trans_v_mem(h_vs)
             else:
-                h_v_with_al = self.trans_v_with_al(proj_x_v, proj_x_al, proj_x_al)
-                h_vs = self.trans_v_mem(h_v_with_al)
+                h_v_with_als = self.trans_v_with_al(proj_x_v, proj_x_al, proj_x_al)
+                if self.cross_module:
+                    h_all_s += [h_v_with_als]
+                h_vs = self.trans_v_mem(h_v_with_als)
             if type(h_vs) == tuple:
                 h_vs = h_vs[0]
             last_h_v = last_hs = h_vs[-1]
