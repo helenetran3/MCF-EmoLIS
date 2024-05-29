@@ -27,6 +27,7 @@ class MModel(nn.Module):
         self.model_id = model_id
         self.orig_d_l, self.orig_d_a, self.orig_d_v = num_features_text, num_features_audio, num_features_image
         self.d_l, self.d_a, self.d_v = 30, 30, 30
+        self.d_lav = 30
         self.vonly = param_model['vonly']
         self.aonly = param_model['aonly']
         self.lonly = param_model['lonly']
@@ -35,13 +36,15 @@ class MModel(nn.Module):
         self.attn_dropout = param_model['attn_dropout']
         self.attn_dropout_a = param_model['attn_dropout_a']
         self.attn_dropout_v = param_model['attn_dropout_v']
+        self.attn_dropout_lav = param_model['attn_dropout_lav']
         self.relu_dropout = param_model['relu_dropout']
         self.embed_dropout = param_model['embed_dropout']
         self.res_dropout = param_model['res_dropout']
         self.out_dropout = param_model['out_dropout']
         self.attn_mask = param_model['attn_mask']
-        self.dominant_mod = param_model['dominant_mod']
+        self.dominant_mod = param_model['dominant_modality']
         self.cross_module = param_model['with_cross_module']
+        self.lav_as_modality = param_model['lav_as_modality']
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
@@ -61,6 +64,9 @@ class MModel(nn.Module):
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
         self.proj_a = nn.Conv1d(self.orig_d_a, self.d_a, kernel_size=1, padding=0, bias=False)
         self.proj_v = nn.Conv1d(self.orig_d_v, self.d_v, kernel_size=1, padding=0, bias=False)
+        if self.lav_as_modality:
+            self.proj_lav = nn.Conv1d(self.orig_d_l + self.orig_d_a + self.orig_d_v, self.d_lav,
+                                      kernel_size=1, padding=0, bias=False)
 
         # 2. Crossmodal Attentions
         if self.lonly and not self.dominant_mod:
@@ -72,7 +78,11 @@ class MModel(nn.Module):
         if self.vonly:
             self.trans_v_with_l = self.get_network(self_type='vl')
             self.trans_v_with_a = self.get_network(self_type='va')
-        
+        if self.lav_as_modality:
+            self.trans_l_with_lav = self.get_network(self_type='llav')
+            self.trans_a_with_lav = self.get_network(self_type='alav')
+            self.trans_v_with_lav = self.get_network(self_type='vlav')
+
         # 3. Self Attentions (Could be replaced by LSTMs, GRUs, etc.)
         #    [e.g., self.trans_x_mem = nn.LSTM(self.d_x, self.d_x, 1)
         self.trans_l_mem = self.get_network(self_type='l_mem', layers=3)
@@ -94,15 +104,21 @@ class MModel(nn.Module):
             embed_dim, attn_dropout = self.d_a, self.attn_dropout_a
         elif self_type in ['v', 'lv', 'av']:
             embed_dim, attn_dropout = self.d_v, self.attn_dropout_v
+        elif self_type in ['llav', 'alav', 'vlav']:
+            embed_dim, attn_dropout = self.d_l + self.d_a + self.d_v, self.attn_dropout_lav
         elif self_type == 'l_mem':
-            embed_dim, attn_dropout = self.d_l if self.dominant_mod else 2*self.d_l, self.attn_dropout
+            embed_dim = self.d_l if self.dominant_mod else 3*self.d_l if self.lav_as_modality else 2*self.d_l
+            attn_dropout = self.attn_dropout
         elif self_type == 'a_mem':
-            embed_dim, attn_dropout = 2*self.d_a, self.attn_dropout
+            embed_dim = 3*self.d_a if self.lav_as_modality else 2*self.d_a
+            attn_dropout = self.attn_dropout
         elif self_type == 'v_mem':
-            embed_dim, attn_dropout = 2*self.d_v, self.attn_dropout
+            embed_dim = 3*self.d_v if self.lav_as_modality else 2*self.d_v
+            attn_dropout = self.attn_dropout
         elif self_type == 'all_mem':
-            embed_dim, attn_dropout = self.d_l + 2*(self.d_v + self.d_a) if self.dominant_mod else \
-                                      2*(self.d_v + self.d_a + self.d_l), self.attn_dropout
+            embed_dim = self.d_l + 2*(self.d_v + self.d_a) if self.dominant_mod else \
+                3*(self.d_v + self.d_a + self.d_l) if self.lav_as_modality else 2*(self.d_v + self.d_a + self.d_l)
+            attn_dropout = self.attn_dropout
         else:
             raise ValueError("Unknown network type")
         
@@ -131,21 +147,31 @@ class MModel(nn.Module):
         proj_x_v = proj_x_v.permute(2, 0, 1)
         proj_x_l = proj_x_l.permute(2, 0, 1)
 
-        h_all_s = []
+        h_all_s = []  # Will contain all outputs of crossmodal transformers, to concatenate and create cross-module
+
+        if self.lav_as_modality:
+            x_lav = torch.cat([proj_x_l, proj_x_a, proj_x_v], dim=2)
+            proj_x_lav = self.proj_lav(x_lav)
+            proj_x_concat = torch.cat([proj_x_l, proj_x_a, proj_x_v, proj_x_lav], dim=2)
 
         if self.lonly:
             # (V,A) --> L
-            if not self.dominant_mod:
+            if self.dominant_mod:
+                if self.cross_module:
+                    h_all_s += [proj_x_l]
+                h_ls = self.trans_l_mem(proj_x_l)
+            else:
                 h_l_with_as = self.trans_l_with_a(proj_x_l, proj_x_a, proj_x_a)    # Dimension (L, N, d_l)
                 h_l_with_vs = self.trans_l_with_v(proj_x_l, proj_x_v, proj_x_v)    # Dimension (L, N, d_l)
                 if self.cross_module:
                     h_all_s += [h_l_with_as, h_l_with_vs]
-                h_ls = torch.cat([h_l_with_as, h_l_with_vs], dim=2)
+                if self.lav_as_modality:
+                    h_l_with_lavs = self.trans_l_with_lav(proj_x_l, proj_x_lav, proj_x_lav)
+                    h_all_s += [h_l_with_lavs]  #TODO Optional
+                h_ls = [h_l_with_as, h_l_with_vs, h_l_with_lavs] if self.lav_as_modality else [h_l_with_as, h_l_with_vs]
+                h_ls = torch.cat(h_ls, dim=2)
                 h_ls = self.trans_l_mem(h_ls)
-            else:
-                if self.cross_module:
-                    h_all_s += [proj_x_l]
-                h_ls = self.trans_l_mem(proj_x_l)
+
             if type(h_ls) == tuple:
                 h_ls = h_ls[0]
             last_h_l = last_hs = h_ls[-1]   # Take the last output for prediction
@@ -156,7 +182,11 @@ class MModel(nn.Module):
             h_a_with_vs = self.trans_a_with_v(proj_x_a, proj_x_v, proj_x_v)
             if self.cross_module:
                 h_all_s += [h_a_with_ls, h_a_with_vs]
-            h_as = torch.cat([h_a_with_ls, h_a_with_vs], dim=2)
+            if self.lav_as_modality:
+                h_a_with_lavs = self.trans_a_with_lav(proj_x_a, proj_x_lav, proj_x_lav)
+                h_all_s += [h_a_with_lavs]  #TODO Optional
+            h_as = [h_a_with_ls, h_a_with_vs, h_a_with_lavs] if self.lav_as_modality else [h_a_with_ls, h_a_with_vs]
+            h_as = torch.cat(h_as, dim=2)
             h_as = self.trans_a_mem(h_as)
             if type(h_as) == tuple:
                 h_as = h_as[0]
@@ -168,7 +198,11 @@ class MModel(nn.Module):
             h_v_with_as = self.trans_v_with_a(proj_x_v, proj_x_a, proj_x_a)
             if self.cross_module:
                 h_all_s += [h_v_with_ls, h_v_with_as]
-            h_vs = torch.cat([h_v_with_ls, h_v_with_as], dim=2)
+            if self.lav_as_modality:
+                h_v_with_lavs = self.trans_v_with_lav(proj_x_v, proj_x_lav, proj_x_lav)
+                h_all_s += [h_v_with_lavs]  #TODO Optional
+            h_vs = [h_v_with_ls, h_v_with_as, h_v_with_lavs] if self.lav_as_modality else [h_v_with_ls, h_v_with_as]
+            h_vs = torch.cat(h_vs, dim=2)
             h_vs = self.trans_v_mem(h_vs)
             if type(h_vs) == tuple:
                 h_vs = h_vs[0]

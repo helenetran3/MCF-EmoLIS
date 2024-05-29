@@ -148,8 +148,9 @@
         "mult":
         {
             "is_TensorFlow": 0,
-            "dominant_mod": 0,
-            "with_cross_module": 1,
+            "dominant_modality": 0,
+            "with_cross_module": 0,
+            "lav_as_modality": 1,
 
             "vonly": 0,
             "aonly": 0,
@@ -157,6 +158,7 @@
             "attn_dropout": 0.25,
             "attn_dropout_a": 0.0,
             "attn_dropout_v": 0.0,
+            "attn_dropout_lav": 0.0,
             "relu_dropout": 0.1,
             "embed_dropout": 0.3,
             "res_dropout": 0.1,
