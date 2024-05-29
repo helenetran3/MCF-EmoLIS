@@ -82,30 +82,38 @@ class MModel(nn.Module):
             self.trans_l_with_lav = self.get_network(self_type='llav')
             self.trans_a_with_lav = self.get_network(self_type='alav')
             self.trans_v_with_lav = self.get_network(self_type='vlav')
+            self.trans_lav_with_l = self.get_network(self_type='lavl')
+            self.trans_lav_with_a = self.get_network(self_type='lava')
+            self.trans_lav_with_v = self.get_network(self_type='lavv')
 
         # 3. Self Attentions (Could be replaced by LSTMs, GRUs, etc.)
         #    [e.g., self.trans_x_mem = nn.LSTM(self.d_x, self.d_x, 1)
         self.trans_l_mem = self.get_network(self_type='l_mem', layers=3)
         self.trans_a_mem = self.get_network(self_type='a_mem', layers=3)
         self.trans_v_mem = self.get_network(self_type='v_mem', layers=3)
+        if self.lav_as_modality:
+            self.trans_lav_mem = self.get_network(self_type='lav_mem', layers=3)
         if self.cross_module:
             self.trans_all_mem = self.get_network(self_type='all_mem', layers=3)
        
         # Projection layers
-        combined_dim = combined_dim*2 if self.cross_module else combined_dim
+        combined_dim = combined_dim*4 if int(self.cross_module + self.lav_as_modality) == 2 else \
+            combined_dim*2 if self.lav_as_modality or self.cross_module else combined_dim
         self.proj1 = nn.Linear(combined_dim, combined_dim)
         self.proj2 = nn.Linear(combined_dim, combined_dim)
         self.out_layer = nn.Linear(combined_dim, self.output_dim)
 
     def get_network(self, self_type='l', layers=-1):
-        if self_type in ['l', 'al', 'vl']:
+        if self_type in ['l', 'al', 'vl', 'lavl']:
             embed_dim, attn_dropout = self.d_l, self.attn_dropout
-        elif self_type in ['a', 'la', 'va']:
+        elif self_type in ['a', 'la', 'va', 'lava']:
             embed_dim, attn_dropout = self.d_a, self.attn_dropout_a
-        elif self_type in ['v', 'lv', 'av']:
+        elif self_type in ['v', 'lv', 'av', 'lavv']:
             embed_dim, attn_dropout = self.d_v, self.attn_dropout_v
         elif self_type in ['llav', 'alav', 'vlav']:
             embed_dim, attn_dropout = self.d_l + self.d_a + self.d_v, self.attn_dropout_lav
+        elif self_type == 'lav_mem':
+            embed_dim, attn_dropout = 3*(self.d_l + self.d_a + self.d_v), self.attn_dropout
         elif self_type == 'l_mem':
             embed_dim = self.d_l if self.dominant_mod else 3*self.d_l if self.lav_as_modality else 2*self.d_l
             attn_dropout = self.attn_dropout
@@ -152,7 +160,19 @@ class MModel(nn.Module):
         if self.lav_as_modality:
             x_lav = torch.cat([proj_x_l, proj_x_a, proj_x_v], dim=2)
             proj_x_lav = self.proj_lav(x_lav)
-            proj_x_concat = torch.cat([proj_x_l, proj_x_a, proj_x_v, proj_x_lav], dim=2)
+            # proj_x_concat = torch.cat([proj_x_l, proj_x_a, proj_x_v, proj_x_lav], dim=2)
+            h_lav_with_ls = self.trans_lav_with_l(proj_x_lav, proj_x_l, proj_x_l)    # Dimension (L, N, d_lav)
+            h_lav_with_as = self.trans_lav_with_a(proj_x_lav, proj_x_a, proj_x_a)    # Dimension (L, N, d_lav)
+            h_lav_with_vs = self.trans_lav_with_v(proj_x_lav, proj_x_v, proj_x_v)    # Dimension (L, N, d_lav)
+            h_lavs = [h_lav_with_ls, h_lav_with_as, h_lav_with_vs]
+            if self.cross_module:
+                h_all_s += h_lavs
+            h_lavs = torch.cat(h_lavs, dim=2)
+            h_lavs = self.trans_lav_mem(h_lavs)
+
+            if type(h_lavs) == tuple:
+                h_lavs = h_lavs[0]
+            last_h_lav = last_hs = h_lavs[-1]   # Take the last output for prediction
 
         if self.lonly:
             # (V,A) --> L
@@ -216,8 +236,11 @@ class MModel(nn.Module):
             last_h_all = last_hs = h_all_s[-1]
         
         if self.partial_mode == 3:
-            last_h_list = [last_h_l, last_h_a, last_h_v, last_h_all] if self.cross_module else \
-                [last_h_l, last_h_a, last_h_v]
+            last_h_list = [last_h_l, last_h_a, last_h_v]
+            if self.lav_as_modality:
+                last_h_list += [last_h_lav]
+            if self.cross_module:
+                last_h_list += [last_h_all]
             last_hs = torch.cat(last_h_list, dim=1)
         
         # A residual block
