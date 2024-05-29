@@ -1,7 +1,7 @@
 {
   "task":
   {
-    "model_name": "ef_rnn_me2e",
+    "model_name": "mult",
     "label_type": "present",
     "set_length": "max",
     "threshold_emo_present": 0,

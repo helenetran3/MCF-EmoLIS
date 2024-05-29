@@ -101,7 +101,8 @@ class MModel(nn.Module):
         elif self_type == 'v_mem':
             embed_dim, attn_dropout = 2*self.d_v, self.attn_dropout
         elif self_type == 'all_mem':
-            embed_dim, attn_dropout = 2*(self.d_v + self.d_a + self.d_l), self.attn_dropout
+            embed_dim, attn_dropout = self.d_l + 2*(self.d_v + self.d_a) if self.dominant_mod else \
+                                      2*(self.d_v + self.d_a + self.d_l), self.attn_dropout
         else:
             raise ValueError("Unknown network type")
         
@@ -174,7 +175,6 @@ class MModel(nn.Module):
             last_h_v = last_hs = h_vs[-1]
 
         if self.cross_module:
-            print("len h_all_s:", len(h_all_s))
             h_all_s = torch.cat(h_all_s, dim=2)
             h_all_s = self.trans_all_mem(h_all_s)
             if type(h_all_s) == tuple:
