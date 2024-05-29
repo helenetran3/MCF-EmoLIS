@@ -43,8 +43,6 @@ class MModel(nn.Module):
         self.dominant_mod = param_model['dominant_mod']
         self.cross_module = param_model['with_cross_module']
 
-        combined_dim = self.d_l + self.d_a + self.d_v
-
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
         if self.partial_mode == 0:
@@ -120,9 +118,6 @@ class MModel(nn.Module):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
-        #print("x_l.size():", x_l.size())
-        #print("x_v.size():", x_v.size())
-        #print("x_a.size():", x_a.size())
         x_l = F.dropout(x_l.transpose(1, 2), p=self.embed_dropout, training=self.training)
         x_a = x_a.transpose(1, 2)
         x_v = x_v.transpose(1, 2)
@@ -147,6 +142,8 @@ class MModel(nn.Module):
                 h_ls = torch.cat([h_l_with_as, h_l_with_vs], dim=2)
                 h_ls = self.trans_l_mem(h_ls)
             else:
+                if self.cross_module:
+                    h_all_s += [proj_x_l]
                 h_ls = self.trans_l_mem(proj_x_l)
             if type(h_ls) == tuple:
                 h_ls = h_ls[0]
@@ -177,6 +174,7 @@ class MModel(nn.Module):
             last_h_v = last_hs = h_vs[-1]
 
         if self.cross_module:
+            print("len h_all_s:", len(h_all_s))
             h_all_s = torch.cat(h_all_s, dim=2)
             h_all_s = self.trans_all_mem(h_all_s)
             if type(h_all_s) == tuple:
