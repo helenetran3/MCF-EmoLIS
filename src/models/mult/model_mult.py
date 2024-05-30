@@ -125,7 +125,8 @@ class MModel(nn.Module):
             attn_dropout = self.attn_dropout
         elif self_type == 'all_mem':
             embed_dim = self.d_l + 2*(self.d_v + self.d_a) if self.dominant_mod else \
-                3*(self.d_v + self.d_a + self.d_l) if self.lav_as_modality else 2*(self.d_v + self.d_a + self.d_l)
+                3*(self.d_v + self.d_a + self.d_l + self.d_lav) if self.lav_as_modality else \
+                2*(self.d_v + self.d_a + self.d_l)
             attn_dropout = self.attn_dropout
         else:
             raise ValueError("Unknown network type")
