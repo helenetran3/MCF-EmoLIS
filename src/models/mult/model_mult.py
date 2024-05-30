@@ -111,9 +111,9 @@ class MModel(nn.Module):
         elif self_type in ['v', 'lv', 'av', 'lavv']:
             embed_dim, attn_dropout = self.d_v, self.attn_dropout_v
         elif self_type in ['llav', 'alav', 'vlav']:
-            embed_dim, attn_dropout = self.d_l + self.d_a + self.d_v, self.attn_dropout_lav
+            embed_dim, attn_dropout = self.d_lav, self.attn_dropout_lav
         elif self_type == 'lav_mem':
-            embed_dim, attn_dropout = 3*(self.d_l + self.d_a + self.d_v), self.attn_dropout
+            embed_dim, attn_dropout = 3*self.d_lav, self.attn_dropout
         elif self_type == 'l_mem':
             embed_dim = self.d_l if self.dominant_mod else 3*self.d_l if self.lav_as_modality else 2*self.d_l
             attn_dropout = self.attn_dropout
@@ -158,8 +158,9 @@ class MModel(nn.Module):
         h_all_s = []  # Will contain all outputs of crossmodal transformers, to concatenate and create cross-module
 
         if self.lav_as_modality:
-            x_lav = torch.cat([proj_x_l, proj_x_a, proj_x_v], dim=2)
+            x_lav = torch.cat([x_l, x_a, x_v], dim=1)
             proj_x_lav = self.proj_lav(x_lav)
+            proj_x_lav = proj_x_lav.permute(2, 0, 1)
             # proj_x_concat = torch.cat([proj_x_l, proj_x_a, proj_x_v, proj_x_lav], dim=2)
             h_lav_with_ls = self.trans_lav_with_l(proj_x_lav, proj_x_l, proj_x_l)    # Dimension (L, N, d_lav)
             h_lav_with_as = self.trans_lav_with_a(proj_x_lav, proj_x_a, proj_x_a)    # Dimension (L, N, d_lav)
