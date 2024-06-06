@@ -206,10 +206,10 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             num_drop += 1
             continue
 
-        # Remove nan values
-        image_seg = np.nan_to_num(image_seg)
-        audio_seg = np.nan_to_num(audio_seg)
-        label_seg = np.nan_to_num(label_seg)
+        # # Remove nan values # No nan in this dataset
+        # image_seg = np.nan_to_num(image_seg)
+        # audio_seg = np.nan_to_num(audio_seg)
+        # label_seg = np.nan_to_num(label_seg)
 
         # z-normalization per instance and remove nan/infs
         image_seg = np.nan_to_num(

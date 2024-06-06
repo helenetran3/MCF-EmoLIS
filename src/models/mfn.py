@@ -24,7 +24,11 @@ class MModel(nn.Module):
         total_h_dim = self.dh_l + self.dh_a + self.dh_v
         self.mem_dim = param_model["memsize"]
         window_dim = param_model["windowsize"]
-        output_dim = num_classes  # We changed 1 to num_classes
+        self.gml = param_model['gml']
+        self.num_classes = num_classes  # We changed 1 to num_classes
+        self.num_scores = 4
+        output_dim = self.num_classes * self.num_scores if self.gml else self.num_classes
+
         attInShape = total_h_dim * window_dim
         gammaInShape = attInShape + self.mem_dim
         final_out = total_h_dim + self.mem_dim
@@ -127,5 +131,11 @@ class MModel(nn.Module):
         last_mem = all_mems[-1]
         last_hs = torch.cat([last_h_l, last_h_a, last_h_v, last_mem], dim=1)
         output = self.out_fc2(self.out_dropout(F.relu(self.out_fc1(last_hs))))
-        output = F.sigmoid(output)
+
+        if self.gml:
+            output = output.view(-1, self.num_classes, self.num_scores)
+            output = F.softmax(output, dim=2)
+        else:
+            output = F.sigmoid(output)
+
         return output

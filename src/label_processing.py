@@ -346,7 +346,7 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input
     """
 
-    def remove_neutral_class():
+    def remove_neutral_class(train_l, valid_l, test_l):
 
         def remove_neutral_class_split(split_list):
             y_arr = np.vstack(split_list[1])
@@ -359,9 +359,9 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
             seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
             return [X_list, y_list, seg_list], neutral_samples_split
 
-        new_train_l, neutral_train = remove_neutral_class_split(train_list)
-        new_valid_l, neutral_valid = remove_neutral_class_split(valid_list)
-        new_test_l, neutral_test = remove_neutral_class_split(test_list)
+        new_train_l, neutral_train = remove_neutral_class_split(train_l)
+        new_valid_l, neutral_valid = remove_neutral_class_split(valid_l)
+        new_test_l, neutral_test = remove_neutral_class_split(test_l)
 
         neutral_samples = neutral_train + neutral_valid + neutral_test
         print(f'Removed {neutral_samples} samples with no emotions '
@@ -385,11 +385,6 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     threshold_emo_pres = [param_task['threshold_emo_present']]
     num_classes = 7 if predict_neutral_class else 6
 
-    # When predict_neutral_class is False (no class created for Neutral),
-    # samples with neutral class belong to any of available classes
-    if not predict_neutral_class:
-        train_list, valid_list, test_list = remove_neutral_class()
-
     y_train = train_list[1]
     y_valid = valid_list[1]
     y_test = test_list[1]
@@ -411,6 +406,12 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     new_train_list = [train_list[0], new_y_train, train_list[2]]
     new_valid_list = [valid_list[0], new_y_valid, valid_list[2]]
     new_test_list = [test_list[0], new_y_test, test_list[2]]
+
+    # When predict_neutral_class is False (no class created for Neutral),
+    # samples with neutral class belong to any of available classes
+    if not predict_neutral_class:
+        new_train_list, new_valid_list, new_test_list = remove_neutral_class(new_train_list, new_valid_list,
+                                                                             new_test_list)
 
     return new_train_list, new_valid_list, new_test_list
 

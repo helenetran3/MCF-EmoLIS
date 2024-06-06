@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 from typing import List
 from src.models.me2e.modules.transformer_encoder import WrappedTransformerEncoder
 
@@ -14,7 +15,10 @@ class MModel(nn.Module):
         self.num_features_text = num_features_text
         self.num_features_image = num_features_image
         self.num_features_audio = num_features_audio
+        self.num_classes = num_classes
+        self.num_scores = 4
         self.mods = 'tav'  # we use the three modalities here
+        self.gml = param_model['gml']
 
         nlayers = param_model['trans_nlayers']
         # nheads = args['trans_nheads']
@@ -38,29 +42,27 @@ class MModel(nn.Module):
             )
         })
 
+        num_outputs = self.num_classes * self.num_scores if self.gml else self.num_classes
+
         self.affines = nn.ModuleDict({
             't': nn.Sequential(
                 nn.Linear(num_features_text, num_features_text // 2),
                 nn.ReLU(),
-                nn.Linear(num_features_text // 2, num_classes),
-                nn.Sigmoid()
+                nn.Linear(num_features_text // 2, num_outputs)
             ),
             'a': nn.Sequential(
                 nn.Linear(num_features_audio, num_features_audio // 2),
                 nn.ReLU(),
-                nn.Linear(num_features_audio // 2, num_classes),
-                nn.Sigmoid()
+                nn.Linear(num_features_audio // 2, num_outputs)
             ),
             'v': nn.Sequential(
                 nn.Linear(num_features_image, num_features_image // 2),
                 nn.ReLU(),
-                nn.Linear(num_features_image // 2, num_classes),
-                nn.Sigmoid()
+                nn.Linear(num_features_image // 2, num_outputs)
             )
         })
 
-        self.weighted_fusion = nn.Sequential(nn.Linear(len(self.mods), 1, bias=False),
-                                             nn.Sigmoid())
+        self.weighted_fusion = nn.Linear(len(self.mods), 1, bias=False)
 
     def forward(self, x_text, x_image, x_audio):
 
@@ -77,22 +79,42 @@ class MModel(nn.Module):
             # Added text_features_lens from original code
             texts = self.transformers['t'](x_text, text_features_lens, max_all_lens, get_cls=True)
             texts = self.affines['t'](texts)
+            if self.gml:
+                texts = texts.view(-1, self.num_classes, self.num_scores)
+                texts = F.softmax(texts, dim=2)
+            else:
+                texts = F.sigmoid(texts)
             all_logits.append(texts)
 
         if 'a' in self.mods:
             audio_features = self.transformers['a'](x_audio, audio_features_lens, max_all_lens, get_cls=True)
             audio_features = self.affines['a'](audio_features)
+            if self.gml:
+                audio_features = audio_features.view(-1, self.num_classes, self.num_scores)
+                audio_features = F.softmax(audio_features, dim=2)
+            else:
+                audio_features = F.sigmoid(audio_features)
             all_logits.append(audio_features)
 
         if 'v' in self.mods:
             img_features = self.transformers['v'](x_image, img_features_lens, max_all_lens, get_cls=True)
             img_features = self.affines['v'](img_features)
+            if self.gml:
+                img_features = img_features.view(-1, self.num_classes, self.num_scores)
+                img_features = F.softmax(img_features, dim=2)
+            else:
+                img_features = F.sigmoid(img_features)
             all_logits.append(img_features)
 
         if len(self.mods) == 1:
             return all_logits[0]
 
-        return self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
+        wei_fus = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
+
+        if self.gml:
+            return F.softmax(wei_fus, dim=2)
+        else:
+            return F.sigmoid(wei_fus)
 
     @staticmethod
     def get_len_samples(x_feat, mod_name):

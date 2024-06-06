@@ -28,6 +28,8 @@ class MModel(nn.Module):
         self.orig_d_l, self.orig_d_a, self.orig_d_v = num_features_text, num_features_audio, num_features_image
         self.d_l, self.d_a, self.d_v = 30, 30, 30
         self.d_lav = 30
+        self.num_classes = num_classes
+        self.num_scores = 4
         self.vonly = param_model['vonly']
         self.aonly = param_model['aonly']
         self.lonly = param_model['lonly']
@@ -58,7 +60,7 @@ class MModel(nn.Module):
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v) if not self.dominant_mod else \
                 self.d_l + 2 * (self.d_a + self.d_v)
 
-        self.output_dim = num_classes      # This is actually not a hyperparameter :-)
+        self.output_dim = self.num_classes * self.num_scores if self.gml else self.num_classes
 
         # 1. Temporal convolutional layers
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
@@ -189,7 +191,7 @@ class MModel(nn.Module):
                     h_all_s += [h_l_with_as, h_l_with_vs]
                 if self.lav_as_modality:
                     h_l_with_lavs = self.trans_l_with_lav(proj_x_l, proj_x_lav, proj_x_lav)
-                    h_all_s += [h_l_with_lavs]  #TODO Optional
+                    h_all_s += [h_l_with_lavs]
                 h_ls = [h_l_with_as, h_l_with_vs, h_l_with_lavs] if self.lav_as_modality else [h_l_with_as, h_l_with_vs]
                 h_ls = torch.cat(h_ls, dim=2)
                 h_ls = self.trans_l_mem(h_ls)
@@ -206,7 +208,7 @@ class MModel(nn.Module):
                 h_all_s += [h_a_with_ls, h_a_with_vs]
             if self.lav_as_modality:
                 h_a_with_lavs = self.trans_a_with_lav(proj_x_a, proj_x_lav, proj_x_lav)
-                h_all_s += [h_a_with_lavs]  #TODO Optional
+                h_all_s += [h_a_with_lavs]
             h_as = [h_a_with_ls, h_a_with_vs, h_a_with_lavs] if self.lav_as_modality else [h_a_with_ls, h_a_with_vs]
             h_as = torch.cat(h_as, dim=2)
             h_as = self.trans_a_mem(h_as)
@@ -222,7 +224,7 @@ class MModel(nn.Module):
                 h_all_s += [h_v_with_ls, h_v_with_as]
             if self.lav_as_modality:
                 h_v_with_lavs = self.trans_v_with_lav(proj_x_v, proj_x_lav, proj_x_lav)
-                h_all_s += [h_v_with_lavs]  #TODO Optional
+                h_all_s += [h_v_with_lavs]
             h_vs = [h_v_with_ls, h_v_with_as, h_v_with_lavs] if self.lav_as_modality else [h_v_with_ls, h_v_with_as]
             h_vs = torch.cat(h_vs, dim=2)
             h_vs = self.trans_v_mem(h_vs)
@@ -250,4 +252,11 @@ class MModel(nn.Module):
         last_hs_proj += last_hs
         
         output = self.out_layer(last_hs_proj)
+
+        if self.gml:
+            output = output.view(-1, self.num_classes, self.num_scores)
+            output = F.softmax(output, dim=2)
+        else:
+            output = F.sigmoid(output)
+
         return output#, last_hs

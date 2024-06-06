@@ -1,15 +1,15 @@
 import json
 import numpy as np
 
-from src.models import ef_from_mfn, ef_rnn_me2e, ef_rnn_me2e_gml, ef_trans_me2e_gml, ef_trans_me2e, ef_williams_tf, \
-    ef_williams_torch, late_fusion, lf_rnn_me2e, lf_rnn_me2e_gml, lf_trans_me2e, lf_trans_me2e_gml, mfn, mfn_gml
-from src.models.mult import model_mult, model_mult_gml, model_mult_gml_2
+from src.models import ef_from_mfn, ef_rnn_me2e, ef_trans_me2e, ef_williams_tf, ef_williams_torch, \
+    late_fusion, lf_rnn_me2e, lf_trans_me2e, mfn
+from src.models.mult import model_mult, model_mult_gml_2
 from src.models.me2e import mme2e
 # from sklearn.metrics import zero_one_loss, hamming_loss
 
-possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_rnn_me2e_gml', 'ef_trans_me2e', 'ef_trans_me2e_gml', 'ef_williams',
-                   'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_rnn_me2e_gml', 'lf_trans_me2e',
-                   'lf_trans_me2e_gml', 'mfn', 'mfn_gml', 'mme2e', 'mult', 'mult_gml', 'mult_gml_2']
+possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams',
+                   'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_trans_me2e',
+                   'mfn', 'mme2e', 'mult', 'mult_gml_2']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
@@ -27,21 +27,15 @@ def get_model_module(model_str, is_tf):
     model_dict = {
         'ef_from_mfn': ef_from_mfn,
         'ef_rnn_me2e': ef_rnn_me2e,
-        'ef_rnn_me2e_gml': ef_rnn_me2e_gml,
         'ef_trans_me2e': ef_trans_me2e,
-        'ef_trans_me2e_gml': ef_trans_me2e_gml,
         'ef_williams': ef_williams_tf if is_tf else ef_williams_torch,
         'ef_williams_debug': ef_williams_tf if is_tf else ef_williams_torch,
         'late_fusion': late_fusion,
         'lf_rnn_me2e': lf_rnn_me2e,
-        'lf_rnn_me2e_gml': lf_rnn_me2e_gml,
         'lf_trans_me2e': lf_trans_me2e,
-        'lf_trans_me2e_gml': lf_trans_me2e_gml,
         'mfn': mfn,
-        'mfn_gml': mfn_gml,
         'mme2e': mme2e,
         'mult': model_mult,
-        'mult_gml': model_mult_gml,
         'mult_gml_2': model_mult_gml_2
     }
 
@@ -400,7 +394,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         required_keys = ['model_name', 'label_type', 'set_length', 'threshold_emo_present', 'predict_neutral_class',
                          'align_to_text', 'image_feature', 'with_custom_split']
         check_if_key_is_in_list_actual_keys(required_keys, hyperparam_task, json_name)
-        check_value_is_binary('threshold_emo_present', hyperparam_task['threshold_emo_present'])
+        check_value_is_number('threshold_emo_present', hyperparam_task['threshold_emo_present'])
         check_value_is_binary('predict_neutral_class', hyperparam_task['predict_neutral_class'])
         check_value_is_binary('align_to_text', hyperparam_task['align_to_text'])
         check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])

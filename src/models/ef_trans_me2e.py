@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 from src.models.me2e.modules.transformer_encoder import WrappedTransformerEncoder
 
 
@@ -13,10 +14,14 @@ class MModel(nn.Module):
         self.num_features_text = num_features_text
         self.num_features_image = num_features_image
         self.num_features_audio = num_features_audio
+        self.num_classes = num_classes
+        self.num_scores = 4
         self.mods = 'tav'  # we use the three modalities here
+        self.gml = param_model['gml']
 
         nlayers = param_model['trans_nlayers']
         num_features_tav_incr = num_features_text + num_features_image + num_features_audio + 1 # 409+1 for div by 5
+        num_outputs = self.num_classes * self.num_scores if self.gml else self.num_classes
 
         self.concatenate = torch.cat
 
@@ -26,8 +31,7 @@ class MModel(nn.Module):
 
         self.affine = nn.Sequential(nn.Linear(num_features_tav_incr, num_features_tav_incr // 2),
                                     nn.ReLU(),
-                                    nn.Linear(num_features_tav_incr // 2, num_classes),
-                                    nn.Sigmoid())
+                                    nn.Linear(num_features_tav_incr // 2, num_outputs))
 
     def forward(self, x_text, x_image, x_audio):
 
@@ -41,6 +45,12 @@ class MModel(nn.Module):
         feat_lens = self.get_len_samples(x)
         x_trans = self.transformer(x, feat_lens, max_all_lens, get_cls=True)
         x_aff = self.affine(x_trans)
+        
+        if self.gml:
+            x_aff = x_aff.view(-1, self.num_classes, self.num_scores)
+            x_aff = F.softmax(x_aff, dim=2)
+        else:
+            x_aff = F.sigmoid(x_aff)
 
         return x_aff
 

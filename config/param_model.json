@@ -11,24 +11,15 @@
 
         "ef_rnn_me2e":
         {
-            "is_TensorFlow": 0
-        },
-
-        "ef_rnn_me2e_gml":
-        {
-            "is_TensorFlow": 0
+            "is_TensorFlow": 0,
+            "gml": 0
         },
 
         "ef_trans_me2e":
         {
             "is_TensorFlow": 0,
-            "trans_nlayers": 2
-        },
-
-        "ef_trans_me2e_gml":
-        {
-            "is_TensorFlow": 0,
-            "trans_nlayers": 2
+            "trans_nlayers": 2,
+            "gml": 0
         },
 
         "ef_williams":
@@ -60,57 +51,22 @@
 
         "lf_rnn_me2e":
         {
-            "is_TensorFlow": 0
-        },
-
-        "lf_rnn_me2e_gml":
-        {
-            "is_TensorFlow": 0
+            "is_TensorFlow": 0,
+            "gml": 0
         },
 
         "lf_trans_me2e":
         {
             "is_TensorFlow": 0,
-            "trans_nlayers": 2
-        },
-
-        "lf_trans_me2e_gml":
-        {
-            "is_TensorFlow": 0,
-            "trans_nlayers": 2
+            "trans_nlayers": 2,
+            "gml": 0
         },
 
         "mfn":
         {
             "is_TensorFlow": 0,
-            "memsize": 64,
-            "windowsize": 2,
-            "dim_h_text": 32,
-            "dim_h_image": 32,
-            "dim_h_audio": 32,
-            "nn1_layers": 1,
-            "nn1_shapes": 256,
-            "nn1_activation": "relu",
-            "nn1_drop": 0.5,
-            "nn2_layers": 1,
-            "nn2_shapes": 64,
-            "nn2_activation": "relu",
-            "nn2_drop": 0.5,
-            "gamma1_layers": 1,
-            "gamma1_shapes": 64,
-            "gamma1_activation": "relu",
-            "gamma1_drop": 0.5,
-            "gamma2_layers": 1,
-            "gamma2_shapes": 64,
-            "gamma2_activation": "relu",
-            "gamma2_drop": 0.5,
-            "out_shapes": 64,
-            "out_drop": 0.2
-        },
+            "gml": 0,
 
-        "mfn_gml":
-        {
-            "is_TensorFlow": 0,
             "memsize": 64,
             "windowsize": 2,
             "dim_h_text": 32,
@@ -151,6 +107,7 @@
             "dominant_modality": 0,
             "with_cross_module": 0,
             "lav_as_modality": 1,
+            "gml": 0,
 
             "vonly": 0,
             "aonly": 0,
@@ -159,26 +116,6 @@
             "attn_dropout_a": 0.0,
             "attn_dropout_v": 0.0,
             "attn_dropout_lav": 0.0,
-            "relu_dropout": 0.1,
-            "embed_dropout": 0.3,
-            "res_dropout": 0.1,
-            "out_dropout": 0.1,
-
-            "nlevels": 4,
-            "num_heads": 10,
-            "attn_mask": 1
-        },
-
-        "mult_gml":
-        {
-            "is_TensorFlow": 0,
-
-            "vonly": 0,
-            "aonly": 0,
-            "lonly": 0,
-            "attn_dropout": 0.25,
-            "attn_dropout_a": 0.0,
-            "attn_dropout_v": 0.0,
             "relu_dropout": 0.1,
             "embed_dropout": 0.3,
             "res_dropout": 0.1,
