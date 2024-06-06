@@ -47,6 +47,7 @@ class MModel(nn.Module):
         self.cross_module = param_model['with_cross_module']
         self.lav_as_modality = param_model['lav_as_modality']
         self.multitask = param_model['multitask']
+        self.gml = param_model['gml']
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 

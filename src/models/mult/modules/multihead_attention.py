@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import Parameter
+import torch.nn.functional as F
 import sys
 
 # Code adapted from the fairseq repo.
@@ -153,4 +154,4 @@ class MultiheadAttention(nn.Module):
         weight = weight[start:end, :]
         if bias is not None:
             bias = bias[start:end]
-        return torch.nn.Linear(input, weight, bias)
+        return F.linear(input, weight, bias)
