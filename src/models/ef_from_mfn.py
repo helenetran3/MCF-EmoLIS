@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 
 class MModel(nn.Module):
@@ -41,7 +40,7 @@ class MModel(nn.Module):
 
         x = self.concatenate((x_text, x_image, x_audio), 1)
         last_hs = self.lstm(x)[1][-1]
-        l1 = F.relu(self.linear1(last_hs))
+        l1 = torch.relu(self.linear1(last_hs))
         l1 = self.dropout(l1)
         out = self.linear2(l1)
         return out

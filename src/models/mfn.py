@@ -11,7 +11,6 @@
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 
 class MModel(nn.Module):
@@ -105,12 +104,12 @@ class MModel(nn.Module):
             prev_cs = torch.cat([prev_c_l, prev_c_a, prev_c_v], dim=1)
             new_cs = torch.cat([new_c_l, new_c_a, new_c_v], dim=1)
             cStar = torch.cat([prev_cs, new_cs], dim=1)
-            attention = F.softmax(self.att1_fc2(self.att1_dropout(F.relu(self.att1_fc1(cStar)))), dim=1)
+            attention = torch.softmax(self.att1_fc2(self.att1_dropout(torch.relu(self.att1_fc1(cStar)))), dim=1)
             attended = attention * cStar
-            cHat = torch.tanh(self.att2_fc2(self.att2_dropout(F.relu(self.att2_fc1(attended)))))
+            cHat = torch.tanh(self.att2_fc2(self.att2_dropout(torch.relu(self.att2_fc1(attended)))))
             both = torch.cat([attended, self.mem], dim=1)
-            gamma1 = torch.sigmoid(self.gamma1_fc2(self.gamma1_dropout(F.relu(self.gamma1_fc1(both)))))
-            gamma2 = torch.sigmoid(self.gamma2_fc2(self.gamma2_dropout(F.relu(self.gamma2_fc1(both)))))
+            gamma1 = torch.sigmoid(self.gamma1_fc2(self.gamma1_dropout(torch.relu(self.gamma1_fc1(both)))))
+            gamma2 = torch.sigmoid(self.gamma2_fc2(self.gamma2_dropout(torch.relu(self.gamma2_fc1(both)))))
             self.mem = gamma1 * self.mem + gamma2 * cHat
             all_mems.append(self.mem)
             # update
@@ -130,12 +129,12 @@ class MModel(nn.Module):
         last_h_v = all_h_vs[-1]
         last_mem = all_mems[-1]
         last_hs = torch.cat([last_h_l, last_h_a, last_h_v, last_mem], dim=1)
-        output = self.out_fc2(self.out_dropout(F.relu(self.out_fc1(last_hs))))
+        output = self.out_fc2(self.out_dropout(torch.relu(self.out_fc1(last_hs))))
 
         if self.gml:
             output = output.view(-1, self.num_classes, self.num_scores)
-            output = F.softmax(output, dim=2)
+            output = torch.softmax(output, dim=2)
         else:
-            output = F.sigmoid(output)
+            output = torch.sigmoid(output)
 
         return output

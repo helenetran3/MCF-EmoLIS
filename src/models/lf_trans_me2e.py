@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 from typing import List
 from src.models.me2e.modules.transformer_encoder import WrappedTransformerEncoder
 
@@ -81,9 +80,9 @@ class MModel(nn.Module):
             texts = self.affines['t'](texts)
             if self.gml:
                 texts = texts.view(-1, self.num_classes, self.num_scores)
-                texts = F.softmax(texts, dim=2)
+                texts = torch.softmax(texts, dim=2)
             else:
-                texts = F.sigmoid(texts)
+                texts = torch.sigmoid(texts)
             all_logits.append(texts)
 
         if 'a' in self.mods:
@@ -91,9 +90,9 @@ class MModel(nn.Module):
             audio_features = self.affines['a'](audio_features)
             if self.gml:
                 audio_features = audio_features.view(-1, self.num_classes, self.num_scores)
-                audio_features = F.softmax(audio_features, dim=2)
+                audio_features = torch.softmax(audio_features, dim=2)
             else:
-                audio_features = F.sigmoid(audio_features)
+                audio_features = torch.sigmoid(audio_features)
             all_logits.append(audio_features)
 
         if 'v' in self.mods:
@@ -101,9 +100,9 @@ class MModel(nn.Module):
             img_features = self.affines['v'](img_features)
             if self.gml:
                 img_features = img_features.view(-1, self.num_classes, self.num_scores)
-                img_features = F.softmax(img_features, dim=2)
+                img_features = torch.softmax(img_features, dim=2)
             else:
-                img_features = F.sigmoid(img_features)
+                img_features = torch.sigmoid(img_features)
             all_logits.append(img_features)
 
         if len(self.mods) == 1:
@@ -112,9 +111,9 @@ class MModel(nn.Module):
         wei_fus = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
 
         if self.gml:
-            return F.softmax(wei_fus, dim=2)
+            return torch.softmax(wei_fus, dim=2)
         else:
-            return F.sigmoid(wei_fus)
+            return torch.sigmoid(wei_fus)
 
     @staticmethod
     def get_len_samples(x_feat, mod_name):

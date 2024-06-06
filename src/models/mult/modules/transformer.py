@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 from src.models.mult.modules.position_embedding import SinusoidalPositionalEmbedding
 from src.models.mult.modules.multihead_attention import MultiheadAttention
 import math
@@ -63,7 +62,7 @@ class TransformerEncoder(nn.Module):
         x = self.embed_scale * x_in
         if self.embed_positions is not None:
             x += self.embed_positions(x_in.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = torch.dropout(x, p=self.dropout, train=self.training)
 
         if x_in_k is not None and x_in_v is not None:
             # embed tokens and positions    
@@ -72,8 +71,8 @@ class TransformerEncoder(nn.Module):
             if self.embed_positions is not None:
                 x_k += self.embed_positions(x_in_k.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
                 x_v += self.embed_positions(x_in_v.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
-            x_k = F.dropout(x_k, p=self.dropout, training=self.training)
-            x_v = F.dropout(x_v, p=self.dropout, training=self.training)
+            x_k = torch.dropout(x_k, p=self.dropout, train=self.training)
+            x_v = torch.dropout(x_v, p=self.dropout, train=self.training)
         
         # encoder layers
         intermediates = [x]
@@ -150,16 +149,16 @@ class TransformerEncoderLayer(nn.Module):
             x_k = self.maybe_layer_norm(0, x_k, before=True)
             x_v = self.maybe_layer_norm(0, x_v, before=True) 
             x, _ = self.self_attn(query=x, key=x_k, value=x_v, attn_mask=mask)
-        x = F.dropout(x, p=self.res_dropout, training=self.training)
+        x = torch.dropout(x, p=self.res_dropout, train=self.training)
         x = residual + x
         x = self.maybe_layer_norm(0, x, after=True)
 
         residual = x
         x = self.maybe_layer_norm(1, x, before=True)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=self.relu_dropout, training=self.training)
+        x = torch.relu(self.fc1(x))
+        x = torch.dropout(x, p=self.relu_dropout, train=self.training)
         x = self.fc2(x)
-        x = F.dropout(x, p=self.res_dropout, training=self.training)
+        x = torch.dropout(x, p=self.res_dropout, train=self.training)
         x = residual + x
         x = self.maybe_layer_norm(1, x, after=True)
         return x

@@ -11,7 +11,6 @@
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 from src.models.mult.modules.transformer import TransformerEncoder
 
@@ -145,7 +144,7 @@ class MModel(nn.Module):
 
     def mult_backbone(self, x_l, x_a, x_v):
 
-        x_l = F.dropout(x_l.transpose(1, 2), p=self.embed_dropout, training=self.training)
+        x_l = torch.dropout(x_l.transpose(1, 2), p=self.embed_dropout, train=self.training)
         x_a = x_a.transpose(1, 2)
         x_v = x_v.transpose(1, 2)
 
@@ -255,11 +254,12 @@ class MModel(nn.Module):
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
 
-        output_main = None
+        output_multi = None
         proj_x, last_hs = self.mult_backbone(x_l, x_a, x_v)
 
         # Residual block for main task
-        last_hs_proj = self.proj2(F.dropout(F.relu(self.proj1(last_hs)), p=self.out_dropout, training=self.training))
+        last_hs_proj = self.proj2(
+            torch.dropout(torch.relu(self.proj1(last_hs)), p=self.out_dropout, train=self.training))
         last_hs_proj += last_hs
         output_main = self.out_layer(last_hs_proj)
 
@@ -270,8 +270,8 @@ class MModel(nn.Module):
             _, last_hs_multi = self.mult_backbone(x_l_multi, x_a_multi, x_v_multi)
 
             # Residual block for the second task (usually the finer grained one)
-            last_hs_proj_multi = self.proj2(F.dropout(
-                F.relu(self.proj1(last_hs)), p=self.out_dropout, training=self.training))
+            last_hs_proj_multi = self.proj2(torch.dropout(
+                torch.relu(self.proj1(last_hs)), p=self.out_dropout, train=self.training))
             last_hs_proj_multi += last_hs
             output_multi = self.out_layer(last_hs_proj_multi)
 
@@ -279,8 +279,8 @@ class MModel(nn.Module):
 
         if self.gml:
             output = output.view(-1, self.num_classes, self.num_scores)
-            output = F.softmax(output, dim=2)
+            output = torch.softmax(output, dim=2)
         else:
-            output = F.sigmoid(output)
+            output = torch.sigmoid(output)
 
         return output#, last_hs_1

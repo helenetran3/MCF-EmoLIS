@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 
 class MModel(nn.Module):
@@ -57,8 +56,8 @@ class MModel(nn.Module):
 
         if self.gml:
             x_hn = x_hn.view(-1, self.num_classes, self.num_scores)
-            x_hn = F.softmax(x_hn, dim=2)
+            x_hn = torch.softmax(x_hn, dim=2)
         else:
-            x_hn = F.sigmoid(x_hn)
+            x_hn = torch.sigmoid(x_hn)
 
         return x_hn

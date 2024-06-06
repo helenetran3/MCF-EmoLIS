@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 from src.models.me2e.modules.transformer_encoder import WrappedTransformerEncoder
 
 
@@ -48,9 +47,9 @@ class MModel(nn.Module):
         
         if self.gml:
             x_aff = x_aff.view(-1, self.num_classes, self.num_scores)
-            x_aff = F.softmax(x_aff, dim=2)
+            x_aff = torch.softmax(x_aff, dim=2)
         else:
-            x_aff = F.sigmoid(x_aff)
+            x_aff = torch.sigmoid(x_aff)
 
         return x_aff
 

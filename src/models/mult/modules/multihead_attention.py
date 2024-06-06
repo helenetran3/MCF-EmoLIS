@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from torch.nn import Parameter
-import torch.nn.functional as F
 import sys
 
 # Code adapted from the fairseq repo.
@@ -117,10 +116,10 @@ class MultiheadAttention(nn.Module):
                 print(attn_mask.unsqueeze(0).shape)
                 assert False
                 
-        attn_weights = F.softmax(attn_weights.float(), dim=-1).type_as(attn_weights)
-        # attn_weights = F.relu(attn_weights)
+        attn_weights = torch.softmax(attn_weights.float(), dim=-1).type_as(attn_weights)
+        # attn_weights = torch.relu(attn_weights)
         # attn_weights = attn_weights / torch.max(attn_weights)
-        attn_weights = F.dropout(attn_weights, p=self.attn_dropout, training=self.training)
+        attn_weights = torch.dropout(attn_weights, p=self.attn_dropout, train=self.training)
 
         attn = torch.bmm(attn_weights, v)
         assert list(attn.size()) == [bsz * self.num_heads, tgt_len, self.head_dim]
@@ -154,4 +153,4 @@ class MultiheadAttention(nn.Module):
         weight = weight[start:end, :]
         if bias is not None:
             bias = bias[start:end]
-        return F.linear(input, weight, bias)
+        return torch.nn.Linear(input, weight, bias)

@@ -85,8 +85,9 @@ def get_loss_function(loss_function_str, is_tf):
         weight_coarse = [[1.6943751731781658, 3.4503432494279176, 6.454197010348793, 2.703675490382784], [0.43707973102785785, 5.881811748053786, 8.937659683188555, 16.180212014134277], [0.3396707308672591, 9.009264024704066, 13.279001468428781, 10.960639606396064], [0.1332012585945694, 11.21608040201005, 38.52845528455285, 95.27722772277228], [0.26220145379023885, 9.366737739872068, 16.712204007285976, 17.24390243902439], [0.10770632796035769, 15.823529411764707, 34.48905109489051, 103.0]]
 
         def wei_bce_gml(output, target):
-            assert(target.size() == output.size())
-            assert(target.dim() == 3)  # (num_samples, num_classes, num_scores)
+            if target.size() != output.size() or target.dim() != 3:  # (num_samples, num_classes, num_scores)
+                raise ValueError("Output size does not match with target size. Please check if gml is set to 1 in "
+                                 "config/param_model.json.")
 
             loss = []
             for cl_i, weight_i in enumerate(weight_coarse):

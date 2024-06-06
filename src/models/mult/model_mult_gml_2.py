@@ -11,7 +11,6 @@
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 from src.models.mult.modules.transformer import TransformerEncoder
 
@@ -118,10 +117,7 @@ class MModel(nn.Module):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
-        #print("x_l.size():", x_l.size())
-        #print("x_v.size():", x_v.size())
-        #print("x_a.size():", x_a.size())
-        x_l = F.dropout(x_l.transpose(1, 2), p=self.embed_dropout, training=self.training)
+        x_l = torch.dropout(x_l.transpose(1, 2), p=self.embed_dropout, train=self.training)
         x_a = x_a.transpose(1, 2)
         x_v = x_v.transpose(1, 2)
 
@@ -177,10 +173,10 @@ class MModel(nn.Module):
         # A residual block
         output = []
         for i in range(self.num_classes):
-            last_hs_proj_i = self.proj_2[i](F.dropout(F.relu(self.proj_1[i](last_hs[i])), p=self.out_dropout,
-                                                      training=self.training))
+            last_hs_proj_i = self.proj_2[i](torch.dropout(torch.relu(self.proj_1[i](last_hs[i])), p=self.out_dropout,
+                                                      train=self.training))
             last_hs_proj_i += last_hs[i]
-            output += [F.softmax(self.out_layer[i](last_hs_proj_i), dim = 1)]
+            output += [torch.softmax(self.out_layer[i](last_hs_proj_i), dim = 1)]
 
         output = [o.unsqueeze(-1) for o in output]
         output = torch.concat(output, axis=-1)  # (batch_size, num_scores, num_classes)

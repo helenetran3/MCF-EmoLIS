@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 
 class MModel(nn.Module):
@@ -89,9 +88,9 @@ class MModel(nn.Module):
             output_t = self.affines['t'](output_t)
             if self.gml:
                 output_t = output_t.view(-1, self.num_classes, self.num_scores)
-                output_t = F.softmax(output_t, dim=2)
+                output_t = torch.softmax(output_t, dim=2)
             else:
-                output_t = F.sigmoid(output_t)
+                output_t = torch.sigmoid(output_t)
             all_logits.append(output_t)
 
         if 'a' in self.mods:
@@ -105,9 +104,9 @@ class MModel(nn.Module):
             audio_hn = self.affines['a'](audio_hn)
             if self.gml:
                 audio_hn = audio_hn.view(-1, self.num_classes, self.num_scores)
-                audio_hn = F.softmax(audio_hn, dim=2)
+                audio_hn = torch.softmax(audio_hn, dim=2)
             else:
-                audio_hn = F.sigmoid(audio_hn)
+                audio_hn = torch.sigmoid(audio_hn)
             all_logits.append(audio_hn)
 
         if 'v' in self.mods:
@@ -121,9 +120,9 @@ class MModel(nn.Module):
             img_hn = self.affines['v'](img_hn)
             if self.gml:
                 img_hn = img_hn.view(-1, self.num_classes, self.num_scores)
-                img_hn = F.softmax(img_hn, dim=2)
+                img_hn = torch.softmax(img_hn, dim=2)
             else:
-                img_hn = F.sigmoid(img_hn)
+                img_hn = torch.sigmoid(img_hn)
             all_logits.append(img_hn)
 
         if len(self.mods) == 1:
@@ -132,6 +131,6 @@ class MModel(nn.Module):
         wei_fus = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
 
         if self.gml:
-            return F.softmax(wei_fus, dim=2)
+            return torch.softmax(wei_fus, dim=2)
         else:
-            return F.sigmoid(wei_fus)
+            return torch.sigmoid(wei_fus)
