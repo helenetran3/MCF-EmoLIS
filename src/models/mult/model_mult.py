@@ -47,6 +47,7 @@ class MModel(nn.Module):
         self.dominant_mod = param_model['dominant_modality']
         self.cross_module = param_model['with_cross_module']
         self.lav_as_modality = param_model['lav_as_modality']
+        self.multitask = param_model['multitask']
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
@@ -141,11 +142,9 @@ class MModel(nn.Module):
                                   res_dropout=self.res_dropout,
                                   embed_dropout=self.embed_dropout,
                                   attn_mask=self.attn_mask)
-            
-    def forward(self, x_l, x_v, x_a):  # inverted x_v and x_a to fit the current code
-        """
-        text, audio, and vision should have dimension [batch_size, seq_len, n_features]
-        """
+
+    def mult_backbone(self, x_l, x_a, x_v):
+
         x_l = F.dropout(x_l.transpose(1, 2), p=self.embed_dropout, training=self.training)
         x_a = x_a.transpose(1, 2)
         x_v = x_v.transpose(1, 2)
@@ -157,7 +156,6 @@ class MModel(nn.Module):
         proj_x_a = proj_x_a.permute(2, 0, 1)
         proj_x_v = proj_x_v.permute(2, 0, 1)
         proj_x_l = proj_x_l.permute(2, 0, 1)
-
         h_all_s = []  # Will contain all outputs of crossmodal transformers, to concatenate and create cross-module
 
         if self.lav_as_modality:
@@ -238,7 +236,7 @@ class MModel(nn.Module):
             if type(h_all_s) == tuple:
                 h_all_s = h_all_s[0]
             last_h_all = last_hs = h_all_s[-1]
-        
+
         if self.partial_mode == 3:
             last_h_list = [last_h_l, last_h_a, last_h_v]
             if self.lav_as_modality:
@@ -246,12 +244,38 @@ class MModel(nn.Module):
             if self.cross_module:
                 last_h_list += [last_h_all]
             last_hs = torch.cat(last_h_list, dim=1)
-        
-        # A residual block
+
+        proj_x = [proj_x_l, proj_x_a, proj_x_v]
+
+        return proj_x, last_hs
+
+            
+    def forward(self, x_l, x_v, x_a):  # inverted x_v and x_a to fit the current code
+        """
+        text, audio, and vision should have dimension [batch_size, seq_len, n_features]
+        """
+
+        output_main = None
+        proj_x, last_hs = self.mult_backbone(x_l, x_a, x_v)
+
+        # Residual block for main task
         last_hs_proj = self.proj2(F.dropout(F.relu(self.proj1(last_hs)), p=self.out_dropout, training=self.training))
         last_hs_proj += last_hs
-        
-        output = self.out_layer(last_hs_proj)
+        output_main = self.out_layer(last_hs_proj)
+
+        if self.multitask:
+            x_l_multi = [proj_x[0], last_hs[0]]
+            x_a_multi = [proj_x[1], last_hs[1]]
+            x_v_multi = [proj_x[2], last_hs[2]]
+            _, last_hs_multi = self.mult_backbone(x_l_multi, x_a_multi, x_v_multi)
+
+            # Residual block for the second task (usually the finer grained one)
+            last_hs_proj_multi = self.proj2(F.dropout(
+                F.relu(self.proj1(last_hs)), p=self.out_dropout, training=self.training))
+            last_hs_proj_multi += last_hs
+            output_multi = self.out_layer(last_hs_proj_multi)
+
+        output = torch.cat([output_main, output_multi]) if self.multitask else output_main
 
         if self.gml:
             output = output.view(-1, self.num_classes, self.num_scores)
@@ -259,4 +283,4 @@ class MModel(nn.Module):
         else:
             output = F.sigmoid(output)
 
-        return output#, last_hs
+        return output#, last_hs_1
