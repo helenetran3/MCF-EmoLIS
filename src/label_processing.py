@@ -205,15 +205,16 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
 
     ext_name = "_pred-neu" if predict_neutral_class else "_rm-neu"
     true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
+    true_scores_all = np.reshape(np.array(y_list), (-1, 6))
 
     # if not pickle_file_exists(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei'):
         
-    # Create 2D array from list of 2D true presence score arrays of shape (1, 6)
-    if not pickle_file_exists(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei'):
-        true_scores_all = np.reshape(np.array(y_list), (-1, 6))
-        save_with_pickle(true_scores_all, root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei')
-    else:
-        true_scores_all = load_from_pickle(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei')
+    # # Create 2D array from list of 2D true presence score arrays of shape (1, 6)
+    # if not pickle_file_exists(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei'):
+    #     true_scores_all = np.reshape(np.array(y_list), (-1, 6))
+    #     save_with_pickle(true_scores_all, root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei')
+    # else:
+    #     true_scores_all = load_from_pickle(root_name + "_true_scores_all" + ext_name, 'processed_folds', 'cmu_mosei')
 
     # Compute true presence scores: arrays of shape (4654, 6)
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
