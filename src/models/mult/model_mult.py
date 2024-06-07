@@ -296,7 +296,7 @@ class MModel(nn.Module):
 
         output = {"main": output_main, "multi": output_multi} if self.multitask else output_main
 
-        output = output["main"]  # TODO Temporary
+        output = output["main"] if self.multitask else output  # TODO Temporary
         if self.gml:
             output = output.view(-1, self.num_classes, self.num_scores)
             output = torch.softmax(output, dim=2)
