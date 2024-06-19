@@ -1,5 +1,5 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
-from src.label_processing import compute_pred_labels
+from src.label_processing import compute_pred_labels, from_one_hot_to_plain
 from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics
 
 import os
@@ -90,13 +90,18 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
     print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f}")
     print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
-    pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
-    if one_hot:
-        pred_raw_array = np.array(pred_raw_list).reshape((test_size, -1, 4))  # 4 for number of scores
-    else:
-        pred_raw_array = np.array(pred_raw_list).reshape(test_size, -1)
 
-    pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+    # This block creates pred_raw_array, i.e., pred_raw in array format, with shape (test_size, num_classes) and
+    # values in [0, 3]
+    pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
+    pred_shape = (test_size, -1, 4) if one_hot else (test_size, -1)  # 4 for number of scores
+    pred_raw_array = np.array(pred_raw_list).reshape(pred_shape)
+    if 'oh' in label_type:
+        pred_raw_array = from_one_hot_to_plain(pred_raw_array, num_classes)
+    if 'prob' in label_type:
+        pred_raw_array = np.round(pred_raw_array*3).astype(int)
+
+    pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
 
@@ -111,7 +116,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     # print("len(pred_classes_pres):", len(pred_classes_pres))
     # print("pred_classes_dom[0]:", pred_classes_dom[0])
 
-    return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, \
+           pred_classes_dom
 
 
 def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps,
@@ -119,20 +125,22 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']
-        model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = [], [], [], [], []
+        model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+            [], [], [], [], [], []
         for fold_i in range(num_folds):
-            loss_vals_i, pred_raw_i, pred_coa_i, pred_pres_i, pred_dom_i = \
+            loss_vals_i, pred_raw_i, pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, with_cross_valid, fold_i, param_task, param_model,
                                    param_log, num_steps, model_name, model_id, loss_function, val_metrics,
                                    all_scores, device)
             model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw_array += [pred_raw_i]
+            pred_scores_all += [pred_all_i]
             pred_scores_coa += [pred_coa_i]
             pred_classes_pres += [pred_pres_i]
             pred_classes_dom += [pred_dom_i]
     else:
-        model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_log,
                                num_steps, model_name, model_id, loss_function, val_metrics, all_scores, device)
 
-    return model_eval_output, pred_raw_array, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom

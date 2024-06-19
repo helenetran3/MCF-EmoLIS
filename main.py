@@ -17,9 +17,9 @@ def main():
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     pickle_name_fold = param_log['pickle_name_fold']
     if pickle_file_exists(pickle_name_fold + "_train", "raw_folds", "cmu_mosei"):
-        train_list = load_from_pickle(pickle_name_fold + "_train", "raw_folds", "cmu_mosei")
-        valid_list = load_from_pickle(pickle_name_fold + "_valid", "raw_folds", "cmu_mosei")
-        test_list = load_from_pickle(pickle_name_fold + "_test",  "raw_folds", "cmu_mosei")
+        train_list_orig = load_from_pickle(pickle_name_fold + "_train", "raw_folds", "cmu_mosei")
+        valid_list_orig = load_from_pickle(pickle_name_fold + "_valid", "raw_folds", "cmu_mosei")
+        test_list_orig = load_from_pickle(pickle_name_fold + "_test",  "raw_folds", "cmu_mosei")
 
     else:
         # Load CMU-MOSEI dataset
@@ -27,27 +27,28 @@ def main():
 
         # Get data for training, validation and test sets (split provided by the SDK)
         train_ids, valid_ids, test_ids = get_fold_ids(param_task)
-        train_list, valid_list, test_list = process_and_split_dataset(dataset, train_ids, valid_ids, test_ids,
-                                                                      param_task, param_log)
+        train_list_orig, valid_list_orig, test_list_orig = process_and_split_dataset(dataset, train_ids, valid_ids,
+                                                                                     test_ids, param_task, param_log)
 
-    all_scores = get_available_presence_scores_arr(train_list, valid_list, test_list)
+    all_scores = get_available_presence_scores_arr(train_list_orig, valid_list_orig, test_list_orig)
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, coarse_prob,
     # present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
-    train_list, valid_list, test_list = update_labels(train_list, valid_list, test_list, param_task, all_scores)
+    train_list_task, valid_list_task, test_list_task = update_labels(train_list_orig, valid_list_orig, test_list_orig,
+                                                                     param_task, all_scores)
 
     # Cross-validation
     if with_cross_validation:
-        train_list, valid_list = split_for_cross_validation(train_list, valid_list, param_training)
+        train_list_task, valid_list_task = split_for_cross_validation(train_list_task, valid_list_task, param_training)
 
     # Balance dataset  #TODO
-    balance_dataset(train_list, valid_list, test_list, param_task, all_scores)
+    balance_dataset(train_list_task, valid_list_task, test_list_task, param_task, all_scores)
 
     def run_one_experiment(model_name, loss_function, val_metrics):
         param_model = get_hyperparam_from_json("param_model", model_name=model_name)
         model_id = get_current_model_id(model_name)
         is_tf = bool(param_model['is_TensorFlow'])
-        num_steps = get_length_dataset(train_list, valid_list, test_list, param_task, is_tf)
+        num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task, is_tf)
         label_type = param_task['label_type']
 
         # Model training
@@ -55,11 +56,11 @@ def main():
             from src.tensorflow_utils.model_training import train_tf_model
             from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
-            train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                           num_steps, model_name, model_id, loss_function, val_metrics, with_cross_validation)
+            train_tf_model(train_list_task, valid_list_task, test_list_task, param_task, param_model, param_training,
+                           param_log, num_steps, model_name, model_id, loss_function, val_metrics, with_cross_validation)
 
-            model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-                evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
+            model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+                evaluate_tf_model(test_list_task, param_task, param_training, param_log, num_steps, model_name, model_id,
                                   loss_function, val_metrics, all_scores, with_cross_validation)
 
         else:
@@ -70,12 +71,12 @@ def main():
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             print(f"\nUsing {device} device")
 
-            train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log,
-                              num_steps, model_name, model_id, loss_function, val_metrics, label_type, device,
-                              with_cross_validation)
+            train_torch_model(train_list_task, valid_list_task, test_list_task, param_task, param_model, param_training,
+                              param_log, num_steps, model_name, model_id, loss_function, val_metrics, label_type,
+                              device, with_cross_validation)
 
-            model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-                evaluate_torch_model(test_list, param_task, param_model, param_training, param_log,
+            model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+                evaluate_torch_model(test_list_task, param_task, param_model, param_training, param_log,
                                      num_steps, model_name, model_id, loss_function, val_metrics, all_scores,
                                      device, with_cross_validation)
 
@@ -84,8 +85,8 @@ def main():
                                      loss_function, val_metrics, with_cross_validation)
 
         # Compute and save metrics
-        compute_and_save_model_metrics(test_list, with_cross_validation, model_eval_output,
-                                       pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+        compute_and_save_model_metrics(test_list_orig, with_cross_validation, model_eval_output,
+                                       pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                        param_task, param_training, param_log, model_name, model_id,
                                        loss_function, val_metrics, all_scores)
 

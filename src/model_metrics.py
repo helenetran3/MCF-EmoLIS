@@ -44,7 +44,7 @@ def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     return [mae, mse, r2] + mae_emo + mse_emo + r2_emo
 
 
-def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes, round_decimals, prob, one_hot):
+def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes, round_decimals):
     """
     Return unweighted mean of all the classification metrics for the case of coarse scores.
 
@@ -52,8 +52,6 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     :param pred_scores_coa: Array of shape (test_size, 6) giving the predicted presence scores among [0, 1, 2, 3]
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
-    :param prob: If we use probabilities for coarse scores [0, 1/3, 2/3, 1]
-    :param one_hot: whether we turn coarse scores to one hot encoders
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
@@ -83,18 +81,6 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
 
     true_scores_for_each_emo = [true_scores_coa[:, i] for i in range(num_classes)]
     pred_scores_for_each_emo = [pred_scores_coa[:, i] for i in range(num_classes)]
-
-    # # If working with probabilities, go back to integers between 0, 1, 2, 3 to avoid metric miscalculation due to
-    # # floating points
-    # if prob:
-    #     true_scores_for_each_emo = [np.round(ts*3).astype(int) for ts in true_scores_for_each_emo]
-    #     pred_scores_for_each_emo = [np.round(ps*3).astype(int) for ps in pred_scores_for_each_emo]
-    #
-    # if one_hot:
-    #     lb = LabelBinarizer()
-    #     _ = lb.fit([0, 1, 2, 3])
-    #     true_scores_for_each_emo = [lb.inverse_transform(ts) for ts in true_scores_for_each_emo]
-    #     # pred_scores_for_each_emo = [lb.inverse_transform(ps) for ps in pred_scores_for_each_emo]
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
@@ -437,8 +423,8 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                              pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom, with_cross_val,
-                              threshold_emo_pres, num_classes, round_decimals, model_id, model_folder):
+                              pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                              with_cross_val, threshold_emo_pres, num_classes, round_decimals, model_id, model_folder):
     """
     Compute metrics for four tasks: estimation of presence score (regression), classification of presence score among
     [0, 1, 2, 3], binary classification for each emotion, and prediction of dominant classes (multilabel classification)
@@ -449,7 +435,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :param true_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the true presence of an
     emotion (> threshold defined by threshold_emo_pres)
     :param true_classes_dom: binary array of shape (test_size, num_classes) giving the truly dominant emotions
-    :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
+    :param pred_raw: array of shape (test_size, num_classes) from the model raw output
+    :param pred_scores_all: array of shape (test_size, num_classes) predicting the original presence scores
     :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by threshold_emo_pres)
@@ -464,33 +451,37 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     """
 
     # Some metrics do not make sense for the targeted task (label_type): we do not print them
+    label_type_for_reg = label_type
     if label_type == 'all':
-        compute_reg, compute_coa, compute_pres = True, True, True
+        compute_fine, compute_coa, compute_pres = True, True, True
     elif 'coarse' in label_type:
-        compute_reg, compute_coa, compute_pres = False, True, True
+        label_type_for_reg = 'coarse'
+        compute_fine, compute_coa, compute_pres = False, True, True
     elif label_type == 'present':
-        compute_reg, compute_coa, compute_pres = False, False, True
+        compute_fine, compute_coa, compute_pres = False, False, True
     else:  # dominant
-        compute_reg, compute_coa, compute_pres = False, False, False
+        compute_fine, compute_coa, compute_pres = False, False, False
 
-    def compute_metrics_one_model(pred_raw_i, pred_scores_coa_i, pred_classes_pres_i, pred_classes_dom_i, fold_id=None):
-        # Regression metrics
-        if compute_reg:
-            print("\n------- Presence score estimation (regression) --------\n")
-            metrics_regression = get_regression_metrics(true_scores_all, pred_raw_i, round_decimals)
-        else:
-            metrics_regression = None
-            # metrics_regression = ['-' for _ in range(21)]  # 21 regression metric values replaced by "-"
+    def compute_metrics_one_model(pred_raw_i, pred_all_i, pred_scores_coa_i, pred_classes_pres_i, pred_classes_dom_i,
+                                  fold_id=None):
+        true_label_for_reg = {'all': true_scores_all, 'coarse': true_scores_coa,
+                              'present': true_classes_pres, 'dominant': true_classes_dom}
+        metrics_regression, metrics_score_fine, metrics_score_coa, metrics_presence = None, None, None, None
+
+        print("\n------- Presence score estimation (regression) --------\n")
+        metrics_regression = get_regression_metrics(true_label_for_reg[label_type_for_reg], pred_raw_i, round_decimals)
+
+        if compute_fine:
+            print("\n------- Presence score classification: fine-grained [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, "
+                  "2.33, 2.66, 3] -------\n")
+            metrics_score_fine = get_classification_metrics_score_coa(true_scores_all, pred_all_i, num_classes,
+                                                                      round_decimals)
 
         # Classification metrics of presence scores
         if compute_coa:
-            print("\n------- Presence score classification [0,1,2,3] -------\n")
+            print("\n------- Presence score classification: coarse-grained [0,1,2,3] -------\n")
             metrics_score_coa = get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa_i, num_classes,
-                                                                     round_decimals, prob=('prob' in label_type),
-                                                                     one_hot=('oh' in label_type))
-        else:
-            metrics_score_coa = None
-            # metrics_score_coa = ['-' for _ in range(43)]
+                                                                     round_decimals)
 
         # Classification metrics of emotion present
         if compute_pres:
@@ -499,42 +490,44 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
                                                            round_decimals, model_id, model_folder, with_cross_val,
                                                            fold_id, thres)
                                 for j, thres in enumerate(threshold_emo_pres)]
-        else:
-            metrics_presence = None
 
         # Classification metrics of dominant emotions
         print("\n------- Predicting dominant emotions ------------------\n")
         metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom_i, num_classes, round_decimals,
                                                       model_id, model_folder, with_cross_val, fold_id)
 
-        return metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
+        return metrics_regression, metrics_score_fine, metrics_score_coa, metrics_presence, metrics_dominant
 
     if with_cross_val:
-        met_reg, met_coa, met_pres, met_dom = [], [], [], []
-        for fold_id, (pr_i, pc_i, pp_i, pd_i) in enumerate(zip(pred_raw, pred_scores_coa,
-                                                               pred_classes_pres, pred_classes_dom)):
-            mr, mc, mp, md = compute_metrics_one_model(pr_i, pc_i, pp_i, pd_i, fold_id)
+        met_reg, met_fin, met_coa, met_pres, met_dom = [], [], [], [], []
+        for fold_id, (pr_i, pf_i, pc_i, pp_i, pd_i) in enumerate(zip(pred_raw, pred_scores_all, pred_scores_coa,
+                                                                     pred_classes_pres, pred_classes_dom)):
+            mr, mf, mc, mp, md = compute_metrics_one_model(pr_i, pf_i, pc_i, pp_i, pd_i, fold_id)
             met_reg += [mr]
+            met_fin += [mf]
             met_coa += [mc]
             met_pres += [mp]
             met_dom += [md]
     else:
-        met_reg, met_coa, met_pres, met_dom = compute_metrics_one_model(pred_raw, pred_scores_coa,
-                                                                        pred_classes_pres, pred_classes_dom)
-    return met_reg, met_coa, met_pres, met_dom
+        met_reg, met_fin, met_coa, met_pres, met_dom = compute_metrics_one_model(pred_raw, pred_scores_all,
+                                                                                 pred_scores_coa, pred_classes_pres,
+                                                                                 pred_classes_dom)
+    return met_reg, met_fin, met_coa, met_pres, met_dom
 
 
-def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
-                                   pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_output,
+                                   pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    param_task, param_training, param_log, model_name, model_id, loss_function,
                                    val_metrics_str, all_scores):
     """
     Compute and save model metrics, based on loss function value and prediction scores.
 
-    :param test_list: [x_test, y_test, seg_test]
+    :param test_list_orig: [x_test, y_test, seg_test] from original dataset
     :param with_cross_val: boolean (cross_validation or not)
     :param model_eval_output: List of [loss function, validation metric] obtained by the model
     :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
+    :param pred_scores_all: array of shape (test_size, num_classes) predicting the presence score among available
+    presence scores (all_scores)
     :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by threshold_emo_pres)
@@ -546,8 +539,10 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
     :param model_id: Model id (int)
     :param loss_function: Name of the loss function (str)
     :param val_metrics_str: Name of the validation metric used for monitoring (str)
-    :param all_scores: list of available presence scores
+    :param all_scores: list of available presence scores [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     """
+
+    #TODO true_scores_all et relire une deuxième fois le code
 
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
@@ -560,7 +555,7 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
     model_folder = os.path.join('results', model_name)
 
     # Extract x, y and seg_ids for test set
-    y_test = test_list[1]  # each element of shape (1, 6 or 7)
+    y_test = test_list_orig[1]  # each element of shape (1, 6 or 7)
     num_classes = y_test[0].shape[1] if not ('oh' in label_type) else y_test[0].shape[0]
 
     # True labels
@@ -594,12 +589,13 @@ def compute_and_save_model_metrics(test_list, with_cross_val, model_eval_output,
     print("Validation metrics:", val_metrics_str)
 
     # Compute all metrics
-    metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant = \
+    metrics_regression, metrics_all, metrics_score_coa, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                                  pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom, with_cross_val,
-                                  threshold_emo_pres, num_classes, round_decimals, model_id, model_folder)
+                                  pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                                  with_cross_val, threshold_emo_pres, num_classes, round_decimals, model_id,
+                                  model_folder)
 
     # Save metrics in csv file
     save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,
-                             metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant,
+                             metrics_regression, metrics_all, metrics_score_coa, metrics_presence, metrics_dominant,
                              with_cross_val, predict_neutral_class, threshold_emo_pres)
