@@ -298,11 +298,17 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
 
 def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
-                                     display_fig, threshold_emo_pres):
+                                     all_scores, display_fig, threshold_emo_pres):
     display = None
+    end_of_title_dict = {'all': " fine-grained",
+                         'coa': " coarse-grained",
+                         'pres': " with score>",
+                         'dom': " dominant"}
 
-    def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, end_of_title):
-        d = ConfusionMatrixDisplay(confusion_matrix=conf_matrix[emo_i, :, :], display_labels=[0, 1])
+    def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, task_name, end_of_title):
+        labels = all_scores if task_name == 'all' else [0, 1, 2, 3] if task_name == 'coa' else [0, 1]
+        conf_matrix_i = conf_matrix[emo_i] if task_name == 'all' or task_name == 'coa' else conf_matrix[emo_i, :, :]
+        d = ConfusionMatrixDisplay(confusion_matrix=conf_matrix_i, display_labels=labels)
         d.plot(ax=axes[axe_id], values_format='.4g')
         d.ax_.set_title(emotions[emo_i] + end_of_title)
         # if i != len(threshold_emo_pres)-1:  ## Remove "Predicted label" xlabel from the graph
@@ -313,31 +319,78 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
 
         return d
 
-    def cross_valid_plot_matrix(conf_matrix, line_id, thres=None):
+    def cross_valid_plot_matrix(conf_matrix, line_id, task_name, thres=None):
         conf_mean = np.mean(conf_matrix, axis=0)
         # conf_std = np.std(conf_matrix, axis=0)
         # conf_for_print = np.array(["{} \u00B1 {}".format(conf_mean[i, j, k], conf_std[i, j, k])
         #                            for i in range(num_classes) for j in range(2) for k in range(2)]) \
         #     .reshape(conf_mean.shape)
-        end_of_title = " dominant (mean of {} folds)".format(num_folds) if thres is None \
-            else " with score>{} (mean of {} folds)".format(thres, num_folds)
+        end_of_title = end_of_title_dict[task_name] if thres is None else end_of_title_dict[task_name] + str(thres)
+        end_of_title = end_of_title + " (mean of {} folds)".format(num_folds)
         for emo_i in range(num_classes):
             display = plot_one_confusion_matrix(conf_mean, emo_i, axe_id=line_id * num_classes + emo_i,
-                                                end_of_title=end_of_title)
+                                                task_name=task_name, end_of_title=end_of_title)
         return display
 
-    def hold_out_plot_matrix(conf_matrix, line_id, thres=None):
-        end_of_title = " dominant" if thres is None else " with score>{}".format(thres)
+    def hold_out_plot_matrix(conf_matrix, line_id, task_name, thres=None):
+        end_of_title = end_of_title_dict[task_name] if thres is None else end_of_title_dict[task_name] + str(thres)
         for emo_i in range(num_classes):
             display = plot_one_confusion_matrix(conf_matrix, emo_i, axe_id=line_id * num_classes + emo_i,
-                                                end_of_title=end_of_title)
+                                                task_name=task_name, end_of_title=end_of_title)
         return display
 
     emotions = ['happy', 'sad', 'anger', 'surprise', 'disgust', 'fear']
     if num_classes == 7:
         emotions += ['neutral']
+    ext_name = "_cv" if with_cross_val else ""
 
-    if label_type == 'dominant':
+    ################# Plot all presence scores #################
+
+    f, axes = plt.subplots(1, num_classes, figsize=(5 * num_classes, 5))
+    axes = axes.ravel()
+
+    # Plot confusion matrix for dominant emotions
+    if label_type == 'all':  # Only applicable for this task
+        conf_matrix_all = load_from_pickle('conf_matrix_{}_all{}'.format(model_id, ext_name),
+                                           pickle_folder="confusion_matrix", root_folder=model_folder)
+        if with_cross_val:
+            display = cross_valid_plot_matrix(conf_matrix_all, line_id=0, task_name='all')
+        else:
+            display = hold_out_plot_matrix(conf_matrix_all, line_id=0, task_name='all')
+
+        # Save figure
+        plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_all_{}.png".format(model_id)),
+                    bbox_inches='tight')
+
+        f.colorbar(display.im_, ax=axes)
+        if display_fig:
+            plt.show()
+
+    ################# Plot coarse presence scores #################
+
+    f, axes = plt.subplots(1, num_classes, figsize=(5 * num_classes, 5))
+    axes = axes.ravel()
+
+    # Plot confusion matrix for dominant emotions
+    if label_type != 'dominant' and label_type != 'present':  # Not applicable for these tasks
+        conf_matrix_coa = load_from_pickle('conf_matrix_{}_coa{}'.format(model_id, ext_name),
+                                           pickle_folder="confusion_matrix", root_folder=model_folder)
+        if with_cross_val:
+            display = cross_valid_plot_matrix(conf_matrix_coa, line_id=0, task_name='coa')
+        else:
+            display = hold_out_plot_matrix(conf_matrix_coa, line_id=0, task_name='coa')
+
+        # Save figure
+        plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_coa_{}.png".format(model_id)),
+                    bbox_inches='tight')
+
+        f.colorbar(display.im_, ax=axes)
+        if display_fig:
+            plt.show()
+
+    ################# Plot dominant and present emotions #################
+
+    if label_type == 'dominant': # Only applicable for this task
         f, axes = plt.subplots(1, num_classes, figsize=(5 * num_classes, 5))
     else:
         f, axes = plt.subplots(len(threshold_emo_pres) + 1, num_classes,
@@ -345,15 +398,13 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
 
     axes = axes.ravel()
 
-    ext_name = "_cv" if with_cross_val else ""
-
     # Plot confusion matrix for dominant emotions
     conf_matrix_dom = load_from_pickle('conf_matrix_{}_dom{}'.format(model_id, ext_name),
                                        pickle_folder="confusion_matrix", root_folder=model_folder)
     if with_cross_val:
-        display = cross_valid_plot_matrix(conf_matrix_dom, line_id=0)
+        display = cross_valid_plot_matrix(conf_matrix_dom, line_id=0, task_name='dom')
     else:
-        display = hold_out_plot_matrix(conf_matrix_dom, line_id=0)
+        display = hold_out_plot_matrix(conf_matrix_dom, line_id=0, task_name='dom')
 
     # Plot confusion matrix for emotions present
     if label_type != 'dominant':
@@ -361,9 +412,9 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
             conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}{}'.format(model_id, thres, ext_name),
                                                 pickle_folder="confusion_matrix", root_folder=model_folder)
             if with_cross_val:
-                display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres)
+                display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres, task_name='pres')
             else:
-                display = hold_out_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres)
+                display = hold_out_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres, task_name='pres')
 
     # Save figure
     plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_classes_{}.png".format(model_id)),
@@ -615,7 +666,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
                                         model_id, model_folder, "dom", all_scores)
     if plot_confusion_matrix:
         plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
-                                         display_fig, threshold_emo_pres)
+                                         all_scores, display_fig, threshold_emo_pres)
 
     print("\n\n")
     print("In the following, all the metrics displayed for each emotion are in this order: happiness, sadness, "
