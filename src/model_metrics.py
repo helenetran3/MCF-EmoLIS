@@ -10,7 +10,7 @@ from src.label_processing import compute_true_labels
 from sklearn.preprocessing import label_binarize, LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.metrics import multilabel_confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix, ConfusionMatrixDisplay
 
 
 def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
@@ -79,8 +79,9 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_
     # # pred_scores_bin_stack = np.vstack(pred_scores_bin)
 
     scores = [0, 1, 2, 3] if coarse else all_scores
+    num_scores = len(scores)
 
-    print(f"4 classes ({scores} corresponding to presence scores) for each emotion class.\n")
+    print(f"{num_scores} classes ({scores} corresponding to presence scores) for each emotion class.\n")
 
     true_scores_for_each_emo = [true_scores[:, i] for i in range(num_classes)]
     pred_scores_for_each_emo = [pred_scores[:, i] for i in range(num_classes)]
@@ -365,7 +366,7 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
                 display = hold_out_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres)
 
     # Save figure
-    plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_{}.png".format(model_id)),
+    plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_classes_{}.png".format(model_id)),
                 bbox_inches='tight')
 
     f.colorbar(display.im_, ax=axes)
@@ -374,7 +375,7 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
 
 
 def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
-                                        model_id, model_folder, task_name, threshold_emo_pres=None):
+                                        model_id, model_folder, task_name, all_scores, threshold_emo_pres=None):
     """
     Compute the multilabel confusion matrix for each emotion (whether the emotion is present or not).
     Pickle file generated.
@@ -390,41 +391,62 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
     This parameter should be used only when dealing with emotions present.
     """
 
-    def cross_valid_conf_matrix(thres=None, thres_id=None):
+    def cross_valid_conf_matrix(task_name_cv, thres=None, thres_id=None):
         conf_matrices = []
         num_folds = len(pred_classes)  # pred_classes is a list of num_fold elements
-        task_name = "pres_t_{}".format(thres) if thres is not None else "dom"
+        task_name = "pres_t_{}".format(thres) if thres is not None else task_name_cv
 
         for fold_id in range(num_folds):
             tc = true_classes[thres_id] if thres_id is not None else true_classes
             pc = pred_classes[fold_id][thres_id] if thres_id is not None else pred_classes[fold_id]
-            conf_matrix = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
+            if task_name_cv == 'coa' or task_name_cv == 'all':
+                conf_matrix = []
+                for cl_i in range(num_classes):
+                    conf_matrix += [confusion_matrix(tc[:, cl_i], pc[:, cl_i], labels=all_scores)]
+            else:
+                conf_matrix = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
             conf_matrices += [conf_matrix]
         save_with_pickle(conf_matrices, 'conf_matrix_{}_{}_cv'.format(model_id, task_name),
                          pickle_folder="confusion_matrix", root_folder=model_folder)
 
-    def hold_out_conf_matrix(thres=None, thres_id=None):
-        task_n = "pres_t_{}".format(thres) if thres is not None else task_name
+    def hold_out_conf_matrix(task_name_cv, thres=None, thres_id=None):
+        task_n = "pres_t_{}".format(thres) if thres is not None else task_name_cv
         tc = true_classes[thres_id] if thres_id is not None else true_classes
         pc = pred_classes[thres_id] if thres_id is not None else pred_classes
-        conf_matrix = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
+        if task_name_cv == 'coa' or task_name_cv == 'all':
+            conf_matrix = []
+            for cl_i in range(num_classes):
+                if task_name_cv == 'all':  # we transform score values to string (to avoid issues with decimal values)
+                    labels = [str(sc) for sc in all_scores]
+                    tc_i = np.array([str(t) for t in list(tc[:, cl_i])])
+                    pc_i = np.array([str(p) for p in list(pc[:, cl_i])])
+                else:
+                    labels = [0, 1, 2, 3]
+                    tc_i, pc_i = tc[:, cl_i], pc[:, cl_i]
+                conf_matrix += [confusion_matrix(tc_i, pc_i, labels=labels)]
+        else:
+            conf_matrix = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
         save_with_pickle(conf_matrix, 'conf_matrix_{}_{}'.format(model_id, task_n),
                          pickle_folder="confusion_matrix", root_folder=model_folder)
 
     # emotions present
-    if threshold_emo_pres is not None:
+    if task_name == 'pres':
         for thres_id, thres in enumerate(threshold_emo_pres):
             if with_cross_val:
-                cross_valid_conf_matrix(thres, thres_id)
+                cross_valid_conf_matrix(task_name, thres, thres_id)
             else:
-                hold_out_conf_matrix(thres, thres_id)
+                hold_out_conf_matrix(task_name, thres, thres_id)
 
-    # emotions dominant
-    else:
+    # emotions dominant or emotions evaluated on presence scores
+    elif task_name == 'dom' or task_name == 'coa' or task_name == 'all':
         if with_cross_val:
-            cross_valid_conf_matrix()
+            cross_valid_conf_matrix(task_name)
         else:
-            hold_out_conf_matrix()
+            hold_out_conf_matrix(task_name)
+
+    else:
+        raise ValueError("Error in task_name parameter of function compute_multilabel_confusion_matrix: "
+                         "please choose between 'all', 'coa', 'pres' and 'dom'.")
 
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
@@ -579,14 +601,18 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
         true_classes_dom = remove_neutral_test(true_classes_dom)
 
     # Confusion matrix
-    # if label_type != 'dominant' and label_type != 'present':
-    #     compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa, with_cross_val, num_classes,
-    #                                         model_id, model_folder, "coa")
+    if label_type == 'all':
+        compute_multilabel_confusion_matrix(true_scores_all, pred_scores_all, with_cross_val, num_classes,
+                                            model_id, model_folder, "all", all_scores)
+
+    if label_type != 'dominant' and label_type != 'present':
+        compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa, with_cross_val, num_classes,
+                                            model_id, model_folder, "coa", all_scores)
     if label_type != 'dominant':
         compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, with_cross_val, num_classes,
-                                            model_id, model_folder, "pres", threshold_emo_pres)
+                                            model_id, model_folder, "pres", all_scores, threshold_emo_pres)
     compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, with_cross_val, num_classes,
-                                        model_id, model_folder, "dom")
+                                        model_id, model_folder, "dom", all_scores)
     if plot_confusion_matrix:
         plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
                                          display_fig, threshold_emo_pres)
