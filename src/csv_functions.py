@@ -160,7 +160,7 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     csv_path_regression = create_csv_path(model_name, filename="regression", ext_name=ext_name,
                                           with_cross_val=with_cross_val)
     csv_path_score_all = create_csv_path(model_name, filename="classif_score_all", ext_name=ext_name,
-                                         with_cross_val=with_cross_val)  #TODO
+                                         with_cross_val=with_cross_val)
     csv_path_score_coa = create_csv_path(model_name, filename="classif_score_coa", ext_name=ext_name,
                                          with_cross_val=with_cross_val)
     csv_path_presence = [create_csv_path(model_name, filename="classif_pres_t_{}".format(thres), ext_name=ext_name,

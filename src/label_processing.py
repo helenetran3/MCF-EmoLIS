@@ -47,9 +47,8 @@ def get_available_presence_scores_arr(train_list, valid_list, test_list):
     all_y = np.concatenate([train_y, valid_y, test_y], axis=0)
 
     all_y_uniq = np.unique(all_y)
-    all_y_uniq_rounded = np.around(all_y_uniq, decimals=2)
 
-    return list(all_y_uniq_rounded)
+    return list(all_y_uniq)
 
 
 def get_coa_presence_score_for_training(y_list, num_classes, one_hot, prob):

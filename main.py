@@ -32,7 +32,7 @@ def main():
 
     all_scores = get_available_presence_scores_arr(train_list_orig, valid_list_orig, test_list_orig)
 
-    # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, coarse_prob,
+    # Update labels so that it matches with the targeted task given by label_type (all, coarse, coarse_prob, coarse_oh,
     # present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
     train_list_task, valid_list_task, test_list_task, neutral_test_ind = update_labels(train_list_orig, valid_list_orig,
                                                                                        test_list_orig,

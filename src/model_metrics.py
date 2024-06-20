@@ -44,14 +44,15 @@ def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     return [mae, mse, r2] + mae_emo + mse_emo + r2_emo
 
 
-def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_classes, round_decimals):
+def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_scores, round_decimals, coarse):
     """
     Return unweighted mean of all the classification metrics for the case of coarse scores.
 
-    :param true_scores_coa: Array of shape (test_size, 6) giving the true presence scores among [0, 1, 2, 3]
-    :param pred_scores_coa: Array of shape (test_size, 6) giving the predicted presence scores among [0, 1, 2, 3]
+    :param true_scores: Array of shape (test_size, 6) giving the true presence scores among [0, 1, 2, 3]
+    :param pred_scores: Array of shape (test_size, 6) giving the predicted presence scores among [0, 1, 2, 3]
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
+    :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else all_scores
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
@@ -77,10 +78,14 @@ def get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa, num_c
     # # true_scores_bin_stack = np.vstack(true_scores_bin)
     # # pred_scores_bin_stack = np.vstack(pred_scores_bin)
 
-    print("4 classes ([0,1,2,3] corresponding to presence scores) for each emotion class.\n")
+    scores = [0, 1, 2, 3] if coarse else all_scores
 
-    true_scores_for_each_emo = [true_scores_coa[:, i] for i in range(num_classes)]
-    pred_scores_for_each_emo = [pred_scores_coa[:, i] for i in range(num_classes)]
+    print(f"4 classes ({scores} corresponding to presence scores) for each emotion class.\n")
+
+    true_scores_for_each_emo = [true_scores[:, i] for i in range(num_classes)]
+    pred_scores_for_each_emo = [pred_scores[:, i] for i in range(num_classes)]
+    # print("unique true_scores:", np.unique(true_scores))
+    # print("unique pred_scores:", np.unique(pred_scores))
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
@@ -424,7 +429,8 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                               pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                              with_cross_val, threshold_emo_pres, num_classes, round_decimals, model_id, model_folder):
+                              with_cross_val, threshold_emo_pres, num_classes, all_scores, round_decimals,
+                              model_id, model_folder):
     """
     Compute metrics for four tasks: estimation of presence score (regression), classification of presence score among
     [0, 1, 2, 3], binary classification for each emotion, and prediction of dominant classes (multilabel classification)
@@ -471,17 +477,16 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         print("\n------- Presence score estimation (regression) --------\n")
         metrics_regression = get_regression_metrics(true_label_for_reg[label_type_for_reg], pred_raw_i, round_decimals)
 
-        if compute_fine:
-            print("\n------- Presence score classification: fine-grained [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, "
-                  "2.33, 2.66, 3] -------\n")
-            metrics_score_fine = get_classification_metrics_score_coa(true_scores_all, pred_all_i, num_classes,
-                                                                      round_decimals)
+        # if compute_fine:
+        #     print(f"\n------- Presence score classification: fine-grained {all_scores} -------\n")
+        #     metrics_score_fine = get_classification_metrics_score(true_scores_all, pred_all_i, num_classes,
+        #                                                           all_scores, round_decimals, coarse=False)
 
         # Classification metrics of presence scores
         if compute_coa:
             print("\n------- Presence score classification: coarse-grained [0,1,2,3] -------\n")
-            metrics_score_coa = get_classification_metrics_score_coa(true_scores_coa, pred_scores_coa_i, num_classes,
-                                                                     round_decimals)
+            metrics_score_coa = get_classification_metrics_score(true_scores_coa, pred_scores_coa_i, num_classes,
+                                                                 all_scores, round_decimals, coarse=True)
 
         # Classification metrics of emotion present
         if compute_pres:
@@ -602,7 +607,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
     metrics_regression, metrics_all, metrics_score_coa, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                                   pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                  with_cross_val, threshold_emo_pres, num_classes, round_decimals, model_id,
+                                  with_cross_val, threshold_emo_pres, num_classes, all_scores, round_decimals, model_id,
                                   model_folder)
 
     # Save metrics in csv file
