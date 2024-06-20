@@ -34,8 +34,9 @@ def main():
 
     # Update labels so that it matches with the targeted task given by args.label_type (all, coarse, coarse_prob,
     # present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
-    train_list_task, valid_list_task, test_list_task = update_labels(train_list_orig, valid_list_orig, test_list_orig,
-                                                                     param_task, all_scores)
+    train_list_task, valid_list_task, test_list_task, neutral_test_ind = update_labels(train_list_orig, valid_list_orig,
+                                                                                       test_list_orig,
+                                                                                       param_task, all_scores)
 
     # Cross-validation
     if with_cross_validation:
@@ -87,7 +88,7 @@ def main():
         # Compute and save metrics
         compute_and_save_model_metrics(test_list_orig, with_cross_validation, model_eval_output,
                                        pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                       param_task, param_training, param_log, model_name, model_id,
+                                       neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
                                        loss_function, val_metrics, all_scores)
 
     # Model parameters

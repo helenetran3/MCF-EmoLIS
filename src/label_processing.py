@@ -329,38 +329,50 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     - coarse_prob: presence score for each emotion among [0, 1/3, 2/3, 1]
     - present: one-hot encoded labels for multi-label classification. 7 classes if predict_neutral_class else 6.
     - dominant: one-hot encoded labels for one-label classification. 7 classes if predict_neutral_class else 6.
-    It also removes samples assigned to neutral when predict_neutral_class is False.
+    It also removes samples assigned to neutral when predict_neutral_class is False + return the indexes of the neutral
+    samples in test set.
 
     :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param test_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param all_scores: list of available presence scores
-    :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input
+    :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input, + neutral_test_ind
     """
 
     def remove_neutral_class(train_l, valid_l, test_l):
+        """
+        Remove samples assigned to neutral class + return the list of their indexes for test split
 
-        def remove_neutral_class_split(split_list):
+        :param train_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :param valid_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :param test_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :return: new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
+        """
+
+        def remove_neutral_class_split(split_list, test=False):
             y_arr = np.vstack(split_list[1])
             num_emo = np.sum(y_arr, axis=1)
             non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
-            neutral_samples_split = np.sum((num_emo == 0))
+            num_neutral = np.sum((num_emo == 0))
+
             # Take only samples where at least one emotion class is assigned
             X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
             y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
             seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
-            return [X_list, y_list, seg_list], neutral_samples_split
+            neutral_test_index = [i for i, ind in enumerate(non_neutral_ind) if not ind] if test else None
 
-        new_train_l, neutral_train = remove_neutral_class_split(train_l)
-        new_valid_l, neutral_valid = remove_neutral_class_split(valid_l)
-        new_test_l, neutral_test = remove_neutral_class_split(test_l)
+            return [X_list, y_list, seg_list], num_neutral, neutral_test_index
 
-        neutral_samples = neutral_train + neutral_valid + neutral_test
-        print(f'Removed {neutral_samples} samples with no emotions '
-              f'(train: {neutral_train}, valid: {neutral_valid}, test: {neutral_test}).')
+        new_train_l, num_neutral_train, _ = remove_neutral_class_split(train_l)
+        new_valid_l, num_neutral_valid, _ = remove_neutral_class_split(valid_l)
+        new_test_l, num_neutral_test, neutral_test_ind_list = remove_neutral_class_split(test_l, test=True)
 
-        return new_train_l, new_valid_l, new_test_l
+        num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
+        print(f'Removed {num_neutral_samples} samples with no emotions '
+              f'(train: {num_neutral_train}, valid: {num_neutral_valid}, test: {num_neutral_test}).')
+
+        return new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
 
     def change_type_and_shape_for_training(y_array):
         """
@@ -405,11 +417,13 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
 
     # When predict_neutral_class is False (no class created for Neutral),
     # samples with neutral class belong to any of available classes
+    neutral_test_ind = None
     if not predict_neutral_class:
-        new_train_list, new_valid_list, new_test_list = remove_neutral_class(new_train_list, new_valid_list,
-                                                                             new_test_list)
+        new_train_list, new_valid_list, new_test_list, neutral_test_ind = remove_neutral_class(new_train_list,
+                                                                                               new_valid_list,
+                                                                                               new_test_list)
 
-    return new_train_list, new_valid_list, new_test_list
+    return new_train_list, new_valid_list, new_test_list, neutral_test_ind
 
 
 def balance_dataset(train_list, valid_list, test_list, param_task, all_scores):
