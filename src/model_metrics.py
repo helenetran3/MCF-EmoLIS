@@ -301,130 +301,114 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
 def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
                                      all_scores, display_fig, threshold_emo_pres):
+    """
+    Generate up to three plots, depending on the label type: one for fine-grained presence score, one for coarse-grained,
+    and one for dominant emotions (and present if applicable).
+    :param num_classes: number of classes to predict (int)
+    :param with_cross_val: whether cross-validation is performed or not (bool)
+    :param num_folds: number of folds in cross-validation (int)
+    :param model_id: model id (int)
+    :param model_folder: the folder where the results are saved (str)
+    :param label_type: type of labels used for model training and evaluation ('all', 'coarse', 'coarse_prob',
+    'coarse_oh', 'present', 'dominant')
+    :param all_scores: list of available presence scores
+    :param display_fig: whether we display the figures (bool)
+    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    """
     display = None
     end_of_title_dict = {'all': " fine-grained",
                          'coa': " coarse-grained",
                          'pres': " with score>",
                          'dom': " dominant"}
 
-    def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, task_name, end_of_title):
-        labels = all_scores if task_name == 'all' else [0, 1, 2, 3] if task_name == 'coa' else [0, 1]
-        conf_matrix_i = conf_matrix[emo_i] if task_name == 'all' or task_name == 'coa' else conf_matrix[emo_i, :, :]
-        d = ConfusionMatrixDisplay(confusion_matrix=conf_matrix_i, display_labels=labels)
-        d.plot(ax=axes[axe_id], values_format='.4g')
-        d.ax_.set_title(emotions[emo_i] + end_of_title)
-        # if i != len(threshold_emo_pres)-1:  ## Remove "Predicted label" xlabel from the graph
-        #     display.ax_.set_xlabel('')
-        if emo_i != 0:
-            d.ax_.set_ylabel('')
-        d.im_.colorbar.remove()
-
-        return d
-
-    def cross_valid_plot_matrix(conf_matrix, line_id, task_name, thres=None):
-        conf_mean = np.mean(conf_matrix, axis=0)
-        # conf_std = np.std(conf_matrix, axis=0)
-        # conf_for_print = np.array(["{} \u00B1 {}".format(conf_mean[i, j, k], conf_std[i, j, k])
-        #                            for i in range(num_classes) for j in range(2) for k in range(2)]) \
-        #     .reshape(conf_mean.shape)
-        end_of_title = end_of_title_dict[task_name] if thres is None else end_of_title_dict[task_name] + str(thres)
-        end_of_title = end_of_title + " (mean of {} folds)".format(num_folds)
-        for emo_i in range(num_classes):
-            display = plot_one_confusion_matrix(conf_mean, emo_i, axe_id=line_id * num_classes + emo_i,
-                                                task_name=task_name, end_of_title=end_of_title)
-        return display
-
-    def hold_out_plot_matrix(conf_matrix, line_id, task_name, thres=None):
-        end_of_title = end_of_title_dict[task_name] if thres is None else end_of_title_dict[task_name] + str(thres)
-        for emo_i in range(num_classes):
-            display = plot_one_confusion_matrix(conf_matrix, emo_i, axe_id=line_id * num_classes + emo_i,
-                                                task_name=task_name, end_of_title=end_of_title)
-        return display
-
     emotions = ['happy', 'sad', 'anger', 'surprise', 'disgust', 'fear']
     if num_classes == 7:
         emotions += ['neutral']
     ext_name = "_cv" if with_cross_val else ""
 
-    ################# Plot all presence scores #################
-
-    f, axes = plt.subplots(1, num_classes, figsize=(5 * num_classes, 5))
-    axes = axes.ravel()
-
-    # Plot confusion matrix for dominant emotions
-    if label_type == 'all':  # Only applicable for this task
-        conf_matrix_all = load_from_pickle('conf_matrix_{}_all{}'.format(model_id, ext_name),
-                                           pickle_folder="confusion_matrix", root_folder=model_folder)
-        if with_cross_val:
-            display = cross_valid_plot_matrix(conf_matrix_all, line_id=0, task_name='all')
+    def plot_task(task_name):
+        plot_size = 10 if task_name == 'all' else 5 if task_name == 'coa' else 3
+        if task_name == 'dom_and_pres':
+            f, axes = plt.subplots(len(threshold_emo_pres) + 1, num_classes,
+                                   figsize=(plot_size * num_classes, plot_size * (len(threshold_emo_pres) + 1)),
+                                   tight_layout=True)
         else:
-            display = hold_out_plot_matrix(conf_matrix_all, line_id=0, task_name='all')
+            f, axes = plt.subplots(1, num_classes, figsize=(plot_size * num_classes, plot_size))
 
-        # Save figure
-        plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_all_{}.png".format(model_id)),
-                    bbox_inches='tight')
+        axes = axes.ravel()
 
-        f.colorbar(display.im_, ax=axes)
-        if display_fig:
-            plt.show()
+        def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, task_name, end_of_title):
+            labels = all_scores if task_name == 'all' else [0, 1, 2, 3] if task_name == 'coa' else [0, 1]
+            conf_matrix_i = conf_matrix[emo_i] if task_name == 'all' or task_name == 'coa' else conf_matrix[emo_i, :, :]
+            d = ConfusionMatrixDisplay(confusion_matrix=conf_matrix_i, display_labels=labels)
+            d.plot(ax=axes[axe_id], values_format='.4g')
+            d.ax_.set_title(emotions[emo_i] + end_of_title)
+            if task_name == 'all':  # 90° rotation of x labels for better readability
+                d.ax_.tick_params(axis='x', rotation=90)
+            # if i != len(threshold_emo_pres)-1:  ## Remove "Predicted label" xlabel from the graph
+            #     display.ax_.set_xlabel('')
+            if emo_i != 0:
+                d.ax_.set_ylabel('')
+            d.im_.colorbar.remove()
 
-    ################# Plot coarse presence scores #################
+            return d
 
-    f, axes = plt.subplots(1, num_classes, figsize=(5 * num_classes, 5))
-    axes = axes.ravel()
+        def cross_valid_plot_matrix(conf_matrix, line_id, task_name, thres=None):
+            conf_mean = np.mean(conf_matrix, axis=0)
+            # conf_std = np.std(conf_matrix, axis=0)
+            # conf_for_print = np.array(["{} \u00B1 {}".format(conf_mean[i, j, k], conf_std[i, j, k])
+            #                            for i in range(num_classes) for j in range(2) for k in range(2)]) \
+            #     .reshape(conf_mean.shape)
+            end_of_title = end_of_title_dict[task_name] if thres is None else end_of_title_dict[task_name] + str(thres)
+            end_of_title = end_of_title + " (mean of {} folds)".format(num_folds)
+            for emo_i in range(num_classes):
+                display = plot_one_confusion_matrix(conf_mean, emo_i, axe_id=line_id * num_classes + emo_i,
+                                                    task_name=task_name, end_of_title=end_of_title)
+            return display
 
-    # Plot confusion matrix for dominant emotions
-    if label_type != 'dominant' and label_type != 'present':  # Not applicable for these tasks
-        conf_matrix_coa = load_from_pickle('conf_matrix_{}_coa{}'.format(model_id, ext_name),
-                                           pickle_folder="confusion_matrix", root_folder=model_folder)
-        if with_cross_val:
-            display = cross_valid_plot_matrix(conf_matrix_coa, line_id=0, task_name='coa')
-        else:
-            display = hold_out_plot_matrix(conf_matrix_coa, line_id=0, task_name='coa')
+        def hold_out_plot_matrix(conf_matrix, line_id, task_name, thres=None):
+            end_of_title = end_of_title_dict[task_name] if thres is None else end_of_title_dict[task_name] + str(thres)
+            for emo_i in range(num_classes):
+                display = plot_one_confusion_matrix(conf_matrix, emo_i, axe_id=line_id * num_classes + emo_i,
+                                                    task_name=task_name, end_of_title=end_of_title)
+            return display
 
-        # Save figure
-        plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_coa_{}.png".format(model_id)),
-                    bbox_inches='tight')
-
-        f.colorbar(display.im_, ax=axes)
-        if display_fig:
-            plt.show()
-
-    ################# Plot dominant and present emotions #################
-
-    if label_type == 'dominant': # Only applicable for this task
-        f, axes = plt.subplots(1, num_classes, figsize=(5 * num_classes, 5))
-    else:
-        f, axes = plt.subplots(len(threshold_emo_pres) + 1, num_classes,
-                               figsize=(5 * num_classes, 5 * (len(threshold_emo_pres) + 1)))
-
-    axes = axes.ravel()
-
-    # Plot confusion matrix for dominant emotions
-    conf_matrix_dom = load_from_pickle('conf_matrix_{}_dom{}'.format(model_id, ext_name),
+        # Plot confusion matrix for the first line
+        task_name_conf = 'dom' if task_name == 'dom_and_pres' else task_name
+        conf_matrix = load_from_pickle('conf_matrix_{}_{}{}'.format(model_id, task_name_conf, ext_name),
                                        pickle_folder="confusion_matrix", root_folder=model_folder)
-    if with_cross_val:
-        display = cross_valid_plot_matrix(conf_matrix_dom, line_id=0, task_name='dom')
+        if with_cross_val:
+            display = cross_valid_plot_matrix(conf_matrix, line_id=0, task_name=task_name_conf)
+        else:
+            display = hold_out_plot_matrix(conf_matrix, line_id=0, task_name=task_name_conf)
+
+        if task_name == 'dom_and_pres':
+            for i, thres in enumerate(threshold_emo_pres):
+                conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}{}'.format(model_id, thres, ext_name),
+                                                    pickle_folder="confusion_matrix", root_folder=model_folder)
+                if with_cross_val:
+                    display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres, task_name='pres')
+                else:
+                    display = hold_out_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres, task_name='pres')
+
+        # Save figure
+        plt.savefig(os.path.join(model_folder, "confusion_matrix",
+                                 "conf_matrix_{}_{}.png".format(task_name, model_id)), bbox_inches='tight')
+
+        f.colorbar(display.im_, ax=axes)
+        if task_name == 'dom_and_pres':
+            print("wait")
+        if display_fig:
+            plt.show()
+
+    if label_type == 'all':
+        plot_task("all")
+    if label_type == 'all' or 'coarse' in label_type:
+        plot_task("coa")
+    if label_type == 'dominant':
+        plot_task("dom")
     else:
-        display = hold_out_plot_matrix(conf_matrix_dom, line_id=0, task_name='dom')
-
-    # Plot confusion matrix for emotions present
-    if label_type != 'dominant':
-        for i, thres in enumerate(threshold_emo_pres):
-            conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}{}'.format(model_id, thres, ext_name),
-                                                pickle_folder="confusion_matrix", root_folder=model_folder)
-            if with_cross_val:
-                display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres, task_name='pres')
-            else:
-                display = hold_out_plot_matrix(conf_matrix_pres, line_id=i + 1, thres=thres, task_name='pres')
-
-    # Save figure
-    plt.savefig(os.path.join(model_folder, "confusion_matrix", "conf_matrix_classes_{}.png".format(model_id)),
-                bbox_inches='tight')
-
-    f.colorbar(display.im_, ax=axes)
-    if display_fig:
-        plt.show()
+        plot_task("dom_and_pres")
 
 
 def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
