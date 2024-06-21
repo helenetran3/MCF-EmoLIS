@@ -91,6 +91,12 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f}")
     print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
 
+    # # Only for debugging
+    # from src.pickle_functions import load_from_pickle
+    # model_name = "mult"
+    # model_id = 2
+    # pred_raw = load_from_pickle("pred_raw_"+str(model_id), "predictions", "results/"+model_name)
+
     # This block creates pred_raw_array, i.e., pred_raw in array format, with shape (test_size, num_classes) and
     # values in [0, 3]
     pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]

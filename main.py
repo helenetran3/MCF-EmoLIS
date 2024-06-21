@@ -75,6 +75,7 @@ def main():
             train_torch_model(train_list_task, valid_list_task, test_list_task, param_task, param_model, param_training,
                               param_log, num_steps, model_name, model_id, loss_function, val_metrics, label_type,
                               device, with_cross_validation)
+            # model_id = 2
 
             model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_torch_model(test_list_task, param_task, param_model, param_training, param_log,
@@ -91,7 +92,7 @@ def main():
                                        neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
                                        loss_function, val_metrics, all_scores)
 
-    # Model parameters
+    # Loop over the list of models, loss functions and validation metrics
     model = param_task['model_name']
     loss_function_str = param_training['loss_function']
     val_metrics_str = param_training['val_metrics']

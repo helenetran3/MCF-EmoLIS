@@ -101,7 +101,7 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         header = header_param + header_overall + header_per_emo
         data = data_param + metrics
 
-    elif task == "score_coa":
+    elif task == "score_coa" or task == "score_fin":
         metrics_emo = ['acc', 'f1', 'rec', 'prec']
         header_per_emo = ['{}_{}'.format(m, e) for m in metrics_emo for e in emotions]
         header_overall = ['acc_macro', 'f1_macro', 'rec_macro', 'prec_macro']
@@ -125,8 +125,8 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         data = data_param + metrics
 
     else:
-        print("{} is not a possible value for 'task' parameter in get_header_and_data function."
-              .format(task))
+        raise ValueError("{} is not a possible value for 'task' parameter in get_header_and_data function."
+                         .format(task))
 
     return header, data
 

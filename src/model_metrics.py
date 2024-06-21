@@ -78,15 +78,17 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_
     # # true_scores_bin_stack = np.vstack(true_scores_bin)
     # # pred_scores_bin_stack = np.vstack(pred_scores_bin)
 
-    scores = [0, 1, 2, 3] if coarse else all_scores
+    scores = [0, 1, 2, 3] if coarse else [str(sc) for sc in all_scores]
+    scores_print = [0, 1, 2, 3] if coarse else all_scores
     num_scores = len(scores)
 
-    print(f"{num_scores} classes ({scores} corresponding to presence scores) for each emotion class.\n")
+    print(f"For each emotion, {num_scores} classes possibles corresponding to presence scores: {scores_print}.\n")
 
     true_scores_for_each_emo = [true_scores[:, i] for i in range(num_classes)]
     pred_scores_for_each_emo = [pred_scores[:, i] for i in range(num_classes)]
-    # print("unique true_scores:", np.unique(true_scores))
-    # print("unique pred_scores:", np.unique(pred_scores))
+    if not coarse:  # Convert each element of the arrays to string (to avoid issue with continuous values)
+        true_scores_for_each_emo = [np.array([str(t) for t in list(ts_i)]) for ts_i in true_scores_for_each_emo]
+        pred_scores_for_each_emo = [np.array([str(t) for t in list(ts_i)]) for ts_i in pred_scores_for_each_emo]
 
     acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
@@ -550,10 +552,10 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         print("\n------- Presence score estimation (regression) --------\n")
         metrics_regression = get_regression_metrics(true_label_for_reg[label_type_for_reg], pred_raw_i, round_decimals)
 
-        # if compute_fine:
-        #     print(f"\n------- Presence score classification: fine-grained {all_scores} -------\n")
-        #     metrics_score_fine = get_classification_metrics_score(true_scores_all, pred_all_i, num_classes,
-        #                                                           all_scores, round_decimals, coarse=False)
+        if compute_fine:
+            print(f"\n------- Presence score classification: fine-grained (all available scores) -------\n")
+            metrics_score_fine = get_classification_metrics_score(true_scores_all, pred_all_i, num_classes,
+                                                                  all_scores, round_decimals, coarse=False)
 
         # Classification metrics of presence scores
         if compute_coa:
