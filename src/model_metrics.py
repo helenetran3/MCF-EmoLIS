@@ -534,7 +534,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         metrics_regression, metrics_score_fine, metrics_score_coa, metrics_presence = None, None, None, None
 
         print("\n------- Presence score estimation (regression) --------\n")
-        metrics_regression = get_regression_metrics(true_label_for_reg[label_type_for_reg], pred_raw_i, round_decimals)
+        tl_for_reg = true_label_for_reg[label_type_for_reg]
+        tl_for_reg = tl_for_reg[0] if label_type == 'present' else tl_for_reg
+        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, round_decimals)
 
         if compute_fine:
             print(f"\n------- Presence score classification: fine-grained (all available scores) -------\n")
