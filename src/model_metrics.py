@@ -51,36 +51,15 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_
     :param true_scores: Array of shape (test_size, 6) giving the true presence scores among [0, 1, 2, 3]
     :param pred_scores: Array of shape (test_size, 6) giving the predicted presence scores among [0, 1, 2, 3]
     :param num_classes: number of classes (7 with neutral class, else 6)
+    :param all_scores: list of available presence scores
     :param round_decimals: number of decimals to be rounded for metrics
     :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else all_scores
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
 
-    # def get_binary_arrays_from_scores_coa(scores_coa):
-    #     """
-    #     Returns a list of num_classes binary arrays for each emotion. Each array has shape (test_size, 4).
-    #     Useful for classification metrics from coarse presence scores.
-    #
-    #     :param scores_coa: array of size (test_size, num_classes) giving the coarse presence scores (0, 1, 2, or 3)
-    #     :return: The list of binary arrays
-    #     """
-    #
-    #     scores_for_each_emo = [scores_coa[:, i] for i in range(num_classes)]
-    #     bin_arr_for_each_emo = [label_binarize(sc, classes=range(4)) for sc in scores_for_each_emo]
-    #
-    #     return bin_arr_for_each_emo
-    #
-    # # Lists of num_classes sublists of test_size elements (e.g. [1, 0, 0, 0])
-    # true_scores_bin = get_binary_arrays_from_scores_coa(true_scores_coa)
-    # pred_scores_bin = get_binary_arrays_from_scores_coa(pred_scores_coa)
-    # # # Transform these lists of lists to arrays
-    # # true_scores_bin_stack = np.vstack(true_scores_bin)
-    # # pred_scores_bin_stack = np.vstack(pred_scores_bin)
-
-    scores = [0, 1, 2, 3] if coarse else [str(sc) for sc in all_scores]
     scores_print = [0, 1, 2, 3] if coarse else all_scores
-    num_scores = len(scores)
+    num_scores = len(scores_print)
 
     print(f"For each emotion, {num_scores} classes possibles corresponding to presence scores: {scores_print}.\n")
 
@@ -90,29 +69,29 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_
         true_scores_for_each_emo = [np.array([str(t) for t in list(ts_i)]) for ts_i in true_scores_for_each_emo]
         pred_scores_for_each_emo = [np.array([str(t) for t in list(ts_i)]) for ts_i in pred_scores_for_each_emo]
 
-    acc_each = [np.round(accuracy_score(ts, ps), round_decimals)
+    acc_each = [np.round(accuracy_score(ts, ps)*100, round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    acc_macro = np.round(np.mean(acc_each), round_decimals)
-    print("Accuracy (for each):", acc_each)
+    acc_macro = np.round(np.mean(acc_each)*100, round_decimals)
+    print("Accuracy (for each, unweighted across scores):", acc_each)
     print("Accuracy (unweighted mean):", acc_macro)
 
     # Only macro because with weighted, the over_presence of class "0" will bias the result
-    f1_each = [np.round(f1_score(ts, ps, average='macro', zero_division=1), round_decimals)
+    f1_each = [np.round(f1_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
                for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    f1_macro = np.round(np.mean(f1_each), round_decimals)
-    print("F1 score (for each):", f1_each)
+    f1_macro = np.round(np.mean(f1_each)*100, round_decimals)
+    print("F1 score (for each, unweighted across scores):", f1_each)
     print("F1 score (unweighted mean):", f1_macro)
 
-    rec_each = [np.round(recall_score(ts, ps, average='macro', zero_division=1), round_decimals)
+    rec_each = [np.round(recall_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    rec_macro = np.round(np.mean(rec_each), round_decimals)
-    print("Recall (for each):", rec_each)
+    rec_macro = np.round(np.mean(rec_each)*100, round_decimals)
+    print("Recall (for each, unweighted across scores):", rec_each)
     print("Recall (unweighted mean):", rec_macro)
 
-    prec_each = [np.round(precision_score(ts, ps, average='macro', zero_division=1), round_decimals)
+    prec_each = [np.round(precision_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
                  for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    prec_macro = np.round(np.mean(prec_each), round_decimals)
-    print("Precision (for each):", prec_each)
+    prec_macro = np.round(np.mean(prec_each)*100, round_decimals)
+    print("Precision (for each, unweighted across scores):", prec_each)
     print("Precision (unweighted mean):", prec_macro)
 
     # roc_auc_each = [np.round(roc_auc_score(ts, ps, average='macro', multi_class='ovr'), round_decimals)
@@ -121,63 +100,8 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_
     # print("ROC AUC (for each):", roc_auc_each)
     # print("ROC AUC (unweighted mean):", roc_auc_macro)
 
-    # # In this block, we go through all the emotions. Metrics are here given for each emotion.
-    # # Imbalance in presence score [0, 1, 2, 3]. example for happy: [3048, 1210, 376, 20],
-    # # hence we also calculate weighted metrics
-    # f1_macro_each = [np.round(f1_score(ts, ps, average='macro', zero_division=1), round_decimals)
-    #                  for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    # f1_weighted_each = [np.round(f1_score(ts, ps, average='weighted', zero_division=1), round_decimals)
-    #                     for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    # rec_macro_each = [np.round(recall_score(ts, ps, average='macro', zero_division=1), round_decimals)
-    #                   for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    # rec_weighted_each = [np.round(recall_score(ts, ps, average='weighted', zero_division=1), round_decimals)
-    #                      for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    # prec_macro_each = [np.round(precision_score(ts, ps, average='macro', zero_division=1), round_decimals)
-    #                    for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    # prec_weighted_each = [np.round(precision_score(ts, ps, average='weighted', zero_division=1), round_decimals)
-    #                       for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    # # roc_auc_macro_each = [roc_auc_score(ts, ps, average='macro')
-    # #                      for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    # # roc_auc_weighted_each = [roc_auc_score(ts, ps, average='weighted')
-    # #                         for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-    #
-    # # Unweighted mean over the six emotions
-    # acc = np.round(accuracy_score(true_scores_bin_stack, pred_scores_bin_stack), round_decimals)
-    # f1_macro_uw_mean = np.round(np.mean(f1_macro_each), round_decimals)
-    # f1_weighted_uw_mean = np.round(np.mean(f1_weighted_each), round_decimals)
-    # rec_macro_uw_mean = np.round(np.mean(rec_macro_each), round_decimals)
-    # rec_weighted_uw_mean = np.round(np.mean(rec_weighted_each), round_decimals)
-    # prec_macro_uw_mean = np.round(np.mean(prec_macro_each), round_decimals)
-    # prec_weighted_uw_mean = np.round(np.mean(prec_weighted_each), round_decimals)
-    # # roc_auc_macro_uw_mean = np.round(np.mean(roc_auc_macro_each), round_decimals)
-    # # roc_auc_weighted_uw_mean = np.round(np.mean(roc_auc_weighted_each), round_decimals)
-    # print("4 classes (presence scores) for each emotion class. "
-    #       "The following metrics all give the unweighted mean over the emotions and the brackets give the type "
-    #       "of mean over the presence scores.\n")
-    # print("Accuracy:", acc)
-    # print("Unweighted F1 score (for each emotion):", f1_macro_each)
-    # print("Weighted F1 score (for each emotion):", f1_weighted_each)
-    # print("Unweighted recall score (for each emotion):", rec_macro_each)
-    # print("Weighted recall score (for each emotion):", rec_weighted_each)
-    # print("Unweighted precision score (for each emotion):", prec_macro_each)
-    # print("Weighted precision score (for each emotion):", prec_weighted_each)
-    # print("F1 score (unweighted mean):", f1_macro_uw_mean)
-    # print("F1 score (weighted mean):", f1_weighted_uw_mean)
-    # print("Recall (unweighted mean):", rec_macro_uw_mean)
-    # print("Recall (weighted mean):", rec_weighted_uw_mean)
-    # print("Precision (unweighted mean):", prec_macro_uw_mean)
-    # print("Precision (weighted mean):", prec_weighted_uw_mean)
-    # # print("ROC AUC (unweighted mean):", roc_auc_macro_uw_mean)
-    # # print("ROC AUC (weighted mean):", roc_auc_weighted_uw_mean)
-
     res = [acc_macro, f1_macro, rec_macro, prec_macro]  #, roc_auc_macro]
     res = res + acc_each + f1_each + rec_each + prec_each  #, roc_auc_each
-
-    # res = [acc, f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
-    #        prec_weighted_uw_mean]  # , roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
-    #
-    # res = res + f1_macro_each + f1_weighted_each + rec_macro_each + rec_weighted_each + prec_macro_each \
-    #       + prec_weighted_each  # + roc_auc_macro_each + roc_auc_weighted_each
 
     return res
 
@@ -241,20 +165,20 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     # Accuracy
     bin_acc_per_class = compute_accuracy_per_class(is_weighted=False)
     wei_acc_per_class = compute_accuracy_per_class(is_weighted=True)
-    multilabel_acc = np.round(accuracy_score(true_classes, pred_classes),
+    multilabel_acc = np.round(accuracy_score(true_classes, pred_classes)*100,
                               round_decimals)  # True and pred class vectors must exactly match
-    bin_acc_macro = np.round(np.mean(bin_acc_per_class), round_decimals)
-    wei_acc_macro = np.round(np.mean(wei_acc_per_class), round_decimals)
-    print("Binary accuracy (for each):", bin_acc_per_class)
-    print("Weighted accuracy (for each):", wei_acc_per_class)
+    bin_acc_macro = np.round(np.mean(bin_acc_per_class)*100, round_decimals)
+    wei_acc_macro = np.round(np.mean(wei_acc_per_class)*100, round_decimals)
     print("Multilabel accuracy:", multilabel_acc)
+    print("Binary accuracy (for each):", bin_acc_per_class)
     print("Binary accuracy (unweighted mean):", bin_acc_macro)
+    print("Weighted accuracy (for each):", wei_acc_per_class)
     print("Weighted accuracy (unweighted mean):", wei_acc_macro)
 
     # F1 score
     f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
-    f1_each_rounded = [np.round(val, round_decimals) for val in f1_each]
-    f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    f1_each_rounded = [np.round(val*100, round_decimals) for val in f1_each]
+    f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1)*100, round_decimals)
     # f1_weighted = np.round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
     print("F1 score (for each):", f1_each_rounded)
     print("F1 score (unweighted mean):", f1_macro)
@@ -262,8 +186,8 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
     # Recall
     rec_each = recall_score(true_classes, pred_classes, average=None, zero_division=1)
-    rec_each_rounded = [np.round(val, round_decimals) for val in rec_each]
-    rec_macro = np.round(recall_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
+    rec_each_rounded = [np.round(val*100, round_decimals) for val in rec_each]
+    rec_macro = np.round(recall_score(true_classes, pred_classes, average='macro', zero_division=1)*100, round_decimals)
     # rec_weighted = np.round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1),
     #                         round_decimals)
     print("Recall (for each):", rec_each_rounded)
@@ -272,9 +196,10 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
     # Precision
     prec_each = precision_score(true_classes, pred_classes, average=None, zero_division=1)
-    prec_each_rounded = [np.round(val, round_decimals) for val in prec_each]
-    prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1), round_decimals)
-    # prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1),
+    prec_each_rounded = [np.round(val*100, round_decimals) for val in prec_each]
+    prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1)*100,
+                          round_decimals)
+    # prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1)*100,
     #                          round_decimals)
     print("Precision (for each):", prec_each_rounded)
     print("Precision (unweighted mean):", prec_macro)
@@ -284,10 +209,10 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
     pred_classes_bin = label_binarize(pred_classes, classes=list(range(num_classes)))
     roc_auc_each = roc_auc_score(true_classes_bin, pred_classes_bin, average=None)
-    roc_auc_macro = np.round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro'), round_decimals)
+    roc_auc_each_rounded = [np.round(val*100, round_decimals) for val in roc_auc_each]
+    roc_auc_macro = np.round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro')*100, round_decimals)
     # roc_auc_weighted = np.round(
     #     roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr'), round_decimals)
-    roc_auc_each_rounded = [np.round(val, round_decimals) for val in roc_auc_each]
     print("ROC AUC (for each):", roc_auc_each_rounded)
     print("ROC AUC (unweighted mean):", roc_auc_macro)
     # print("ROC AUC (weighted mean):", roc_auc_weighted)

@@ -189,8 +189,8 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     ext_name = "_pred-neu" if predict_neutral_class else "_rm-neu"
     ext_name_coa_train = '_prob' if ('prob' in label_type) else '_oh' if ('oh' in label_type) else ''
     filename_all = root_name + "_true_scores_all" + ext_name
-    filename_coa_train = root_name + "_true_scores_coa" + ext_name + ext_name_coa_train + '_train'
-    filename_coa_met = root_name + "_true_scores_coa" + ext_name + '_met'
+    filename_coa_train = root_name + "_true_scores_coa" + ext_name_coa_train + '_train' + ext_name
+    filename_coa_met = root_name + "_true_scores_coa" + '_met' + ext_name
     filename_pres = root_name + "_true_classes_pres" + ext_name
     filename_dom = root_name + "_true_classes_dom" + ext_name
 
@@ -207,7 +207,8 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     #### For training
     if not return_all_tasks and 'coarse' in label_type:
         if not pickle_file_exists(filename_coa_train, 'processed_folds', 'cmu_mosei'):
-            true_scores_coa = get_coa_presence_score_for_training(true_scores_all, 6, prob=('prob' in label_type),
+            true_scores_coa = get_coa_presence_score_for_training(true_scores_all, num_classes,
+                                                                  prob=('prob' in label_type),
                                                                   one_hot=('oh' in label_type))
             save_with_pickle(true_scores_coa, filename_coa_train, 'processed_folds', 'cmu_mosei')
         else:
@@ -215,7 +216,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     #### For metric calculation
     if return_all_tasks:
         if not pickle_file_exists(filename_coa_met, 'processed_folds', 'cmu_mosei'):
-            true_scores_coa = get_presence_score_for_metrics(true_scores_all, all_scores, 6, coarse=True)
+            true_scores_coa = get_presence_score_for_metrics(true_scores_all, all_scores, num_classes, coarse=True)
             save_with_pickle(true_scores_coa, filename_coa_met, 'processed_folds', 'cmu_mosei')
         else:
             true_scores_coa = load_from_pickle(filename_coa_met, 'processed_folds', 'cmu_mosei')
@@ -260,7 +261,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     pred_classes_pres: Emotions present predicted by the model (varying thresholds for presence score given by threshold_emo_pres)
     pred_classes_dom: Dominant emotions predicted by the model (highest presence score)
 
-    :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
+    :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions (in [0,3])
     :param all_scores: list of available presence scores
     :param predict_neutral_class: Whether we predict the neutral class
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3

@@ -86,7 +86,7 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     if 'oh' in label_type:
         pred_raw = from_one_hot_to_plain(pred_raw, num_classes)
     if 'prob' in label_type:
-        pred_raw = np.round(pred_raw*3).astype(int)
+        pred_raw = pred_raw*3
 
     pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,

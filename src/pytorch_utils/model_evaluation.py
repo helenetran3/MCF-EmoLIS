@@ -105,22 +105,11 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     if 'oh' in label_type:
         pred_raw_array = from_one_hot_to_plain(pred_raw_array, num_classes)
     if 'prob' in label_type:
-        pred_raw_array = np.round(pred_raw_array*3).astype(int)
+        pred_raw_array = pred_raw_array*3
 
     pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
         compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
-
-    # ## For debugging
-    # print("pred_raw[0]:", pred_raw_array[0])
-    # print("mean(pred_raw):", np.mean(np.array(pred_raw_array), axis=0))
-    # print("max(pred_raw):", np.max(np.array(pred_raw_array), axis=0))
-    # print("sum(pred_raw > 0.5):", np.sum((np.array(pred_raw_array) > 0.5), axis=0))
-    # if param_task['label_type'] == 'coarse':
-    #     print("pred_scores_coa[0]:", pred_scores_coa[0])
-    # print("pred_classes_pres[0][0]:", pred_classes_pres[0][0])
-    # print("len(pred_classes_pres):", len(pred_classes_pres))
-    # print("pred_classes_dom[0]:", pred_classes_dom[0])
 
     return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, \
            pred_classes_dom
