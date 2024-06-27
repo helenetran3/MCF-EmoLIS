@@ -13,6 +13,54 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix, ConfusionMatrixDisplay
 
 
+def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals):
+    """
+    Return an array of shape (num_classes,) giving the best threshold for each class
+       + the corresponding validation metric from model prediction.
+    Possible threshold values: [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55, 0.6 , 0.65, 0.7 ,
+       0.75, 0.8 , 0.85, 0.9 , 0.95]
+
+    :param true_classes: binary array of shape (split_set size, 6)
+    :param pred_raw: array of shape (split_set size, 6), values between 0 and 1
+    :param round_decimals: number of decimals to be rounded for metrics
+    :return: best_thres_per_emo, f1_each_rounded
+    """
+
+    # Compute the best thresholds for each emotion class
+    thresholds = np.arange(0.05, 1, 0.05)
+    val_metrics = []
+    num_classes = true_classes.shape[1]
+
+    for thres in thresholds:
+        pred_thres = pred_raw
+        pred_thres[pred_thres > thres] = 1
+        pred_thres[pred_thres <= thres] = 0
+
+        val_metric_thres = []
+        for cl_i in range(num_classes):
+            pred_i = pred_thres[:, cl_i]
+            true_i = true_classes[:, cl_i]
+            val_metric_thres += [f1_score(true_i, pred_i, average='macro', zero_division=1)]  # TODO Temporary: Valid metric = f1
+        val_metrics += [val_metric_thres]
+
+    best_thres_per_emo_ind = np.argmax(np.array(val_metrics), axis=0)
+    best_thres_per_emo = thresholds[best_thres_per_emo_ind]
+
+    # Compute validation metric based on model prediction
+    pred_classes = np.empty(pred_raw.shape)  # For initialization
+    for cl_i in range(num_classes):
+        pred_i = pred_raw[:, cl_i]
+        pred_i[pred_i > best_thres_per_emo[cl_i]] = 1
+        pred_i[pred_i < best_thres_per_emo[cl_i]] = 0
+        pred_classes[:, cl_i] = pred_i
+    assert ((pred_classes == 0) | (pred_classes == 1)).all()  # Check if pred_classes is binary
+
+    f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
+    f1_each_rounded = [np.round(val * 100, round_decimals) for val in f1_each]
+
+    return best_thres_per_emo, f1_each_rounded
+
+
 def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     """
     Compute regression metrics: mean absolute error and mean squared error
