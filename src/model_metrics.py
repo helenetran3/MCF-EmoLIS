@@ -27,11 +27,12 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
     :return: best_thres_per_emo, f1_each_rounded
     """
 
+    num_classes = true_classes.shape[1]
+
     if best_thres_per_emo is None:
         # Compute the best thresholds for each emotion class
         thresholds = np.arange(0.05, 1, 0.05)
         val_metrics = []
-        num_classes = true_classes.shape[1]
 
         for thres in thresholds:
             pred_thres = pred_raw

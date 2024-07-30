@@ -23,6 +23,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
     x_test = test_list[0]  # list of lists of 3 arrays
     y_test = test_list[1]
+    y_test_array = np.vstack(y_test)
     seg_test = test_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
     num_classes = y_test[0].shape[1] if not one_hot else y_test[0].shape[0]
@@ -108,7 +109,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
     # This block computes the validation metrics for the test set
     if thres_per_emo_best is not None:  # for label type = present or dominant
-        _, test_monitor = compute_best_thres_for_monitor_metric(y_test, pred_raw_array, round_decimals,
+        _, test_monitor = compute_best_thres_for_monitor_metric(y_test_array, pred_raw_array, round_decimals,
                                                                 thres_per_emo_best)
         test_monitor_avg = np.round(np.mean(test_monitor), round_decimals)
         print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")  # TODO replace F1 by val_met

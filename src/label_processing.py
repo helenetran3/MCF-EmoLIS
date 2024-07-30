@@ -148,10 +148,10 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
         return bin_array_emotions
 
     else:  # Collect all emotions present in the sample
-        list_emotions_all_thresholds = []
 
         # Case where we infer present emotions from presence score
         if thres_per_emo_best_metric is None:
+            list_emotions_all_thresholds = []
             for thres in threshold_emo_pres:  # Loop over all threshold values
                 list_emotions_thres = get_list_emotions_for_each_seg(thres_seg=thres)
                 list_emotions_all_thresholds.append(list_emotions_thres)
@@ -167,7 +167,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
                 score_cl_i[score_cl_i < thres_per_emo_best_metric[cl_i]] = 0
                 bin_array[:, cl_i] = score_cl_i
             assert ((bin_array == 0) | (bin_array == 1)).all()  # Check if bin_array is binary
-            return bin_array
+            return [bin_array]  # for the moment we create a list
 
 
 def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
@@ -237,8 +237,8 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     # Compute true present classes: binary arrays of shape (num_test, 6 or 7)
     if return_all_tasks or label_type == 'present':
         if not pickle_file_exists(filename_pres, 'processed_folds', 'cmu_mosei'):
-            true_classes_pres = get_class_from_presence_score(true_scores_all, predict_neutral_class,
-                                                              threshold_emo_pres, num_classes, only_dominant=False)
+            true_classes_pres = get_class_from_presence_score(true_scores_all, predict_neutral_class, threshold_emo_pres,
+                                                              None, num_classes, only_dominant=False)
             save_with_pickle(true_classes_pres, filename_pres, 'processed_folds', 'cmu_mosei')
         else:
             true_classes_pres = load_from_pickle(filename_pres, 'processed_folds', 'cmu_mosei')
@@ -246,8 +246,8 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     # Compute true dominant classes: binary arrays of shape (num_test, 6 or 7)
     if return_all_tasks or label_type == 'dominant':
         if not pickle_file_exists(filename_dom, 'processed_folds', 'cmu_mosei'):
-            true_classes_dom = get_class_from_presence_score(true_scores_all, predict_neutral_class,
-                                                             threshold_emo_pres, num_classes, only_dominant=True)
+            true_classes_dom = get_class_from_presence_score(true_scores_all, predict_neutral_class, threshold_emo_pres,
+                                                             None, num_classes, only_dominant=True)
             save_with_pickle(true_classes_dom, filename_dom, 'processed_folds', 'cmu_mosei')
         else:
             true_classes_dom = load_from_pickle(filename_dom, 'processed_folds', 'cmu_mosei')
