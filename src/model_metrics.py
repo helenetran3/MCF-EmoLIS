@@ -35,9 +35,9 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
         val_metrics = []
 
         for thres in thresholds:
-            pred_thres = pred_raw
-            pred_thres[pred_thres > thres] = 1
-            pred_thres[pred_thres <= thres] = 0
+            pred_thres = np.empty(pred_raw.shape)
+            pred_thres[pred_raw > thres] = 1
+            pred_thres[pred_raw <= thres] = 0
 
             val_metric_thres = []
             for cl_i in range(num_classes):
