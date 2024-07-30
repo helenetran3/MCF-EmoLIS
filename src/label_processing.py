@@ -95,7 +95,8 @@ def get_presence_score_for_metrics(scores_array, all_scores, num_classes, coarse
     return out_scores
 
 
-def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, num_classes, only_dominant):
+def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, thres_per_emo_best_metric,
+                                  num_classes, only_dominant):
     """
     Get the dominant emotion class(es) for each test segment based on the presence scores of emotions.
     If only_dominant, return a binary array, else return a list of len(threshold_emo_pres) binary arrays.
@@ -149,12 +150,24 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
     else:  # Collect all emotions present in the sample
         list_emotions_all_thresholds = []
 
-        for thres in threshold_emo_pres:  # Loop over all threshold values
-            list_emotions_thres = get_list_emotions_for_each_seg(thres_seg=thres)
-            list_emotions_all_thresholds.append(list_emotions_thres)
+        # Case where we infer present emotions from presence score
+        if thres_per_emo_best_metric is None:
+            for thres in threshold_emo_pres:  # Loop over all threshold values
+                list_emotions_thres = get_list_emotions_for_each_seg(thres_seg=thres)
+                list_emotions_all_thresholds.append(list_emotions_thres)
 
-        list_bin_array_emotions = [mlb.fit_transform(l) for l in list_emotions_all_thresholds]
-        return list_bin_array_emotions
+            list_bin_array_emotions = [mlb.fit_transform(l) for l in list_emotions_all_thresholds]
+            return list_bin_array_emotions
+
+        else:
+            bin_array = np.empty(score_array.shape)
+            for cl_i in range(num_classes):
+                score_cl_i = score_array[:, cl_i]
+                score_cl_i[score_cl_i > thres_per_emo_best_metric[cl_i]] = 1
+                score_cl_i[score_cl_i < thres_per_emo_best_metric[cl_i]] = 0
+                bin_array[:, cl_i] = score_cl_i
+            assert ((bin_array == 0) | (bin_array == 1)).all()  # Check if bin_array is binary
+            return bin_array
 
 
 def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
@@ -253,8 +266,8 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
         return ValueError("Value label_type invalid.")
 
 
-def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
-                        num_classes, model_folder, label_type):
+def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, thres_per_emo_best,
+                        save_pred, model_id, num_classes, model_folder, label_type):
     """
     Compute the prediction labels (all arrays of shape (test_size, 6), pred_classes_pres is a list of arrays of this type)
     pred_scores_coa: Closest predicted score among [0, 1, 2, 3]
@@ -306,14 +319,14 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     # Get present emotion classes predicted by the model, based on thresholds
     if compute_pres:
         pred_classes_pres = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                          num_classes, only_dominant=False)
+                                                          thres_per_emo_best, num_classes, only_dominant=False)
         if save_pred:
             save_with_pickle(pred_classes_pres, "pred_classes_pres_{}".format(model_id), pickle_folder="predictions",
                              root_folder=model_folder)
 
     # Get dominant emotion classes predicted by the model
     pred_classes_dom = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                     num_classes, only_dominant=True)
+                                                     thres_per_emo_best, num_classes, only_dominant=True)
     if save_pred:
         save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
                          root_folder=model_folder)

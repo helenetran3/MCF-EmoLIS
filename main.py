@@ -72,15 +72,16 @@ def main():
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
             print(f"\nUsing {device} device")
 
-            train_torch_model(train_list_task, valid_list_task, test_list_task, param_task, param_model, param_training,
-                              param_log, num_steps, model_name, model_id, loss_function, val_metrics, label_type,
-                              device, with_cross_validation)
+            thres_per_emo_best = train_torch_model(train_list_task, valid_list_task, test_list_task,
+                                                   param_task, param_model, param_training, param_log,
+                                                   num_steps, model_name, model_id, loss_function, val_metrics,
+                                                   label_type, device, with_cross_validation)
             # model_id = 2
 
             model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-                evaluate_torch_model(test_list_task, param_task, param_model, param_training, param_log,
-                                     num_steps, model_name, model_id, loss_function, val_metrics, all_scores,
-                                     device, with_cross_validation)
+                evaluate_torch_model(test_list_task, param_task, param_model, param_training,
+                                     param_log, num_steps, model_name, model_id, loss_function, val_metrics,
+                                     thres_per_emo_best, all_scores, device, with_cross_validation)
 
         # Save model parameters in csv file
         save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name,

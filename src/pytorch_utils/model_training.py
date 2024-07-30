@@ -49,7 +49,7 @@ def model_checkpoint(valid_loss, valid_loss_best, valid_thres_per_emo, valid_thr
         os.makedirs(model_folder)
 
     if epoch == 0 or valid_loss < valid_loss_best:
-        valid_thres_per_emo_best = valid_thres_per_emo
+        valid_thres_per_emo_best = valid_thres_per_emo  # None if label type is not present or dominant
         valid_loss_best = valid_loss
 
         model_path = os.path.join(model_folder, "model_{}.pt".format(ext_model_name))
@@ -102,10 +102,10 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
 
     # summarize history for training and validation metric used to monitor
     if type(history_train[0]) == list:
+        emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
+        splits = ['_train', '_val']
+        legend_text = [emo + sp for emo in emotions for sp in splits]
         for cl_i in range(len(history_train[0])):
-            emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-            splits = ['_train', '_val']
-            legend_text = [emo+sp for emo in emotions for sp in splits]
             history_train_i = [ht[cl_i] for ht in history_train]
             history_valid_i = [hv[cl_i] for hv in history_valid]
             plt.plot(history_train_i)
@@ -181,6 +181,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
     val_metrics_best, valid_thres_per_emo_best = None, None
+    valid_thres_per_emo = None  # For initialization, will contain the list of best threshold at a given epoch
     num_epochs_without_improvement = 0
 
     # Parameters for history
@@ -197,6 +198,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         print(f"Epoch {epoch:>3d}")
         train_loss = 0.0
         valid_loss = 0.0
+        train_monitor = 0.0
+        valid_monitor = 0.0
 
         # Model training on training data
         model.train()
@@ -214,6 +217,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_audio = x_audio.bfloat16()
                         pred = model(x_text, x_image, x_audio)
                         batch_loss = loss_fn(pred, y_sample)
+                        batch_monitor = val_metrics(pred, y_sample)
                         pred_train += pred.tolist()
                         true_train += y_sample.tolist()
 
@@ -225,6 +229,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_audio = x_audio.float()
                     pred = model(x_text, x_image, x_audio)
                     batch_loss = loss_fn(pred, y.float())
+                    batch_monitor = val_metrics(pred, y.float())
                     pred_train += pred.tolist()
                     true_train += y.tolist()
 
@@ -235,7 +240,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
                 optimizer.step()
 
-                batch_loss = batch_loss.item()
+                batch_loss, batch_monitor = batch_loss.item(), batch_monitor.item()
                 current = batch_id * batch_size + len(X)
                 # batch_loss_current = batch_loss / len(X)
                 # batch_monitor_current = batch_monitor / len(X)
@@ -247,19 +252,23 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
                     writer.add_scalar("Training loss (per batch)", batch_loss, epoch * train_size + batch_id)
                     # Print every 10 batch losses on the terminal
-                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f} "
-                          # f"{val_metrics_str}: {batch_monitor:>7f} "
+                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f} - "
+                          f"{val_metrics_str}: {batch_monitor:>7f} "
                           f"[{current:>5d}/{train_size:>5d}]")
 
                 train_loss += batch_loss
+                train_monitor += batch_monitor
                 bar()
 
         train_loss /= num_iterations
-        train_thres_per_emo, train_monitor = compute_best_thres_for_monitor_metric(np.array(true_train).reshape(-1, num_classes),
-                                                                 np.array(pred_train).reshape(-1, num_classes),
-                                                                 round_decimals)
-        train_monitor_avg = np.round(np.mean(train_monitor), round_decimals)
-        train_monitor_all = train_monitor + [train_monitor_avg]
+        train_monitor /= num_iterations
+
+        if label_type == 'dominant' or label_type == 'present':
+            train_thres_per_emo, train_monitor_per_emo = compute_best_thres_for_monitor_metric(
+                np.array(true_train).reshape(-1, num_classes), np.array(pred_train).reshape(-1, num_classes),
+                round_decimals)
+            train_monitor_avg = np.round(np.mean(train_monitor_per_emo), round_decimals)
+            train_monitor_all = train_monitor_per_emo + [train_monitor_avg]
 
         # Model evaluation on validation data
         model.eval()
@@ -276,6 +285,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_image = x_image.bfloat16()
                         pred = model(x_text, x_audio, x_image)
                         valid_loss += loss_fn(pred, y_sample).item()
+                        valid_monitor += val_metrics(pred, y_sample).item()
                         pred_valid += pred.tolist()
                         true_valid += y_sample.tolist()
 
@@ -287,6 +297,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
                     valid_loss += loss_fn(pred, y.float()).item()
+                    valid_monitor += val_metrics(pred, y.float()).item()
                     pred_valid += pred.tolist()
                     true_valid += y.tolist()
 
@@ -295,38 +306,55 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
                 #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
         valid_loss /= valid_size
-        valid_thres_per_emo, valid_monitor = compute_best_thres_for_monitor_metric(np.array(true_valid).reshape(-1, num_classes),
-                                                                                   np.array(pred_valid).reshape(-1, num_classes),
-                                                                                   round_decimals)
-        valid_monitor_avg = np.round(np.mean(valid_monitor), round_decimals)
-        valid_monitor_all = valid_monitor + [valid_monitor_avg]
+        valid_monitor /= valid_size
+
+        if label_type == 'present' or label_type == 'dominant':
+            valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
+                np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
+                round_decimals)
+            valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
+            valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
+            # We monitor the average for the rest of the code
+            valid_monitor = valid_monitor_avg
+
+            # For Tensorboard
+            emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
+            for cl_i in range(len(emotions)):
+                writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
+                writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
         writer.add_scalar("Training loss", train_loss, epoch)
         writer.add_scalar("Validation loss", valid_loss, epoch)
-        emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-        for cl_i in range(len(emotions)):
-            writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
-            writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
+        writer.add_scalar("Training to monitor", train_monitor, epoch)
+        writer.add_scalar("Validation to monitor", valid_monitor, epoch)
 
         # Reduce learning rate when valid_monitor stops improving
         if param_training["when"] != -1:
-            scheduler.step(valid_monitor_avg)
+            scheduler.step(valid_monitor)
 
         print("-------------------------------------------------------------------------------------------------------")
         print(f"Epoch {epoch:>3d} - Avg train {loss_function_str}: {train_loss:>5f}")
         print(f"          - Avg valid {loss_function_str}: {valid_loss:>5f}")
-        print(f"          - Avg train {val_metrics_str}: {train_monitor_avg}; per emo: {train_monitor}")
-        print(f"          - Avg valid {val_metrics_str}: {valid_monitor_avg}; per emo: {valid_monitor}")
-        print(f"          - Threshold train per emo: {train_thres_per_emo}")
-        print(f"          - Threshold valid per emo: {valid_thres_per_emo}")
+        if label_type == 'dominant' or label_type == 'present':
+            print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")  # TODO replace F1 by val_met
+            print(f"          - Avg valid F1 score: {valid_monitor_avg}; per emo: {valid_monitor_per_emo}")
+            print(f"          - Threshold train per emo: {train_thres_per_emo}")
+            print(f"          - Threshold valid per emo: {valid_thres_per_emo}")
+        else:
+            print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
+            print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
         print("-------------------------------------------------------------------------------------------------------")
 
         # Display and save history plot
         history_train += [train_loss]
         history_valid += [valid_loss]
-        history_train_monitor += [train_monitor_all]
-        history_valid_monitor += [valid_monitor_all]
+        if label_type == 'dominant' or label_type == 'present':
+            history_train_monitor += [train_monitor_all]
+            history_valid_monitor += [valid_monitor_all]
+        else:
+            history_train_monitor += [train_monitor]
+            history_valid_monitor += [valid_monitor]
 
         # For model checkpoint
         val_metrics_best, valid_thres_per_emo_best = model_checkpoint(valid_monitor_avg, val_metrics_best,
@@ -349,7 +377,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     writer.close()
 
-    return valid_thres_per_emo_best
+    return valid_thres_per_emo_best  # None if label type not 'present' or 'dominant'
 
 
 def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
@@ -365,8 +393,12 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
             valid_thres_per_emo_best += [run_one_training(train_list_i, valid_list_i, param_model, param_training,
                                                           param_log, num_steps, model_name, model_id, loss_function,
                                                           val_metrics, label_type, device, with_cross_valid, fold_id)]
+        if valid_thres_per_emo_best[0] is None:
+            valid_thres_per_emo_best = None
 
     else:
         valid_thres_per_emo_best = run_one_training(train_list, valid_list, param_model, param_training, param_log,
                                                     num_steps, model_name, model_id, loss_function, val_metrics,
                                                     label_type, device, with_cross_valid)
+
+    return valid_thres_per_emo_best

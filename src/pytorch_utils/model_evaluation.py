@@ -1,6 +1,7 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
 from src.label_processing import compute_pred_labels, from_one_hot_to_plain
 from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics
+from src.model_metrics import compute_best_thres_for_monitor_metric
 
 import os
 import numpy as np
@@ -9,8 +10,8 @@ from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
 
-def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_model, param_log,
-                       num_steps, model_name, model_id, loss_fn_str, val_met_str, all_scores, device):
+def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_model, param_log, num_steps,
+                       model_name, model_id, loss_fn_str, val_met_str, thres_per_emo_best, all_scores, device):
 
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
@@ -78,7 +79,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                         y = y.float()
 
                 pred = model(x_text, x_audio, x_image)
-                pred_raw += pred
+                pred_raw += pred.tolist()
                 loss_fn_value += loss_fn(pred, y).item()
                 val_met_value += val_metrics(pred, y).item()
 
@@ -89,7 +90,6 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     val_met_value = np.round(val_met_value, round_decimals)
 
     print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f}")
-    print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
 
     # # Only for debugging
     # from src.pickle_functions import load_from_pickle
@@ -99,24 +99,33 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
     # This block creates pred_raw_array, i.e., pred_raw in array format, with shape (test_size, num_classes) and
     # values in [0, 3]
-    pred_raw_list = [pred_raw[i].tolist() for i in range(len(pred_raw))]
     pred_shape = (test_size, -1, 4) if one_hot else (test_size, -1)  # 4 for number of scores
-    pred_raw_array = np.array(pred_raw_list).reshape(pred_shape)
+    pred_raw_array = np.array(pred_raw).reshape(pred_shape)
     if 'oh' in label_type:
         pred_raw_array = from_one_hot_to_plain(pred_raw_array, num_classes)
     if 'prob' in label_type:
         pred_raw_array = pred_raw_array*3
 
+    # This block computes the validation metrics for the test set
+    if thres_per_emo_best is not None:  # for label type = present or dominant
+        _, test_monitor = compute_best_thres_for_monitor_metric(y_test, pred_raw_array, round_decimals,
+                                                                thres_per_emo_best)
+        test_monitor_avg = np.round(np.mean(test_monitor), round_decimals)
+        print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")  # TODO replace F1 by val_met
+        print(f"Threshold per emo (calculated from validation set): {thres_per_emo_best}")
+    else:
+        print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
+
     pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-        compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
-                            num_classes, model_folder, label_type)
+        compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, thres_per_emo_best,
+                            save_pred, model_id, num_classes, model_folder, label_type)
 
     return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, \
            pred_classes_dom
 
 
-def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps,
-                         model_name, model_id, loss_function, val_metrics, all_scores, device, with_cross_valid):
+def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
+                         loss_function, val_metrics, thres_per_emo_best, all_scores, device, with_cross_valid):
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']
@@ -124,9 +133,9 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
             [], [], [], [], [], []
         for fold_i in range(num_folds):
             loss_vals_i, pred_raw_i, pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i = \
-                run_one_evaluation(test_list, with_cross_valid, fold_i, param_task, param_model,
-                                   param_log, num_steps, model_name, model_id, loss_function, val_metrics,
-                                   all_scores, device)
+                run_one_evaluation(test_list, with_cross_valid, fold_i,
+                                   param_task, param_model, param_log, num_steps, model_name, model_id,
+                                   loss_function, val_metrics, thres_per_emo_best, all_scores, device)
             model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw_array += [pred_raw_i]
             pred_scores_all += [pred_all_i]
@@ -135,7 +144,8 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
             pred_classes_dom += [pred_dom_i]
     else:
         model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_log,
-                               num_steps, model_name, model_id, loss_function, val_metrics, all_scores, device)
+            run_one_evaluation(test_list, with_cross_valid, None,
+                               param_task, param_model, param_log, num_steps, model_name, model_id,
+                               loss_function, val_metrics, thres_per_emo_best, all_scores, device)
 
     return model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom

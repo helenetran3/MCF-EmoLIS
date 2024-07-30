@@ -13,7 +13,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix, ConfusionMatrixDisplay
 
 
-def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals):
+def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals, best_thres_per_emo=None):
     """
     Return an array of shape (num_classes,) giving the best threshold for each class
        + the corresponding validation metric from model prediction.
@@ -23,28 +23,30 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
     :param true_classes: binary array of shape (split_set size, 6)
     :param pred_raw: array of shape (split_set size, 6), values between 0 and 1
     :param round_decimals: number of decimals to be rounded for metrics
+    :param best_thres_per_emo: lists of 6 best thresholds
     :return: best_thres_per_emo, f1_each_rounded
     """
 
-    # Compute the best thresholds for each emotion class
-    thresholds = np.arange(0.05, 1, 0.05)
-    val_metrics = []
-    num_classes = true_classes.shape[1]
+    if best_thres_per_emo is None:
+        # Compute the best thresholds for each emotion class
+        thresholds = np.arange(0.05, 1, 0.05)
+        val_metrics = []
+        num_classes = true_classes.shape[1]
 
-    for thres in thresholds:
-        pred_thres = pred_raw
-        pred_thres[pred_thres > thres] = 1
-        pred_thres[pred_thres <= thres] = 0
+        for thres in thresholds:
+            pred_thres = pred_raw
+            pred_thres[pred_thres > thres] = 1
+            pred_thres[pred_thres <= thres] = 0
 
-        val_metric_thres = []
-        for cl_i in range(num_classes):
-            pred_i = pred_thres[:, cl_i]
-            true_i = true_classes[:, cl_i]
-            val_metric_thres += [f1_score(true_i, pred_i, average='macro', zero_division=1)]  # TODO Temporary: Valid metric = f1
-        val_metrics += [val_metric_thres]
+            val_metric_thres = []
+            for cl_i in range(num_classes):
+                pred_i = pred_thres[:, cl_i]
+                true_i = true_classes[:, cl_i]
+                val_metric_thres += [f1_score(true_i, pred_i, average='macro', zero_division=1)]  # TODO Temporary: Valid metric = f1
+            val_metrics += [val_metric_thres]
 
-    best_thres_per_emo_ind = np.argmax(np.array(val_metrics), axis=0)
-    best_thres_per_emo = thresholds[best_thres_per_emo_ind]
+        best_thres_per_emo_ind = np.argmax(np.array(val_metrics), axis=0)
+        best_thres_per_emo = thresholds[best_thres_per_emo_ind]
 
     # Compute validation metric based on model prediction
     pred_classes = np.empty(pred_raw.shape)  # For initialization
