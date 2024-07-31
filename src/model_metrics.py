@@ -45,11 +45,11 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
             #     # val_metric_thres += [f1_score(true_i, pred_bin_i, average='macro', zero_division=1)]
             # #val_metrics += [val_metric_thres]
             val_metrics += [f1_score(true_classes, pred_thres, average=None, zero_division=1)]  # TODO Temporary: Valid metric = f1
-            print(np.round(thres, 2), " - ", val_metrics[-1])
+            # print(np.round(thres, 2), " - ", val_metrics[-1])
 
         best_thres_per_emo_ind = np.argmax(np.array(val_metrics), axis=0)
         best_thres_per_emo = thresholds[best_thres_per_emo_ind]
-        print("best_thres_per_emo:", best_thres_per_emo, "\n")
+        # print("best_thres_per_emo:", best_thres_per_emo, "\n")
 
     # Compute validation metric based on model prediction
     pred_classes = np.empty(pred_raw.shape)  # For initialization
