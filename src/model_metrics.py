@@ -31,31 +31,34 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
 
     if best_thres_per_emo is None:
         # Compute the best thresholds for each emotion class
-        thresholds = np.arange(0.05, 1, 0.05)
+        thresholds = np.arange(0, 1, 0.05)
         val_metrics = []
 
         for thres in thresholds:
             pred_thres = np.empty(pred_raw.shape)
             pred_thres[pred_raw > thres] = 1
             pred_thres[pred_raw <= thres] = 0
-
-            val_metric_thres = []
-            for cl_i in range(num_classes):
-                pred_i = pred_thres[:, cl_i]
-                true_i = true_classes[:, cl_i]
-                val_metric_thres += [f1_score(true_i, pred_i, average='macro', zero_division=1)]  # TODO Temporary: Valid metric = f1
-            val_metrics += [val_metric_thres]
+            # val_metric_thres = []
+            # for cl_i in range(num_classes):
+            #     pred_bin_i = pred_thres[:, cl_i]
+            #     true_i = true_classes[:, cl_i]
+            #     # val_metric_thres += [f1_score(true_i, pred_bin_i, average='macro', zero_division=1)]
+            # #val_metrics += [val_metric_thres]
+            val_metrics += [f1_score(true_classes, pred_thres, average=None, zero_division=1)]  # TODO Temporary: Valid metric = f1
+            print(np.round(thres, 2), " - ", val_metrics[-1])
 
         best_thres_per_emo_ind = np.argmax(np.array(val_metrics), axis=0)
         best_thres_per_emo = thresholds[best_thres_per_emo_ind]
+        print("best_thres_per_emo:", best_thres_per_emo, "\n")
 
     # Compute validation metric based on model prediction
     pred_classes = np.empty(pred_raw.shape)  # For initialization
     for cl_i in range(num_classes):
-        pred_i = pred_raw[:, cl_i]
-        pred_i[pred_i > best_thres_per_emo[cl_i]] = 1
-        pred_i[pred_i < best_thres_per_emo[cl_i]] = 0
-        pred_classes[:, cl_i] = pred_i
+        pred_raw_i = pred_raw[:, cl_i]
+        pred_bin_i = np.empty(pred_raw_i.shape)
+        pred_bin_i[pred_raw_i > best_thres_per_emo[cl_i]] = 1
+        pred_bin_i[pred_raw_i < best_thres_per_emo[cl_i]] = 0
+        pred_classes[:, cl_i] = pred_bin_i
     assert ((pred_classes == 0) | (pred_classes == 1)).all()  # Check if pred_classes is binary
 
     f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
