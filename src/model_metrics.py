@@ -375,8 +375,6 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
                                  "conf_matrix_{}_{}.png".format(task_name, model_id)), bbox_inches='tight')
 
         f.colorbar(display.im_, ax=axes)
-        if task_name == 'dom_and_pres':
-            print("wait")
         if display_fig:
             plt.show()
 

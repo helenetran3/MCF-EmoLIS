@@ -49,7 +49,7 @@ def model_checkpoint(valid_loss, valid_loss_best, valid_thres_per_emo, valid_thr
         os.makedirs(model_folder)
 
     if epoch == 0 or valid_loss < valid_loss_best:
-        valid_thres_per_emo_best = valid_thres_per_emo  # None if label type is not present or dominant
+        valid_thres_per_emo_best = valid_thres_per_emo
         valid_loss_best = valid_loss
 
         model_path = os.path.join(model_folder, "model_{}.pt".format(ext_model_name))
@@ -181,7 +181,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
     val_metrics_best, valid_thres_per_emo_best = None, None
-    valid_thres_per_emo = None  # For initialization, will contain the list of best threshold at a given epoch
     num_epochs_without_improvement = 0
 
     # Parameters for history
@@ -254,8 +253,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
                     writer.add_scalar("Training loss (per batch)", batch_loss, epoch * train_size + batch_id)
                     # Print every 10 batch losses on the terminal
-                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f} ",
-                          f"- {val_metrics_str}: {batch_monitor:>7f} " if val_metrics is not None else "",
+                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f}",
+                          f"- {val_metrics_str}: {batch_monitor:>7f}" if val_metrics is not None else "",
                           f"[{current:>5d}/{train_size:>5d}]")
 
                 train_loss += batch_loss
@@ -370,14 +369,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             history_valid_monitor += [valid_monitor]
 
         # For model checkpoint
-        val_metrics_best, valid_thres_per_emo_best = model_checkpoint(valid_monitor_avg, val_metrics_best,
+        val_metrics_best, valid_thres_per_emo_best = model_checkpoint(valid_monitor, val_metrics_best,
                                                                       valid_thres_per_emo, valid_thres_per_emo_best,
                                                                       model, optimizer, epoch, train_loss,
                                                                       model_name, ext_model_name)
 
         # For early stopping
         if patience != -1:
-            num_epochs_without_improvement = model_early_stopping(valid_monitor_avg, val_metrics_best,
+            num_epochs_without_improvement = model_early_stopping(valid_monitor, val_metrics_best,
                                                                   num_epochs_without_improvement, patience)
             if patience == num_epochs_without_improvement:
                 break
@@ -390,7 +389,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     writer.close()
 
-    return valid_thres_per_emo_best  # None if label type not 'present' or 'dominant'
+    return valid_thres_per_emo_best
 
 
 def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,

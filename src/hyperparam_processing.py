@@ -270,11 +270,12 @@ def get_val_metrics(val_metrics_str, is_tf):
     for loss_fn in possible_loss_fn:
         val_metrics_dict[loss_fn] = get_loss_function(loss_fn, is_tf)
 
-    if val_metrics_str.lower() in val_metrics_dict.keys():
-        return val_metrics_dict[val_metrics_str]
-    else:
-        raise ValueError("'{}' assigned to key 'val_metrics' in 'param_training_task.json' is invalid."
-                         " Please choose among {}.".format(val_metrics_str, possible_val_metrics))
+    if val_metrics_str != -1:
+        if val_metrics_str.lower() in val_metrics_dict.keys():
+            return val_metrics_dict[val_metrics_str]
+        else:
+            raise ValueError("'{}' assigned to key 'val_metrics' in 'param_training_task.json' is invalid."
+                             " Please choose among {}.".format(val_metrics_str, possible_val_metrics))
 
 
 def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):

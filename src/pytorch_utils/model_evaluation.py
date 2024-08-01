@@ -82,13 +82,15 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                 pred = model(x_text, x_audio, x_image)
                 pred_raw += pred.tolist()
                 loss_fn_value += loss_fn(pred, y).item()
-                val_met_value += val_metrics(pred, y).item()
+                if val_metrics is not None:
+                    val_met_value += val_metrics(pred, y).item()
 
                 bar()
     loss_fn_value /= test_size
     loss_fn_value = np.round(loss_fn_value, round_decimals)
-    val_met_value /= test_size
-    val_met_value = np.round(val_met_value, round_decimals)
+    if val_metrics is not None:
+        val_met_value /= test_size
+        val_met_value = np.round(val_met_value, round_decimals)
 
     print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f}")
 
@@ -108,11 +110,11 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
         pred_raw_array = pred_raw_array*3
 
     # This block computes the validation metrics for the test set
-    if thres_per_emo_best is not None:  # for label type = present or dominant
+    if val_metrics is None:
         _, test_monitor = compute_best_thres_for_monitor_metric(y_test_array, pred_raw_array, round_decimals,
                                                                 thres_per_emo_best)
         test_monitor_avg = np.round(np.mean(test_monitor), round_decimals)
-        print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")  # TODO replace F1 by val_met
+        print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")
         print(f"Threshold per emo (calculated from validation set): {thres_per_emo_best}")
     else:
         print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
