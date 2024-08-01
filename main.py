@@ -5,6 +5,7 @@ from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
 from src.label_processing import get_available_presence_scores_arr, update_labels, balance_dataset
 from src.model_metrics import compute_and_save_model_metrics
+from src.hyperparam_processing import possible_val_metrics
 import itertools
 
 
@@ -99,6 +100,11 @@ def main():
     val_metrics_str = param_training['val_metrics']
     loss_function_list = loss_function_str if type(loss_function_str) == list else [loss_function_str]
     val_metrics_list = val_metrics_str if type(val_metrics_str) == list else [val_metrics_str]
+    for val_met in val_metrics_list:
+        if param_task['label_type'] not in ['present', 'dominant'] and val_met == -1:
+            raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with task '{}'. "
+                             "Please choose a value among {} in 'param_training_task.json' file."
+                             .format(param_task['label_type'], possible_val_metrics))
     if type(model) == list:
         for model_i in model:
             # Iterate over all pairs (loss_function, val_metrics)

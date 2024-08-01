@@ -262,7 +262,8 @@ def get_val_metrics(val_metrics_str, is_tf):
         'zero_one_loss': zero_one_loss,
         'hamming_loss': hamming_loss,
         'rank_loss_ml': rank_loss_ml,
-        'rank_loss_gml': rank_loss_gml
+        'rank_loss_gml': rank_loss_gml,
+        -1: None
     }
 
     # Add loss functions to val_metrics_dict
@@ -359,6 +360,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                              " any strictly positive number, 'none'")
 
     def check_hyperparam_in_form_of_lists(hp_value, str_values, possible_values):
+        possible_values = possible_values + [-1] if str_values == 'val_metrics' else possible_values
         if type(hp_value) == list:
             for hp_i in hp_value:
                 check_value_is_in_list(str_values, hp_i, possible_values)

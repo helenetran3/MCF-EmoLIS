@@ -217,7 +217,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_audio = x_audio.bfloat16()
                         pred = model(x_text, x_image, x_audio)
                         batch_loss = loss_fn(pred, y_sample)
-                        batch_monitor = val_metrics(pred, y_sample)
+                        if val_metrics is not None:
+                            batch_monitor = val_metrics(pred, y_sample).item()
                         pred_train += pred.tolist()
                         true_train += y_sample.tolist()
 
@@ -229,7 +230,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_audio = x_audio.float()
                     pred = model(x_text, x_image, x_audio)
                     batch_loss = loss_fn(pred, y.float())
-                    batch_monitor = val_metrics(pred, y.float())
+                    if val_metrics is not None:
+                        batch_monitor = val_metrics(pred, y.float()).item()
                     pred_train += pred.tolist()
                     true_train += y.tolist()
 
@@ -240,7 +242,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
                 optimizer.step()
 
-                batch_loss, batch_monitor = batch_loss.item(), batch_monitor.item()
+                batch_loss = batch_loss.item()
                 current = batch_id * batch_size + len(X)
                 # batch_loss_current = batch_loss / len(X)
                 # batch_monitor_current = batch_monitor / len(X)
@@ -252,21 +254,25 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
                     writer.add_scalar("Training loss (per batch)", batch_loss, epoch * train_size + batch_id)
                     # Print every 10 batch losses on the terminal
-                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f} - "
-                          f"{val_metrics_str}: {batch_monitor:>7f} "
+                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f} ",
+                          f"- {val_metrics_str}: {batch_monitor:>7f} " if val_metrics is not None else "",
                           f"[{current:>5d}/{train_size:>5d}]")
 
                 train_loss += batch_loss
-                train_monitor += batch_monitor
+                if val_metrics is not None:
+                    train_monitor += batch_monitor
                 bar()
 
         train_loss /= num_iterations
-        train_monitor /= num_iterations
+        if val_metrics is not None:
+            train_monitor /= num_iterations
 
-        if label_type == 'dominant' or label_type == 'present':
-            train_thres_per_emo, train_monitor_per_emo = compute_best_thres_for_monitor_metric(
-                np.array(true_train).reshape(-1, num_classes), np.array(pred_train).reshape(-1, num_classes),
-                round_decimals)
+        # Compute best threshold per emotion for multilabel classification according to F1 score
+        train_thres_per_emo, train_monitor_per_emo = compute_best_thres_for_monitor_metric(
+            np.array(true_train).reshape(-1, num_classes), np.array(pred_train).reshape(-1, num_classes),
+            round_decimals)
+
+        if val_metrics is None:  # we use F1 score as a validation metric to monitor
             train_monitor_avg = np.round(np.mean(train_monitor_per_emo), round_decimals)
             train_monitor_all = train_monitor_per_emo + [train_monitor_avg]
 
@@ -285,7 +291,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_image = x_image.bfloat16()
                         pred = model(x_text, x_audio, x_image)
                         valid_loss += loss_fn(pred, y_sample).item()
-                        valid_monitor += val_metrics(pred, y_sample).item()
+                        if val_metrics is not None:
+                            valid_monitor += val_metrics(pred, y_sample).item()
                         pred_valid += pred.tolist()
                         true_valid += y_sample.tolist()
 
@@ -297,7 +304,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                     pred = model(x_text, x_audio, x_image)
                     valid_loss += loss_fn(pred, y.float()).item()
-                    valid_monitor += val_metrics(pred, y.float()).item()
+                    if val_metrics is not None:
+                        valid_monitor += val_metrics(pred, y.float()).item()
                     pred_valid += pred.tolist()
                     true_valid += y.tolist()
 
@@ -306,12 +314,16 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
                 #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
         valid_loss /= valid_size
-        valid_monitor /= valid_size
+        if val_metrics is not None:
+            valid_monitor /= valid_size
 
-        if label_type == 'present' or label_type == 'dominant':
-            valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
-                np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
-                round_decimals)
+        # Compute best threshold per emotion for multilabel classification according to F1 score
+        valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
+            np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
+            round_decimals)
+
+        # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
+        if val_metrics is None:
             valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
             valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
             # We monitor the average for the rest of the code
@@ -326,8 +338,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
         writer.add_scalar("Training loss", train_loss, epoch)
         writer.add_scalar("Validation loss", valid_loss, epoch)
-        writer.add_scalar("Training to monitor", train_monitor, epoch)
-        writer.add_scalar("Validation to monitor", valid_monitor, epoch)
+        if val_metrics is not None:
+            writer.add_scalar("Training to monitor", train_monitor, epoch)
+            writer.add_scalar("Validation to monitor", valid_monitor, epoch)
 
         # Reduce learning rate when valid_monitor stops improving
         if param_training["when"] != -1:
@@ -336,20 +349,20 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         print("-------------------------------------------------------------------------------------------------------")
         print(f"Epoch {epoch:>3d} - Avg train {loss_function_str}: {train_loss:>5f}")
         print(f"          - Avg valid {loss_function_str}: {valid_loss:>5f}")
-        if label_type == 'dominant' or label_type == 'present':
+        if val_metrics is None:
             print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")  # TODO replace F1 by val_met
             print(f"          - Avg valid F1 score: {valid_monitor_avg}; per emo: {valid_monitor_per_emo}")
-            print(f"          - Threshold train per emo: {train_thres_per_emo}")
-            print(f"          - Threshold valid per emo: {valid_thres_per_emo}")
         else:
             print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
+        print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
+        print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_per_emo}")
         print("-------------------------------------------------------------------------------------------------------")
 
         # Display and save history plot
         history_train += [train_loss]
         history_valid += [valid_loss]
-        if label_type == 'dominant' or label_type == 'present':
+        if val_metrics is None:
             history_train_monitor += [train_monitor_all]
             history_valid_monitor += [valid_monitor_all]
         else:
