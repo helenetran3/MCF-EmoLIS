@@ -165,7 +165,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
                 score_cl_i = score_array[:, cl_i]
                 score_cl_bin_i = np.empty(score_cl_i.shape)
                 score_cl_bin_i[score_cl_i > thres_per_emo_best_metric[cl_i]] = 1
-                score_cl_bin_i[score_cl_i < thres_per_emo_best_metric[cl_i]] = 0
+                score_cl_bin_i[score_cl_i <= thres_per_emo_best_metric[cl_i]] = 0
                 bin_array[:, cl_i] = score_cl_bin_i
             assert ((bin_array == 0) | (bin_array == 1)).all()  # Check if bin_array is binary
             return [bin_array]  # for the moment we create a list

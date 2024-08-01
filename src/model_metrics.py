@@ -57,7 +57,7 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
         pred_raw_i = pred_raw[:, cl_i]
         pred_bin_i = np.empty(pred_raw_i.shape)
         pred_bin_i[pred_raw_i > best_thres_per_emo[cl_i]] = 1
-        pred_bin_i[pred_raw_i < best_thres_per_emo[cl_i]] = 0
+        pred_bin_i[pred_raw_i <= best_thres_per_emo[cl_i]] = 0
         pred_classes[:, cl_i] = pred_bin_i
     assert ((pred_classes == 0) | (pred_classes == 1)).all()  # Check if pred_classes is binary
 
