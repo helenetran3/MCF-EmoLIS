@@ -209,8 +209,7 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
                 acc_emo = (tp * (total / pos) + tn) / (2 * total)
             else:
                 acc_emo = (tp + tn) / (tp + fp + fn + tn)
-            acc_emo_rounded = np.round(acc_emo, round_decimals)
-            acc_list.append(acc_emo_rounded)
+            acc_list.append(acc_emo)
         return acc_list
 
     if thres is not None:
@@ -219,6 +218,8 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     # Accuracy
     bin_acc_per_class = compute_accuracy_per_class(is_weighted=False)
     wei_acc_per_class = compute_accuracy_per_class(is_weighted=True)
+    bin_acc_per_class = [np.round(bin_acc_i*100, round_decimals) for bin_acc_i in bin_acc_per_class]
+    wei_acc_per_class = [np.round(wei_acc_i*100, round_decimals) for wei_acc_i in wei_acc_per_class]
     multilabel_acc = np.round(accuracy_score(true_classes, pred_classes)*100,
                               round_decimals)  # True and pred class vectors must exactly match
     bin_acc_macro = np.round(np.mean(bin_acc_per_class)*100, round_decimals)
