@@ -46,8 +46,7 @@ def main():
     # Balance dataset  #TODO
     balance_dataset(train_list_task, valid_list_task, test_list_task, param_task, all_scores)
 
-    def run_one_experiment(model_name, loss_function, val_metrics):
-        param_model = get_hyperparam_from_json("param_model", model_name=model_name)
+    def run_one_experiment(model_name, loss_function, val_metrics, param_model):
         model_id = get_current_model_id(model_name)
         is_tf = bool(param_model['is_TensorFlow'])
         num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task, is_tf)
@@ -105,14 +104,27 @@ def main():
             raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with task '{}'. "
                              "Please choose a value among {} in 'param_training_task.json' file."
                              .format(param_task['label_type'], possible_val_metrics))
+
     if type(model) == list:
         for model_i in model:
+            param_model_i = get_hyperparam_from_json("param_model", model_name=model_i)
             # Iterate over all pairs (loss_function, val_metrics)
             for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
-                run_one_experiment(model_i, lf_i, vm_i)
+                run_one_experiment(model_i, lf_i, vm_i, param_model_i)
     else:
-        for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
-            run_one_experiment(model, lf_i, vm_i)
+        param_model = get_hyperparam_from_json("param_model", model_name=model)
+        if model == 'mult':
+            # For mult, automate the change of model hyperparameters
+            hyperparam_loop = [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 1, 1]]
+            for dominant_modality_i, with_cross_module_i, lav_as_modality_i in hyperparam_loop:
+                param_model['dominant_modality'] = dominant_modality_i
+                param_model['with_cross_module'] = with_cross_module_i
+                param_model['lav_as_modality'] = lav_as_modality_i
+                for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
+                    run_one_experiment(model, lf_i, vm_i, param_model)
+        else:
+            for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
+                run_one_experiment(model, lf_i, vm_i, param_model)
 
     # Summary files
     csv_summary(with_cross_validation, param_log)
