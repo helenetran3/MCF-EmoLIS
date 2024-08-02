@@ -81,6 +81,12 @@
         "mult":
         {
             "is_TensorFlow": "Is TensorFlow",
+            "dominant_modality": "With text as dominant modality",
+            "with_cross_module": "With cross-module",
+            "lav_as_modality": "Language-Acoustic-Visual as modality",
+            "multitask": "Multitask learning",
+            "gml": "Graded multilabel",
+
             "vonly": "With image",
             "aonly": "With audio",
             "lonly": "With text",
