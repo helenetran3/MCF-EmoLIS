@@ -222,8 +222,8 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     wei_acc_per_class = [np.round(wei_acc_i*100, round_decimals) for wei_acc_i in wei_acc_per_class]
     multilabel_acc = np.round(accuracy_score(true_classes, pred_classes)*100,
                               round_decimals)  # True and pred class vectors must exactly match
-    bin_acc_macro = np.round(np.mean(bin_acc_per_class)*100, round_decimals)
-    wei_acc_macro = np.round(np.mean(wei_acc_per_class)*100, round_decimals)
+    bin_acc_macro = np.round(np.mean(bin_acc_per_class), round_decimals)
+    wei_acc_macro = np.round(np.mean(wei_acc_per_class), round_decimals)
     print("Multilabel accuracy:", multilabel_acc)
     print("Binary accuracy (for each):", bin_acc_per_class)
     print("Binary accuracy (unweighted mean):", bin_acc_macro)
