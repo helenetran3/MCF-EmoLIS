@@ -113,7 +113,7 @@ def main():
                 run_one_experiment(model_i, lf_i, vm_i, param_model_i)
     else:
         param_model = get_hyperparam_from_json("param_model", model_name=model)
-        if model == 'mult':
+        if model == 'mult' and param_model['run_model_var']:
             # For mult, automate the change of model hyperparameters
             hyperparam_loop = [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 1, 1]]
             for dominant_modality_i, with_cross_module_i, lav_as_modality_i in hyperparam_loop:

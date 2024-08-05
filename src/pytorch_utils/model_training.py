@@ -354,8 +354,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         else:
             print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
-        print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
-        print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_per_emo}")
+        if param_training['thres_ml_best']:
+            print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
+            print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_per_emo}")
         print("-------------------------------------------------------------------------------------------------------")
 
         # Display and save history plot
@@ -389,6 +390,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     writer.close()
 
+    if not param_training['thres_ml_best']:
+        valid_thres_per_emo_best = [0.5 for _ in range(num_classes)]
+
     return valid_thres_per_emo_best
 
 
@@ -405,8 +409,6 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
             valid_thres_per_emo_best += [run_one_training(train_list_i, valid_list_i, param_model, param_training,
                                                           param_log, num_steps, model_name, model_id, loss_function,
                                                           val_metrics, label_type, device, with_cross_valid, fold_id)]
-        if valid_thres_per_emo_best[0] is None:
-            valid_thres_per_emo_best = None
 
     else:
         valid_thres_per_emo_best = run_one_training(train_list, valid_list, param_model, param_training, param_log,

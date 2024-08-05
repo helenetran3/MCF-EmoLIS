@@ -104,6 +104,8 @@
         "mult":
         {
             "is_TensorFlow": 0,
+
+            "run_model_var": 0,
             "dominant_modality": 0,
             "with_cross_module": 0,
             "lav_as_modality": 0,

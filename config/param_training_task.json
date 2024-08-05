@@ -19,6 +19,7 @@
     "optimizer": "adam",
     "loss_function": "wei_bce",
     "val_metrics": "wei_bce",
+    "thres_ml_best": 0,
     "learning_rate": 5e-4,
     "cross_val_folds": -1,
     "random_state": 42,
