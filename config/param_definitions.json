@@ -29,6 +29,7 @@
         "optimizer": "Optimizer",
         "loss_function": "Loss function",
         "val_metrics": "Validation metric used for monitoring (callbacks like EarlyStopping, ReduceLROnPlateau), -1 if using F1 as validation metrics for 'present' and 'dominant' tasks",
+        "coef_ml": "Weight of multilabel task (when use multitask loss_function or val_metric)",
         "thres_ml_best": "For multilabel classification ('present', 'dominant'), 1 if take the class-wise threshold that gives the best F1 score on validation set, 0 to set all thresholds to 0.5",
         "learning_rate": "Learning rate",
         "cross_val_folds": "Number of folds for cross-validation (-1 if parameter not used)",
@@ -88,7 +89,7 @@
             "with_cross_module": "With cross-module",
             "lav_as_modality": "Language-Acoustic-Visual as modality",
             "multitask": "Multitask learning",
-            "gml": "Graded multilabel",
+            "gml": "Graded multilabel, 2D output (class, score)",
 
             "vonly": "With image",
             "aonly": "With audio",

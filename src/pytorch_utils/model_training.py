@@ -173,8 +173,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     # inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
 
     # Optimizing the model parameters
-    loss_fn = get_loss_function(loss_function_str, is_tf=False)
-    val_metrics = get_val_metrics(val_metrics_str, is_tf=False)
+    loss_fn = get_loss_function(loss_function_str, param_training, is_tf=False)
+    val_metrics = get_val_metrics(val_metrics_str, param_training, is_tf=False)
     optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
