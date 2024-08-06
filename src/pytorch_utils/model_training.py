@@ -180,7 +180,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
-    val_metrics_best, valid_thres_per_emo_best = None, None
+    val_metrics_best, valid_thres_per_emo, valid_thres_per_emo_best = None, None, None
     num_epochs_without_improvement = 0
 
     # Parameters for history
@@ -266,14 +266,15 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         if val_metrics is not None:
             train_monitor /= num_iterations
 
-        # Compute best threshold per emotion for multilabel classification according to F1 score
-        train_thres_per_emo, train_monitor_per_emo = compute_best_thres_for_monitor_metric(
-            np.array(true_train).reshape(-1, num_classes), np.array(pred_train).reshape(-1, num_classes),
-            round_decimals)
-
-        if val_metrics is None:  # we use F1 score as a validation metric to monitor
-            train_monitor_avg = np.round(np.mean(train_monitor_per_emo), round_decimals)
-            train_monitor_all = train_monitor_per_emo + [train_monitor_avg]
+        # # Compute best threshold per emotion for multilabel classification according to F1 score
+        # if param_training['thres_ml_best'] or val_metrics is None:
+        #     train_thres_per_emo, train_monitor_per_emo = compute_best_thres_for_monitor_metric(
+        #         np.array(true_train).reshape(-1, num_classes), np.array(pred_train).reshape(-1, num_classes),
+        #         round_decimals)
+        #
+        #     if val_metrics is None:  # we use F1 score as a validation metric to monitor
+        #         train_monitor_avg = np.round(np.mean(train_monitor_per_emo), round_decimals)
+        #         train_monitor_all = train_monitor_per_emo + [train_monitor_avg]
 
         # Model evaluation on validation data
         model.eval()
@@ -317,16 +318,17 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             valid_monitor /= valid_size
 
         # Compute best threshold per emotion for multilabel classification according to F1 score
-        valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
-            np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
-            round_decimals)
+        if param_training['thres_ml_best'] or val_metrics is None:
+            valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
+                np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
+                round_decimals)
 
-        # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
-        if val_metrics is None:
-            valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
-            valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
-            # We monitor the average for the rest of the code
-            valid_monitor = valid_monitor_avg
+            # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
+            if val_metrics is None:
+                valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
+                valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
+                # We monitor the average for the rest of the code
+                valid_monitor = valid_monitor_avg
 
             # For Tensorboard
             emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
@@ -349,13 +351,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         print(f"Epoch {epoch:>3d} - Avg train {loss_function_str}: {train_loss:>5f}")
         print(f"          - Avg valid {loss_function_str}: {valid_loss:>5f}")
         if val_metrics is None:
-            print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")  # TODO replace F1 by val_met
-            print(f"          - Avg valid F1 score: {valid_monitor_avg}; per emo: {valid_monitor_per_emo}")
+            # print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")
+            print(f"          - Avg valid F1 score: {valid_monitor_avg}")
+            print(f"          - Avg valid F1 score per emo: {valid_monitor_per_emo}")
         else:
             print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
-        if param_training['thres_ml_best']:
-            print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
+        if param_training['thres_ml_best'] or val_metrics is None:
+            # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
             print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_per_emo}")
         print("-------------------------------------------------------------------------------------------------------")
 
@@ -363,7 +366,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         history_train += [train_loss]
         history_valid += [valid_loss]
         if val_metrics is None:
-            history_train_monitor += [train_monitor_all]
+            # history_train_monitor += [train_monitor_all]
             history_valid_monitor += [valid_monitor_all]
         else:
             history_train_monitor += [train_monitor]
@@ -385,8 +388,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     model_folder = os.path.join('results', model_name)
     save_and_plot_history(history_train, history_valid, ext_model_name, history_folder="history",
                           root_folder=model_folder, display_fig=display_fig)
-    save_and_plot_history(history_train_monitor, history_valid_monitor, ext_model_name,
-                          history_folder="history_monitor", root_folder=model_folder, display_fig=display_fig)
+    if val_metrics is not None:
+        save_and_plot_history(history_train_monitor, history_valid_monitor, ext_model_name,
+                              history_folder="history_monitor", root_folder=model_folder, display_fig=display_fig)
 
     writer.close()
 
