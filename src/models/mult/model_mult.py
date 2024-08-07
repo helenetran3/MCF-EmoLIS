@@ -297,7 +297,7 @@ class MModel(nn.Module):
             output_multi = self.out_layer[1](last_hs_proj_multi)
 
         if self.multitask:
-            output = {"ml": output_main, "gml": output_multi}
+            output = {"coarse_task": output_main, "fine_task": output_multi}
 
         elif self.gml:
             output = output_main.view(-1, self.num_classes, self.num_scores)

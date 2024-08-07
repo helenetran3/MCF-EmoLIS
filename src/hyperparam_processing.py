@@ -116,11 +116,11 @@ def get_loss_function(loss_function_str, param_training, is_tf):
         def wei_bce_multitask(output, target):
             assert isinstance(output, dict)
             assert isinstance(target, dict)
-            assert list(output.keys()) == list(target.keys()) == ['ml', 'gml']
-            coef_ml = param_training['coef_ml']
-            loss_ml = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['ml'], target['ml'])
-            loss_gml = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['gml'], target['gml'])
-            loss = coef_ml * loss_ml + (1-coef_ml) * loss_gml
+            assert list(output.keys()) == list(target.keys()) == ['coarse_task', 'fine_task']
+            coef_coa = param_training['coef_coa']
+            loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
+            loss_fin = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['fine_task'], target['fine_task'])
+            loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
             loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
             return loss
 
@@ -365,9 +365,25 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                              "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
 
     def check_value_is_in_list(hp_name, hp_value, list_possible_values):
-        if hp_value not in list_possible_values:
-            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not among possible values: {}. "
-                             "Please check '{}.json' file.".format(hp_value, hp_name, list_possible_values, json_name))
+        def check_value_i_is_in_list(hp_val_i):
+            if hp_val_i not in list_possible_values:
+                raise ValueError("The value '{}' assigned to hyperparameter '{}' is not among possible values: {}. "
+                                 "Please check '{}.json' file.".format(hp_value, hp_name, list_possible_values,
+                                                                       json_name))
+        if type(hp_value) == list:
+            if hp_name == 'label_type':
+                if len(hp_value) > 2:
+                    raise ValueError("The list '{}' assigned to hyperparameter '{}' contain more than 2 elements. "
+                                     "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+                task1, task2 = hp_value[0], hp_value[1]
+                if task1 == task2 or ('coarse' in task1 and 'coarse' in task2):
+                    raise ValueError("The list '{}' assigned to hyperparameter '{}' contain two values that are "
+                                     "assigned to the same type of task. "
+                                     "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+            for hp_value_i in hp_value:
+                check_value_i_is_in_list(hp_value_i)
+        else:
+            check_value_i_is_in_list(hp_value)
 
     def check_value_is_binary(hp_name, hp_value):
         check_value_is_in_list(hp_name, hp_value, [0, 1])
@@ -422,12 +438,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_binary('align_to_text', hyperparam_task['align_to_text'])
         check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])
         check_set_length_param(hyperparam_task['set_length'])
-        model = hyperparam_task['model_name']
-        if type(model) == list:
-            for model_i in model:
-                check_value_is_in_list('model_name', model_i, possible_models)
-        else:
-            check_value_is_in_list('model_name', model, possible_models)
+        check_value_is_in_list('model_name', hyperparam_task['model_name'], possible_models)
         check_value_is_in_list('label_type', hyperparam_task['label_type'],
                                ['all', 'coarse', 'coarse_prob', 'coarse_oh', 'present', 'dominant'])
         check_value_is_in_list('image_feature', hyperparam_task['image_feature'], ['facet', 'openface'])

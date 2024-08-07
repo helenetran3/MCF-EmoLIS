@@ -399,35 +399,61 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
         y_list_res = [y.reshape((-1, num_output)) for y in y_list]
         return y_list_res
 
+    def change_y(train_l, valid_l, test_l):
+        y1, y2, y3 = train_l[1], valid_l[1], test_l[1]
+
+        def change_y_single_task(l1, l2, l3, task):
+            new_y1 = compute_true_labels(y1, "train", all_scores, predict_neutral_class, threshold_emo_pres,
+                                         num_classes, task)
+            new_y2 = compute_true_labels(y2, "valid", all_scores, predict_neutral_class, threshold_emo_pres,
+                                         num_classes, task)
+            new_y3 = compute_true_labels(y3, "test", all_scores, predict_neutral_class, threshold_emo_pres,
+                                         num_classes, task)
+
+            if label_type == 'present':  # TODO We only take the first threshold for the moment
+                new_y1 = new_y1[0]
+                new_y2 = new_y2[0]
+                new_y3 = new_y3[0]
+
+            # Adapt to model training and evaluation
+            new_y1 = change_type_and_shape_for_training(new_y1)
+            new_y2 = change_type_and_shape_for_training(new_y2)
+            new_y3 = change_type_and_shape_for_training(new_y3)
+
+            return new_y1, new_y2, new_y3
+
+        # Multitask case
+        if type(label_type) == list:
+            granularity_deg = {'all': 1, 'coarse': 2, 'present': 3, 'dominant': 4}
+            label_0, label_1 = label_type[0], label_type[1]
+            label_0 = 'coarse' if 'coarse' in label_0 else label_0
+            label_1 = 'coarse' if 'coarse' in label_1 else label_1
+            if granularity_deg[label_0] > granularity_deg[label_1]:
+                y_label = {'coarse_task': label_type[0], 'fine_task': label_type[1]}
+            else:
+                y_label = {'coarse_task': label_type[1], 'fine_task': label_type[0]}
+            coa_y1, coa_y2, coa_y3 = change_y_single_task(train_list, valid_list, test_list, y_label['coarse_task'])
+            fin_y1, fin_y2, fin_y3 = change_y_single_task(train_list, valid_list, test_list, y_label['fine_task'])
+            new_y_train = {'coarse_task': coa_y1, 'fine_task': fin_y1}
+            new_y_valid = {'coarse_task': coa_y2, 'fine_task': fin_y2}
+            new_y_test = {'coarse_task': coa_y3, 'fine_task': fin_y3}
+
+        else:
+            new_y_train, new_y_valid, new_y_test = change_y_single_task(train_list, valid_list, test_list, label_type)
+
+        new_train_l = [train_list[0], new_y_train, train_list[2]]
+        new_valid_l = [valid_list[0], new_y_valid, valid_list[2]]
+        new_test_l = [test_list[0], new_y_test, test_list[2]]
+
+        return new_train_l, new_valid_l, new_test_l
+
     label_type = param_task['label_type']
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
     num_classes = 7 if predict_neutral_class else 6
 
-    y_train = train_list[1]
-    y_valid = valid_list[1]
-    y_test = test_list[1]
-
-    new_y_train = compute_true_labels(y_train, "train", all_scores, predict_neutral_class, threshold_emo_pres,
-                                      num_classes, label_type)
-    new_y_valid = compute_true_labels(y_valid, "valid", all_scores, predict_neutral_class, threshold_emo_pres,
-                                      num_classes, label_type)
-    new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
-                                     label_type)
-
-    if label_type == 'present':  # TODO We only take the first threshold for the moment
-        new_y_train = new_y_train[0]
-        new_y_valid = new_y_valid[0]
-        new_y_test = new_y_test[0]
-
-    # Adapt to model training and evaluation
-    new_y_train = change_type_and_shape_for_training(new_y_train)
-    new_y_valid = change_type_and_shape_for_training(new_y_valid)
-    new_y_test = change_type_and_shape_for_training(new_y_test)
-
-    new_train_list = [train_list[0], new_y_train, train_list[2]]
-    new_valid_list = [valid_list[0], new_y_valid, valid_list[2]]
-    new_test_list = [test_list[0], new_y_test, test_list[2]]
+    # Update y
+    new_train_list, new_valid_list, new_test_list = change_y(train_list, valid_list, test_list)
 
     # When predict_neutral_class is False (no class created for Neutral),
     # samples with neutral class belong to any of available classes

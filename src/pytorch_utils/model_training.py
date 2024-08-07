@@ -267,7 +267,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             train_monitor /= num_iterations
 
         # # Compute best threshold per emotion for multilabel classification according to F1 score
-        # if param_training['thres_ml_best'] or val_metrics is None:
+        # if param_training['take_thres_ml_best'] or val_metrics is None:
         #     train_thres_per_emo, train_monitor_per_emo = compute_best_thres_for_monitor_metric(
         #         np.array(true_train).reshape(-1, num_classes), np.array(pred_train).reshape(-1, num_classes),
         #         round_decimals)
@@ -318,7 +318,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             valid_monitor /= valid_size
 
         # Compute best threshold per emotion for multilabel classification according to F1 score
-        if param_training['thres_ml_best'] or val_metrics is None:
+        if param_training['take_thres_ml_best'] or val_metrics is None:
             valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
                 np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
                 round_decimals)
@@ -357,7 +357,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         else:
             print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
-        if param_training['thres_ml_best'] or val_metrics is None:
+        if param_training['take_thres_ml_best'] or val_metrics is None:
             # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
             print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_per_emo}")
         print("-------------------------------------------------------------------------------------------------------")
@@ -394,7 +394,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     writer.close()
 
-    if not param_training['thres_ml_best']:
+    if not param_training['take_thres_ml_best']:
         valid_thres_per_emo_best = [0.5 for _ in range(num_classes)]
 
     return valid_thres_per_emo_best

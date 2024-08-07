@@ -115,7 +115,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                                                                 thres_per_emo_best)
         test_monitor_avg = np.round(np.mean(test_monitor), round_decimals)
         print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")
-        print(f"Threshold per emo (calculated from validation set if thres_ml_best set to 1):",
+        print(f"Threshold per emo (calculated from validation set if take_thres_ml_best set to 1):",
               f"{thres_per_emo_best}")
     else:
         print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
