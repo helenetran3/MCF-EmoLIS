@@ -3,7 +3,7 @@ from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_sp
     split_for_cross_validation
 from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
-from src.label_processing import get_available_presence_scores_arr, update_labels, balance_dataset
+from src.label_processing import label_multitask, get_available_presence_scores_arr, update_labels, balance_dataset
 from src.model_metrics import compute_and_save_model_metrics
 from src.hyperparam_processing import possible_val_metrics
 import itertools
@@ -14,7 +14,10 @@ def main():
     param_log = get_hyperparam_from_json("param_logistics")
     param_training, param_task = get_hyperparam_from_json("param_training_task")
     with_cross_validation = (param_training['cross_val_folds'] != -1)
+
+    # Transform label_type to dict with keys 'coarse_task' and 'fine_task' when label_type is a list
     label_type = param_task['label_type']
+    label_type = label_multitask(label_type) if type(label_type) == list else label_type
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     pickle_name_fold = param_log['pickle_name_fold']
@@ -51,7 +54,6 @@ def main():
         model_id = get_current_model_id(model_name)
         is_tf = bool(param_model_j['is_TensorFlow'])
         num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task, is_tf)
-        label_type = param_task['label_type']
 
         # Model training
         if is_tf:
@@ -101,9 +103,12 @@ def main():
     loss_function_list = loss_function_str if type(loss_function_str) == list else [loss_function_str]
     val_metrics_list = val_metrics_str if type(val_metrics_str) == list else [val_metrics_str]
     for val_met in val_metrics_list:
-        if label_type not in ['present', 'dominant'] and val_met == -1:
-            raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with task '{}'. "
-                             "Please choose a value among {} in 'param_training_task.json' file."
+        if val_met == -1 and ((type(label_type) != list and label_type not in ['present', 'dominant']) or
+                              (type(label_type) == list and
+                               any([label_i not in ['present', 'dominant'] for label_i in label_type]))):
+            raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with",
+                             "tasks" if type(label_type) == list else "task",
+                             "'{}'. Please choose a value among {} in 'param_training_task.json' file."
                              .format(param_task['label_type'], possible_val_metrics))
 
     if type(model) == list:

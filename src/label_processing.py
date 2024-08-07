@@ -5,6 +5,20 @@ from src.pickle_functions import *
 from sklearn.preprocessing import LabelEncoder, LabelBinarizer, MultiLabelBinarizer
 
 
+def label_multitask(label_type):
+    assert type(label_type) == list
+    assert len(label_type) == 2
+    granularity_deg = {'all': 1, 'coarse': 2, 'present': 3, 'dominant': 4}
+    label_0, label_1 = label_type[0], label_type[1]
+    label_0 = 'coarse' if 'coarse' in label_0 else label_0
+    label_1 = 'coarse' if 'coarse' in label_1 else label_1
+    if granularity_deg[label_0] > granularity_deg[label_1]:
+        y_label = {'coarse_task': label_type[0], 'fine_task': label_type[1]}
+    else:
+        y_label = {'coarse_task': label_type[1], 'fine_task': label_type[0]}
+    return y_label
+
+
 def from_one_hot_to_plain(scores_array, num_classes):
     # Prediction given in one_hot, go back to plain scores for model metric calculation
     # Check if the input score array is in one hot format
@@ -423,17 +437,9 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
             return new_y1, new_y2, new_y3
 
         # Multitask case
-        if type(label_type) == list:
-            granularity_deg = {'all': 1, 'coarse': 2, 'present': 3, 'dominant': 4}
-            label_0, label_1 = label_type[0], label_type[1]
-            label_0 = 'coarse' if 'coarse' in label_0 else label_0
-            label_1 = 'coarse' if 'coarse' in label_1 else label_1
-            if granularity_deg[label_0] > granularity_deg[label_1]:
-                y_label = {'coarse_task': label_type[0], 'fine_task': label_type[1]}
-            else:
-                y_label = {'coarse_task': label_type[1], 'fine_task': label_type[0]}
-            coa_y1, coa_y2, coa_y3 = change_y_single_task(train_list, valid_list, test_list, y_label['coarse_task'])
-            fin_y1, fin_y2, fin_y3 = change_y_single_task(train_list, valid_list, test_list, y_label['fine_task'])
+        if type(label_type) == dict:
+            coa_y1, coa_y2, coa_y3 = change_y_single_task(train_list, valid_list, test_list, label_type['coarse_task'])
+            fin_y1, fin_y2, fin_y3 = change_y_single_task(train_list, valid_list, test_list, label_type['fine_task'])
             new_y_train = {'coarse_task': coa_y1, 'fine_task': fin_y1}
             new_y_valid = {'coarse_task': coa_y2, 'fine_task': fin_y2}
             new_y_test = {'coarse_task': coa_y3, 'fine_task': fin_y3}

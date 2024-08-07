@@ -136,7 +136,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     num_training_prints = param_log['num_training_prints']
     round_decimals = param_log['round_decimals']
     display_fig = param_log['display_fig']
-    one_hot = ("oh" in label_type)
+    one_hot = ("oh" in label_type) if type(label_type) != dict else \
+        {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
 
     # Writer for Tensorboard
@@ -150,7 +151,10 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
-    num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
+    if type(label_type) == dict:
+        num_classes = y_train['fine_task'][0].shape[1] if one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+    else:
+        num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
 
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, num_steps, one_hot, device)
@@ -333,7 +337,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             # For Tensorboard
             emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
             for cl_i in range(len(emotions)):
-                writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
+                # writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
                 writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
