@@ -83,6 +83,9 @@ def get_coa_presence_score_for_training(y_list, num_classes, one_hot, prob):
         out_scores = [sc_i / 3 for sc_i in out_scores]
         out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
 
+    if not one_hot and not prob:
+        out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
+
     return out_scores
 
 
@@ -368,53 +371,20 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
     :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input, + neutral_test_ind
     """
 
-    def remove_neutral_class(train_l, valid_l, test_l):
-        """
-        Remove samples assigned to neutral class + return the list of their indexes for test split
-
-        :param train_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-        :param valid_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-        :param test_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-        :return: new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
-        """
-
-        def remove_neutral_class_split(split_list, test=False):
-            y_arr = np.vstack(split_list[1])
-            num_emo = np.sum(y_arr, axis=1)
-            non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
-            num_neutral = np.sum((num_emo == 0))
-
-            # Take only samples where at least one emotion class is assigned
-            X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
-            y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
-            seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
-            neutral_test_index = [i for i, ind in enumerate(non_neutral_ind) if not ind] if test else None
-
-            return [X_list, y_list, seg_list], num_neutral, neutral_test_index
-
-        new_train_l, num_neutral_train, _ = remove_neutral_class_split(train_l)
-        new_valid_l, num_neutral_valid, _ = remove_neutral_class_split(valid_l)
-        new_test_l, num_neutral_test, neutral_test_ind_list = remove_neutral_class_split(test_l, test=True)
-
-        num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
-        print(f'Removed {num_neutral_samples} samples with no emotions '
-              f'(train: {num_neutral_train}, valid: {num_neutral_valid}, test: {num_neutral_test}).')
-
-        return new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
-
-    def change_type_and_shape_for_training(y_array):
-        """
-        Create a list of arrays of shape (1, num_classes)
-        :param y_array: array of shape (num_samples, num_classes)
-        :return: a list of arrays of shape (1, num_classes)
-        """
-        num_output = y_array.shape[-1]
-        y_list = list(y_array)
-        y_list_res = [y.reshape((-1, num_output)) for y in y_list]
-        return y_list_res
-
     def change_y(train_l, valid_l, test_l):
+
         y1, y2, y3 = train_l[1], valid_l[1], test_l[1]
+
+        def change_type_and_shape_for_training(y_array):
+            """
+            Create a list of arrays of shape (1, num_classes)
+            :param y_array: array of shape (num_samples, num_classes)
+            :return: a list of arrays of shape (1, num_classes)
+            """
+            num_output = y_array.shape[-1]
+            y_list = list(y_array)
+            y_list_res = [y.reshape((-1, num_output)) for y in y_list]
+            return y_list_res
 
         def change_y_single_task(task):
             new_y1 = compute_true_labels(y1, "train", all_scores, predict_neutral_class, threshold_emo_pres,
@@ -424,7 +394,7 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
             new_y3 = compute_true_labels(y3, "test", all_scores, predict_neutral_class, threshold_emo_pres,
                                          num_classes, task)
 
-            if label_type == 'present':  # TODO We only take the first threshold for the moment
+            if task == 'present':  # TODO We only take the first threshold for the moment
                 new_y1 = new_y1[0]
                 new_y2 = new_y2[0]
                 new_y3 = new_y3[0]
@@ -452,6 +422,51 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
         new_test_l = [test_list[0], new_y_test, test_list[2]]
 
         return new_train_l, new_valid_l, new_test_l
+
+    def remove_neutral_class(train_l, valid_l, test_l):
+        """
+        Remove samples assigned to neutral class + return the list of their indexes for test split
+
+        :param train_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :param valid_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :param test_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :return: new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
+        """
+
+        def remove_neutral_class_split(split_list, test=False):
+            y = split_list[1]
+            if type(y) == dict:
+                non_neutral_ind = []
+                for task_i in ['coarse_task', 'fine_task']:
+                    y_arr = np.vstack(y[task_i])
+                    num_emo = np.sum(y_arr, axis=1)
+                    non_neutral_ind += [num_emo != 0]  # Boolean array of shape (split_size,)
+                non_neutral_ind = np.all(non_neutral_ind, axis=0)
+                num_neutral = y_arr.shape[0] - np.sum(non_neutral_ind)
+
+            else:
+                y_arr = np.vstack(y)
+                num_emo = np.sum(y_arr, axis=1)
+                non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
+                num_neutral = np.sum((num_emo == 0))
+
+            # Take only samples where at least one emotion class is assigned
+            X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
+            y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
+            seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
+            neutral_test_index = [i for i, ind in enumerate(non_neutral_ind) if not ind] if test else None
+
+            return [X_list, y_list, seg_list], num_neutral, neutral_test_index
+
+        new_train_l, num_neutral_train, _ = remove_neutral_class_split(train_l)
+        new_valid_l, num_neutral_valid, _ = remove_neutral_class_split(valid_l)
+        new_test_l, num_neutral_test, neutral_test_ind_list = remove_neutral_class_split(test_l, test=True)
+
+        num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
+        print(f'Removed {num_neutral_samples} samples with no emotions '
+              f'(train: {num_neutral_train}, valid: {num_neutral_valid}, test: {num_neutral_test}).')
+
+        return new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
 
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
