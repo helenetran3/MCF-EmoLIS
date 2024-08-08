@@ -349,7 +349,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
-def update_labels(train_list, valid_list, test_list, param_task, all_scores):
+def update_labels(train_list, valid_list, test_list, param_task, label_type, all_scores):
     """
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
@@ -453,7 +453,6 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
 
         return new_train_l, new_valid_l, new_test_l
 
-    label_type = param_task['label_type']
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
     num_classes = 7 if predict_neutral_class else 6
