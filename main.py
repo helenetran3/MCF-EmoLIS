@@ -83,7 +83,7 @@ def main():
 
             model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_torch_model(test_list_task, param_task, param_model_j, param_training,
-                                     param_log, num_steps, model_name, model_id, loss_function, val_metrics,
+                                     param_log, num_steps, model_name, model_id, label_type, loss_function, val_metrics,
                                      thres_per_emo_best, all_scores, device, with_cross_validation)
 
         # Save model parameters in csv file
@@ -94,7 +94,7 @@ def main():
         compute_and_save_model_metrics(test_list_orig, with_cross_validation, model_eval_output,
                                        pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                        neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
-                                       loss_function, val_metrics, all_scores)
+                                       label_type, loss_function, val_metrics, all_scores)
 
     # Loop over the list of models, loss functions and validation metrics
     model = param_task['model_name']

@@ -416,7 +416,7 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     def change_y(train_l, valid_l, test_l):
         y1, y2, y3 = train_l[1], valid_l[1], test_l[1]
 
-        def change_y_single_task(l1, l2, l3, task):
+        def change_y_single_task(task):
             new_y1 = compute_true_labels(y1, "train", all_scores, predict_neutral_class, threshold_emo_pres,
                                          num_classes, task)
             new_y2 = compute_true_labels(y2, "valid", all_scores, predict_neutral_class, threshold_emo_pres,
@@ -438,14 +438,14 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
 
         # Multitask case
         if type(label_type) == dict:
-            coa_y1, coa_y2, coa_y3 = change_y_single_task(train_list, valid_list, test_list, label_type['coarse_task'])
-            fin_y1, fin_y2, fin_y3 = change_y_single_task(train_list, valid_list, test_list, label_type['fine_task'])
+            coa_y1, coa_y2, coa_y3 = change_y_single_task(label_type['coarse_task'])
+            fin_y1, fin_y2, fin_y3 = change_y_single_task(label_type['fine_task'])
             new_y_train = {'coarse_task': coa_y1, 'fine_task': fin_y1}
             new_y_valid = {'coarse_task': coa_y2, 'fine_task': fin_y2}
             new_y_test = {'coarse_task': coa_y3, 'fine_task': fin_y3}
 
         else:
-            new_y_train, new_y_valid, new_y_test = change_y_single_task(train_list, valid_list, test_list, label_type)
+            new_y_train, new_y_valid, new_y_test = change_y_single_task(label_type)
 
         new_train_l = [train_list[0], new_y_train, train_list[2]]
         new_valid_l = [valid_list[0], new_y_valid, valid_list[2]]

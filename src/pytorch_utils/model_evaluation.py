@@ -11,12 +11,13 @@ from alive_progress import alive_bar
 
 
 def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_model, param_training, param_log,
-                       num_steps, model_name, model_id, loss_fn_str, val_met_str, thres_per_emo_best, all_scores, device):
+                       num_steps, model_name, model_id, label_type, loss_fn_str, val_met_str, thres_per_emo_best,
+                       all_scores, device):
 
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
-    label_type = param_task['label_type']
-    one_hot = ('oh' in label_type)
+    one_hot = ("oh" in label_type) if type(label_type) != dict else \
+        {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
@@ -26,7 +27,10 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     y_test_array = np.vstack(y_test)
     seg_test = test_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
-    num_classes = y_test[0].shape[1] if not one_hot else y_test[0].shape[0]
+    if type(label_type) == dict:
+        num_classes = y_test['fine_task'][0].shape[1] if one_hot['fine_task'] else y_test['fine_task'][0].shape[0]
+    else:
+        num_classes = y_test[0].shape[1] if not one_hot else y_test[0].shape[0]
 
     num_features_text = x_test[0][0].shape[1]
     num_features_image = x_test[0][1].shape[1]
@@ -129,7 +133,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
 
 def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
-                         loss_function, val_metrics, thres_per_emo_best, all_scores, device, with_cross_valid):
+                         label_type, loss_function, val_metrics, thres_per_emo_best, all_scores,
+                         device, with_cross_valid):
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']
@@ -139,7 +144,7 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
             loss_vals_i, pred_raw_i, pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, with_cross_valid, fold_i,
                                    param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
-                                   loss_function, val_metrics, thres_per_emo_best, all_scores, device)
+                                   label_type, loss_function, val_metrics, thres_per_emo_best, all_scores, device)
             model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw_array += [pred_raw_i]
             pred_scores_all += [pred_all_i]
@@ -150,6 +155,6 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
         model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
             run_one_evaluation(test_list, with_cross_valid, None,
                                param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
-                               loss_function, val_metrics, thres_per_emo_best, all_scores, device)
+                               label_type, loss_function, val_metrics, thres_per_emo_best, all_scores, device)
 
     return model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom

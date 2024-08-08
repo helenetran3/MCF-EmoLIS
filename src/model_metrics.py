@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from src.pickle_functions import save_with_pickle, load_from_pickle
 from src.csv_functions import save_results_in_csv_file
-from src.label_processing import compute_true_labels
+from src.label_processing import label_multitask, compute_true_labels
 
 from sklearn.preprocessing import label_binarize, LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
@@ -562,7 +562,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_output,
                                    pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
-                                   loss_function, val_metrics_str, all_scores):
+                                   label_type, loss_function, val_metrics_str, all_scores):
     """
     Compute and save model metrics, based on loss function value and prediction scores.
 
@@ -582,6 +582,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
+    :param label_type: Type of labels used for model training and evaluation (str or dict of keys ['coarse_task', 'fine_task'])
     :param loss_function: Name of the loss function (str)
     :param val_metrics_str: Name of the validation metric used for monitoring (str)
     :param all_scores: list of available presence scores [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
@@ -594,7 +595,6 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
 
     predict_neutral_class = param_task['predict_neutral_class']
     threshold_emo_pres = [param_task['threshold_emo_present']]
-    label_type = param_task['label_type']
     round_decimals = param_log['round_decimals']
     plot_confusion_matrix = param_log['plot_confusion_matrix']
     display_fig = param_log['display_fig']

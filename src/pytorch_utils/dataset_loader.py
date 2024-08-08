@@ -70,7 +70,7 @@ class DatasetTorch(torch.utils.data.Dataset):
         return (x_text_i, x_image_i, x_audio_i), y_i  # , seg_i
 
     def __len__(self):
-        return len(self.y_list)
+        return len(self.y)
 
 
 def collate_fn_for_variable_length(batch):
