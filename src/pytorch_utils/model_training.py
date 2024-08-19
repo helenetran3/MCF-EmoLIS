@@ -169,7 +169,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     seg_valid = valid_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
     if type(label_type) == dict:
-        num_classes = y_train['fine_task'][0].shape[1] if one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+        num_classes = y_train['fine_task'][0].shape[1] if not one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
     else:
         num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
 
