@@ -169,7 +169,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     seg_valid = valid_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
     if type(label_type) == dict:
-        num_classes = y_train['fine_task'][0].shape[1] if one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+        num_classes = y_train['fine_task'][0].shape[1] if not one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+        
     else:
         num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
 
@@ -179,8 +180,11 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     my_collate_fn = None if num_steps is not None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
-    train_size = len(train_dataloader.dataset)
-    valid_size = len(valid_dataloader.dataset)
+    print("train_dataloader.dataset[0][0][0]", train_dataloader.dataset[0][0][0])
+    train_size = len(train_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(train_dataloader.dataset)
+    valid_size = len(valid_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(valid_dataloader.dataset)
+    print("train_size:", train_size)
+    print("valid_size:", valid_size)
 
     # Create an instance of the model
     num_features_text = x_train[0][0].shape[1]
@@ -249,9 +253,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                         x_audio = x_audio.float()
                     pred = model(x_text, x_image, x_audio)
-                    batch_loss = loss_fn(pred, y.float())
+                    if type(y) == dict:
+                        for task_i in ['coarse_task', 'fine_task']:
+                            y[task_i] = y[task_i].float()
+                    else:
+                        y = y.float()
+                    batch_loss = loss_fn(pred, y)
                     if val_metrics is not None:
-                        batch_monitor = val_metrics(pred, y.float()).item()
+                        batch_monitor = val_metrics(pred, y).item()
                     # pred_train += pred.tolist()
                     # true_train += y.tolist()
 
@@ -331,10 +340,15 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_text = x_text.float()
                         x_audio = x_audio.float()
                         x_image = x_image.float()
+                    if type(y) == dict:
+                        for task_i in ['coarse_task', 'fine_task']:
+                            y[task_i] = y[task_i].float()
+                    else:
+                        y = y.float()
                     pred = model(x_text, x_audio, x_image)
-                    valid_loss += loss_fn(pred, y.float()).item()
+                    valid_loss += loss_fn(pred, y).item()
                     if val_metrics is not None:
-                        valid_monitor += val_metrics(pred, y.float()).item()
+                        valid_monitor += val_metrics(pred, y).item()
                     if type(label_type) == dict:
                         pred_valid['coarse_task'] += pred['coarse_task'].tolist()
                         pred_valid['fine_task'] += pred['fine_task'].tolist()
@@ -465,7 +479,7 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
 
     print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
                               param_task, param_model, param_training, num_steps, model_name, model_id,
-                              loss_function, val_metrics, is_tf=False)
+                              loss_function, val_metrics, label_type, is_tf=False)
 
     if with_cross_valid:
         valid_thres_per_emo_best = []

@@ -2,7 +2,7 @@
   "task":
   {
     "model_name": "mult",
-    "label_type": "present",
+    "label_type": ["coarse", "present"],
     "set_length": "max",
     "threshold_emo_present": 0,
     "predict_neutral_class": 0,
@@ -17,8 +17,8 @@
     "patience": 8,
     "batch_size": 32,
     "optimizer": "adam",
-    "loss_function": "wei_bce",
-    "val_metrics": "wei_bce",
+    "loss_function": "wei_bce_multitask",
+    "val_metrics": "wei_bce_multitask",
     "coef_coa": 0.2,
     "take_thres_ml_best": 0,
     "learning_rate": 5e-4,

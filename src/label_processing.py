@@ -452,7 +452,12 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
 
             # Take only samples where at least one emotion class is assigned
             X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
-            y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
+            if type(y) == dict:
+                y_list = {}
+                for task_i in ['coarse_task', 'fine_task']:
+                    y_list[task_i] = [elt for (elt, ind) in zip(split_list[1][task_i], non_neutral_ind) if ind]
+            else:
+                y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
             seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
             neutral_test_index = [i for i, ind in enumerate(non_neutral_ind) if not ind] if test else None
 
