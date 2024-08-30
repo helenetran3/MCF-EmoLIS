@@ -310,7 +310,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         model.eval()
         with alive_bar(valid_size, title='Model validation') as bar:
             pred_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
-            true_valid = {} if type(label_type) == dict else []
+            true_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
             for idx, (X, y) in enumerate(valid_dataloader):
 
                 if num_steps is None:  # Varying sequence length
@@ -329,7 +329,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             pred_valid['fine_task'] += pred['fine_task'].tolist()
                             true_valid['coarse_task'] += y_sample['coarse_task'].tolist()
                             true_valid['fine_task'] += y_sample['fine_task'].tolist()
-                            true_valid += y_sample.tolist()
                         else:
                             pred_valid += pred.tolist()
                             true_valid += y_sample.tolist()
@@ -354,7 +353,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         pred_valid['fine_task'] += pred['fine_task'].tolist()
                         true_valid['coarse_task'] += y['coarse_task'].tolist()
                         true_valid['fine_task'] += y['fine_task'].tolist()
-                        true_valid += y_sample.tolist()
                     else:
                         pred_valid += pred.tolist()
                         true_valid += y.tolist()
