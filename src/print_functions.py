@@ -22,15 +22,22 @@ def print_hyperparameters(model_name, model_id, param_value_to_print, print_arch
 
 def print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
                               param_task, param_model, param_training, num_steps, model_name, model_id,
-                              loss_function, val_metrics, is_tf):
+                              loss_function, val_metrics, label_type, is_tf):
 
     predict_neutral_class = param_task['predict_neutral_class']
-    label_type = param_task['label_type']
     num_folds = param_training['cross_val_folds']
 
     y_train, y_valid, y_test = (train_list[0][1], valid_list[0][1], test_list[0][1]) if with_cross_valid \
         else (train_list[1], valid_list[1], test_list[1])
-    num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
+    
+    # Compute num_classes, where predict neutral class is already inferred from label preprocessing
+    one_hot = ("oh" in label_type) if type(label_type) != dict else \
+        {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
+    if type(label_type) == dict:
+        num_classes = y_train['fine_task'][0].shape[1] if one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+    else:
+        num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
+    
     num_train_samples = len(y_train)
     num_valid_samples = len(y_valid)
     num_test_samples = len(test_list[1])

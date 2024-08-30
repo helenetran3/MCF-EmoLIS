@@ -42,7 +42,6 @@ def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_n
 
 def model_checkpoint(valid_loss, valid_loss_best, valid_thres_per_emo, valid_thres_per_emo_best,
                      model, optimizer, epoch, train_loss, model_name, ext_model_name):
-
     model_folder = os.path.join('results', model_name, 'models')
 
     if not os.path.exists(model_folder):
@@ -116,7 +115,8 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
                     plt.ylabel('loss')
                     plt.xlabel('epoch')
                     plt.legend(legend_text)
-                    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss_{}.png'.format(ext_name, task_j))
+                    history_plot_path = os.path.join(full_path_folder,
+                                                     'history_{}_loss_{}.png'.format(ext_name, task_j))
                     plt.savefig(history_plot_path, bbox_inches='tight')
                     if display_fig:
                         plt.show()
@@ -170,6 +170,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     # In the following, predict neutral class is already inferred from label preprocessing
     if type(label_type) == dict:
         num_classes = y_train['fine_task'][0].shape[1] if not one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+
     else:
         num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
 
@@ -179,8 +180,11 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     my_collate_fn = None if num_steps is not None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
-    train_size = len(train_dataloader.dataset)
-    valid_size = len(valid_dataloader.dataset)
+    print("train_dataloader.dataset[0][0][0]", train_dataloader.dataset[0][0][0])
+    train_size = len(train_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(train_dataloader.dataset)
+    valid_size = len(valid_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(valid_dataloader.dataset)
+    print("train_size:", train_size)
+    print("valid_size:", valid_size)
 
     # Create an instance of the model
     num_features_text = x_train[0][0].shape[1]
@@ -249,9 +253,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                         x_audio = x_audio.float()
                     pred = model(x_text, x_image, x_audio)
-                    batch_loss = loss_fn(pred, y.float())
+                    if type(y) == dict:
+                        for task_i in ['coarse_task', 'fine_task']:
+                            y[task_i] = y[task_i].float()
+                    else:
+                        y = y.float()
+                    batch_loss = loss_fn(pred, y)
                     if val_metrics is not None:
-                        batch_monitor = val_metrics(pred, y.float()).item()
+                        batch_monitor = val_metrics(pred, y).item()
                     # pred_train += pred.tolist()
                     # true_train += y.tolist()
 
@@ -301,7 +310,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         model.eval()
         with alive_bar(valid_size, title='Model validation') as bar:
             pred_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
-            true_valid = {} if type(label_type) == dict else []
+            true_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
             for idx, (X, y) in enumerate(valid_dataloader):
 
                 if num_steps is None:  # Varying sequence length
@@ -320,7 +329,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             pred_valid['fine_task'] += pred['fine_task'].tolist()
                             true_valid['coarse_task'] += y_sample['coarse_task'].tolist()
                             true_valid['fine_task'] += y_sample['fine_task'].tolist()
-                            true_valid += y_sample.tolist()
                         else:
                             pred_valid += pred.tolist()
                             true_valid += y_sample.tolist()
@@ -331,16 +339,20 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_text = x_text.float()
                         x_audio = x_audio.float()
                         x_image = x_image.float()
+                    if type(y) == dict:
+                        for task_i in ['coarse_task', 'fine_task']:
+                            y[task_i] = y[task_i].float()
+                    else:
+                        y = y.float()
                     pred = model(x_text, x_audio, x_image)
-                    valid_loss += loss_fn(pred, y.float()).item()
+                    valid_loss += loss_fn(pred, y).item()
                     if val_metrics is not None:
-                        valid_monitor += val_metrics(pred, y.float()).item()
+                        valid_monitor += val_metrics(pred, y).item()
                     if type(label_type) == dict:
                         pred_valid['coarse_task'] += pred['coarse_task'].tolist()
                         pred_valid['fine_task'] += pred['fine_task'].tolist()
                         true_valid['coarse_task'] += y['coarse_task'].tolist()
                         true_valid['fine_task'] += y['fine_task'].tolist()
-                        true_valid += y_sample.tolist()
                     else:
                         pred_valid += pred.tolist()
                         true_valid += y.tolist()
@@ -462,10 +474,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
 def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
                       model_name, model_id, loss_function, val_metrics, label_type, device, with_cross_valid):
-
     print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
                               param_task, param_model, param_training, num_steps, model_name, model_id,
-                              loss_function, val_metrics, is_tf=False)
+                              loss_function, val_metrics, label_type, is_tf=False)
 
     if with_cross_valid:
         valid_thres_per_emo_best = []
