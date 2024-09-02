@@ -205,7 +205,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     filename_all = root_name + "_true_scores_all" + ext_name
     filename_coa_train = root_name + "_true_scores_coa" + ext_name_coa_train + '_train' + ext_name
     filename_coa_met = root_name + "_true_scores_coa" + '_met' + ext_name
-    filename_pres = root_name + "_true_classes_pres" + ext_name
+    filename_pres = [root_name + "_true_classes_pres_t_" + str(thres) + ext_name for thres in threshold_emo_pres]
     filename_dom = root_name + "_true_classes_dom" + ext_name
 
     # Create array of original scores: 2D array from list of 2D true presence score arrays of shape (1, 6)
@@ -237,12 +237,15 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
 
     # Compute true present classes: binary arrays of shape (num_test, 6 or 7)
     if return_all_tasks or label_type == 'present':
-        if not pickle_file_exists(filename_pres, 'processed_folds', 'cmu_mosei'):
-            true_classes_pres = get_class_from_presence_score(true_scores_all, predict_neutral_class, threshold_emo_pres,
-                                                              None, num_classes, only_dominant=False)
-            save_with_pickle(true_classes_pres, filename_pres, 'processed_folds', 'cmu_mosei')
-        else:
-            true_classes_pres = load_from_pickle(filename_pres, 'processed_folds', 'cmu_mosei')
+        true_classes_pres = []
+        for id, thres in enumerate(threshold_emo_pres):
+            if not pickle_file_exists(filename_pres[id], 'processed_folds', 'cmu_mosei'):
+                true_classes_pres_i = get_class_from_presence_score(true_scores_all, predict_neutral_class, [thres],
+                                                                   None, num_classes, only_dominant=False)
+                true_classes_pres += true_classes_pres_i
+                save_with_pickle(true_classes_pres_i, filename_pres[id], 'processed_folds', 'cmu_mosei')
+            else:
+                true_classes_pres += load_from_pickle(filename_pres[id], 'processed_folds', 'cmu_mosei')
 
     # Compute true dominant classes: binary arrays of shape (num_test, 6 or 7)
     if return_all_tasks or label_type == 'dominant':
