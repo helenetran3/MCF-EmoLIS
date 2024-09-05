@@ -374,8 +374,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     vt, vm = compute_best_thres_for_monitor_metric(np.array(t_valid).reshape(-1, num_classes),
                                                                    np.array(p_valid).reshape(-1, num_classes),
                                                                    round_decimals)
-                    valid_thres_per_emo[task_i] = vt
-                    valid_monitor_per_emo_i[task_i] += vm
+                    valid_thres_per_emo[task_i] = vt  # List of thresholds
+                    valid_monitor_per_emo_i[task_i] += vm  # List of validation metrics
             else:
                 valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
                     np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
@@ -467,7 +467,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     writer.close()
 
     if not param_training['take_thres_ml_best']:
-        valid_thres_per_emo_best = [0.5 for _ in range(num_classes)]
+        thres_list = [0.5 for _ in range(num_classes)]
+        valid_thres_per_emo_best = thres_list if type(label_type) != dict else \
+            {'coarse_task': thres_list, 'fine_task': thres_list}
 
     return valid_thres_per_emo_best
 

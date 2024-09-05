@@ -24,7 +24,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
 
     x_test = test_list[0]  # list of lists of 3 arrays
     y_test = test_list[1]
-    y_test_array = np.vstack(y_test)
+    y_test_array = np.vstack(y_test) if type(y_test) != dict else \
+        {'coarse_task': np.vstack(y_test['coarse_task']), 'fine_task': np.vstack(y_test['fine_task'])}
     seg_test = test_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
     if type(label_type) == dict:
@@ -114,9 +115,10 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     # model_id = 2
     # pred_raw = load_from_pickle("pred_raw_"+str(model_id), "predictions", "results/"+model_name)
 
+    ####################################################################################################################
     # This block creates pred_raw_array, i.e., pred_raw in array format, with shape (test_size, num_classes) and
     # values in [0, 3]
-    
+    ####################################################################################################################
     def pred_raw_post_proc(pred_r, label_t, oh):
         p_shape = (test_size, -1, 4) if oh else (test_size, -1) # 4 for number of scores
         out = np.array(pred_r).reshape(p_shape)
@@ -125,30 +127,53 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
         if 'prob' in label_t:
             out = out*3
         return out
-        
-    
+
     if type(pred_raw) == dict:
         pred_raw_array = {}
         for task_i in ['coarse_task', 'fine_task']:
-            pred_raw_array[task_i] = pred_raw_post_proc(pred_raw[task_i], label_type[task_i], one_hot[task_i]) 
-            
+            pred_raw_array[task_i] = pred_raw_post_proc(pred_raw[task_i], label_type[task_i], one_hot[task_i])
     else:
         pred_raw_array = pred_raw_post_proc(pred_raw, label_type, one_hot)
 
+    ####################################################################################################################
     # This block computes the validation metrics for the test set
-    if val_metrics is None:
-        _, test_monitor = compute_best_thres_for_monitor_metric(y_test_array, pred_raw_array, round_decimals,
-                                                                thres_per_emo_best)
+    ####################################################################################################################
+    def print_test_validation_metrics(y_test_arr, pred_raw_arr, thres_best_list):
+        _, test_monitor = compute_best_thres_for_monitor_metric(y_test_arr, pred_raw_arr, round_decimals,
+                                                                thres_best_list)
         test_monitor_avg = np.round(np.mean(test_monitor), round_decimals)
         print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")
         print(f"Threshold per emo (calculated from validation set if take_thres_ml_best set to 1):",
               f"{thres_per_emo_best}")
+
+    if val_metrics is None:
+        if type(pred_raw_array) == dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                print(f"----- Results for task '{label_type[task_i]}' -----")
+                print_test_validation_metrics(y_test_array[task_i], pred_raw_array[task_i], thres_per_emo_best[task_i])
+        else:
+            print_test_validation_metrics(y_test_array, pred_raw_array, thres_per_emo_best)
     else:
         print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
 
-    pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-        compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, threshold_emo_pres, thres_per_emo_best,
-                            save_pred, model_id, num_classes, model_folder, label_type)
+    ####################################################################################################################
+    # This block computes the prediction vectors for the four tasks 'all', 'coarse', 'present', 'dominant"
+    ####################################################################################################################
+    def compute_pred_label_i(pred_raw_arr, thres_best_list, label_t, text_id):
+        pred_all, pred_coa, pred_pres, pred_dom = \
+            compute_pred_labels(pred_raw_arr, all_scores, predict_neutral_class, threshold_emo_pres,
+                                thres_best_list, save_pred, text_id, num_classes, model_folder, label_t)
+        return pred_all, pred_coa, pred_pres, pred_dom
+
+    if type(label_type) == dict:
+        pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = {}, {}, {}, {}
+        for task_i in ['coarse_task', 'fine_task']:
+            pred_scores_all[task_i], pred_scores_coa[task_i], pred_classes_pres[task_i], pred_classes_dom[task_i] = \
+                compute_pred_label_i(pred_raw_array[task_i], thres_per_emo_best[task_i], label_type[task_i],
+                                     str(model_id) + task_i[:3])
+    else:
+        pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+            compute_pred_label_i(pred_raw_array, thres_per_emo_best, label_type, model_id)
 
     return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, \
            pred_classes_dom
