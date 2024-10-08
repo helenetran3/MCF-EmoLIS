@@ -4,6 +4,7 @@ from mmsdk import mmdatasdk
 from src.pickle_functions import *
 from statistics import mean
 from sklearn.model_selection import KFold
+#from scipy.interpolate import griddata
 
 
 # CMU-MOSEI DATA DOWNLOAD FUNCTIONS
@@ -212,10 +213,48 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
         # label_seg = np.nan_to_num(label_seg)
 
         # z-normalization per instance and remove nan/infs
-        image_seg = np.nan_to_num(
-            (image_seg - image_seg.mean(0, keepdims=True)) / (EPS + np.std(image_seg, axis=0, keepdims=True)))
-        audio_seg = np.nan_to_num(
-            (audio_seg - audio_seg.mean(0, keepdims=True)) / (EPS + np.std(audio_seg, axis=0, keepdims=True)))
+        with np.errstate(invalid="ignore"):  # ignore errors which creates nan/infs, will be dealt right after
+            image_seg = (image_seg - image_seg.mean(0, keepdims=True)) / (EPS + np.std(image_seg, axis=0, keepdims=True))
+            audio_seg = (audio_seg - audio_seg.mean(0, keepdims=True)) / (EPS + np.std(audio_seg, axis=0, keepdims=True))
+
+        if np.all(np.logical_or(np.isnan(image_seg), np.isinf(image_seg))):
+            print("Encountered datapoint {} with image data full of NaNs or infs.".format(seg_id))
+            num_drop += 1
+            continue
+        if np.all(np.logical_or(np.isnan(audio_seg), np.isinf(audio_seg))):
+            print("Encountered datapoint {} with audio data full of NaNs or infs.".format(seg_id))
+            num_drop += 1
+            continue
+
+        mean_img = image_seg[np.isfinite(image_seg)].mean()
+        image_seg[np.isinf(image_seg)] = mean_img
+        image_seg[np.isnan(image_seg)] = mean_img
+        mean_aud = audio_seg[np.isfinite(audio_seg)].mean()
+        audio_seg[np.isinf(audio_seg)] = mean_aud
+        audio_seg[np.isnan(audio_seg)] = mean_aud
+
+        #if not np.all(np.isfinite(image_seg)):
+        # if np.isnan(np.sum(image_seg)):
+        #    x, y = np.indices(image_seg.shape)
+        #    image_seg[~np.isfinite(image_seg)] = griddata((x[np.isfinite(image_seg)], y[np.isfinite(image_seg)]),
+        #                                                  image_seg[np.isfinite(image_seg)],
+        #                                                  (x[~np.isfinite(image_seg)], y[~np.isfinite(image_seg)]))
+
+        #    image_seg[~np.isfinite(image_seg)] = griddata((x[np.isfinite(image_seg)], y[np.isfinite(image_seg)]),
+        #                                                  image_seg[np.isfinite(image_seg)],
+        #                                                  (x[~np.isfinite(image_seg)], y[~np.isfinite(image_seg)]),
+        #                                                  method='nearest')
+
+        #if not np.all(np.isfinite(audio_seg)):
+        #    x, y = np.indices(audio_seg.shape)
+        #    audio_seg[~np.isfinite(audio_seg)] = griddata((x[np.isfinite(audio_seg)], y[np.isfinite(audio_seg)]),
+        #                                                  audio_seg[np.isfinite(audio_seg)],
+        #                                                  (x[~np.isfinite(audio_seg)], y[~np.isfinite(audio_seg)]))
+
+        #    audio_seg[~np.isfinite(audio_seg)] = griddata((x[np.isfinite(audio_seg)], y[np.isfinite(audio_seg)]),
+        #                                                  audio_seg[np.isfinite(audio_seg)],
+        #                                                  (x[~np.isfinite(audio_seg)], y[~np.isfinite(audio_seg)]),
+        #                                                  method='nearest')
 
         # data_seg = np.concatenate((text_seg, image_seg, audio_seg), axis=1)  # early fusion
 
