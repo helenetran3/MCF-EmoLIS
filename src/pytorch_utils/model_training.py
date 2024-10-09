@@ -333,7 +333,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             # For Tensorboard
             emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
             for cl_i in range(len(emotions)):
-                writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
+                #writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
                 writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct

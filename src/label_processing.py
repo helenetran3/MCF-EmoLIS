@@ -5,6 +5,10 @@ from src.pickle_functions import *
 from sklearn.preprocessing import LabelEncoder, LabelBinarizer, MultiLabelBinarizer
 
 
+def trunc(val, decimals):
+    return np.trunc((val * 10 ** decimals) / (10 ** decimals))
+
+
 def from_one_hot_to_plain(scores_array, num_classes):
     # Prediction given in one_hot, go back to plain scores for model metric calculation
     # Check if the input score array is in one hot format
@@ -66,7 +70,7 @@ def get_coa_presence_score_for_training(y_list, num_classes, one_hot, prob):
         out_scores = np.reshape(np.array(out_scores), (-1, num_classes, len(scores)))
 
     if prob:
-        out_scores = [sc_i / 3 for sc_i in out_scores]
+        out_scores = [trunc(sc_i / 3, decimals=2) for sc_i in out_scores]
         out_scores = np.reshape(np.array(out_scores), (-1, num_classes))
 
     return out_scores
@@ -434,7 +438,7 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
 
     # When predict_neutral_class is False (no class created for Neutral),
     # samples with neutral class belong to any of available classes
-    neutral_test_ind = None
+    neutral_test_ind = None  # when predict_neutral_class is True
     if not predict_neutral_class:
         new_train_list, new_valid_list, new_test_list, neutral_test_ind = remove_neutral_class(new_train_list,
                                                                                                new_valid_list,

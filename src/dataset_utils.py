@@ -2,6 +2,7 @@ import re
 import numpy as np
 from mmsdk import mmdatasdk
 from src.pickle_functions import *
+from src.label_processing import trunc
 from statistics import mean
 from sklearn.model_selection import KFold
 #from scipy.interpolate import griddata
@@ -291,9 +292,9 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     print("Number of test datapoints: {} ({:.2f}%)".format(test_size, 100 * (test_size / total_data_split)))
 
     # Remove sentiment labels + round to a non-continuous value
-    y_train_emo = [np.around(y[:, 1:], decimals=2) for y in y_train]
-    y_valid_emo = [np.around(y[:, 1:], decimals=2) for y in y_valid]
-    y_test_emo = [np.around(y[:, 1:], decimals=2) for y in y_test]
+    y_train_emo = [trunc(y[:, 1:], decimals=2) for y in y_train]
+    y_valid_emo = [trunc(y[:, 1:], decimals=2) for y in y_valid]
+    y_test_emo = [trunc(y[:, 1:], decimals=2) for y in y_test]
 
     train_res = [x_train, y_train_emo, seg_train]
     valid_res = [x_valid, y_valid_emo, seg_valid]
