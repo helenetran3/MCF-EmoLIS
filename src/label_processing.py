@@ -109,6 +109,9 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
     :param score_array: array of shape (test_size, num_classes) containing the presence score of 6 emotions (+ neutral)
     :param with_neutral_class: whether we add a neutral class or not
     :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    :param thres_per_emo_best_metric: list of num_classes elements which give the emotion-wise thresholds above which the
+     emotion is considered as present, either the ones giving the highest F1 score from validation set (thres_ml_best=1)
+     or 0.5 (thres_ml_best=0)
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param only_dominant: if True, only keep dominant classes (else keep any emotion present)
     :return: Binary array of shape (test_size,7) if we add neutral class, else array of shape (test_size, 6).
@@ -153,7 +156,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
 
     else:  # Collect all emotions present in the sample
 
-        # Case where we infer present emotions from presence score
+        # Case where we infer present emotions from true presence scores, using threshold set by the user
         if thres_per_emo_best_metric is None:
             list_emotions_all_thresholds = []
             for thres in threshold_emo_pres:  # Loop over all threshold values
@@ -163,6 +166,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
             list_bin_array_emotions = [mlb.fit_transform(l) for l in list_emotions_all_thresholds]
             return list_bin_array_emotions
 
+        # Case where we infer present emotions from the predicted presence scores, using thres_per_emo_best_metric
         else:
             bin_array = np.empty(score_array.shape)
             for cl_i in range(num_classes):
@@ -245,7 +249,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
         for id, thres in enumerate(threshold_emo_pres):
             if not pickle_file_exists(filename_pres[id], 'processed_folds', 'cmu_mosei'):
                 true_classes_pres_i = get_class_from_presence_score(true_scores_all, predict_neutral_class, [thres],
-                                                                   None, num_classes, only_dominant=False)
+                                                                    None, num_classes, only_dominant=False)
                 true_classes_pres += true_classes_pres_i
                 save_with_pickle(true_classes_pres_i, filename_pres[id], 'processed_folds', 'cmu_mosei')
             else:
@@ -334,7 +338,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
 
     # Get dominant emotion classes predicted by the model
     pred_classes_dom = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                     thres_per_emo_best, num_classes, only_dominant=True)
+                                                     None, num_classes, only_dominant=True)
     if save_pred:
         save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
                          root_folder=model_folder)

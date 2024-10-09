@@ -114,6 +114,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
         _, test_monitor = compute_best_thres_for_monitor_metric(y_test_array, pred_raw_array, round_decimals,
                                                                 thres_per_emo_best)
         test_monitor_avg = np.round(np.mean(test_monitor), round_decimals)
+        val_met_value = test_monitor_avg
         print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")
         print(f"Threshold per emo (calculated from validation set if thres_ml_best set to 1):",
               f"{thres_per_emo_best}")
@@ -125,7 +126,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                             save_pred, model_id, num_classes, model_folder, label_type)
 
     return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, \
-           pred_classes_dom
+        pred_classes_dom
 
 
 def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
