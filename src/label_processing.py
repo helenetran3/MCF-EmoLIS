@@ -100,7 +100,7 @@ def get_presence_score_for_metrics(scores_array, all_scores, num_classes, coarse
 
 
 def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo_pres, thres_per_emo_best_metric,
-                                  num_classes, only_dominant, is_true_labels, label_type=None):
+                                  num_classes, is_dominant, is_true_labels, label_type=None):
     """
     Get the dominant emotion class(es) for each test segment based on the presence scores of emotions.
     If only_dominant, return a binary array, else return a list of len(threshold_emo_pres) binary arrays.
@@ -113,7 +113,8 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
      emotion is considered as present, either the ones giving the highest F1 score from validation set (thres_ml_best=1)
      or 0.5 (thres_ml_best=0). Set to None only when model training has not been started yet (for true_label calculation)
     :param num_classes: number of classes (7 with neutral class, else 6)
-    :param only_dominant: if True, only keep dominant classes (else keep any emotion present)
+    :param is_dominant: Whether we calculate dominant classes or not (else we calculate the presence of classes)
+    :param is_true_labels: Whether the score_array represent true labels or not (else it is predicted)
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
                          scores provided by the dataset), coarse (presence score for each emotion among [0, 1, 2, 3]),
                          coarse_prob (presence score for each emotion among [0, 1/3, 2/3, 1]),
@@ -139,7 +140,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
             max_score = max(score_seg)
             if max_score == 0:  # the current segment shows neutral (no emotions)
                 list_emo_segs.append([6]) if with_neutral_class else list_emo_segs.append([])
-            elif only_dominant:
+            elif is_dominant:
                 # the following takes the index(es) of the maximum value in the presence score vector of emotions
                 list_emo_segs.append([i for i, val in enumerate(score_seg) if val == max_score])
             else:
@@ -153,17 +154,17 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
     # Transform list of indexes to one-hot vector
     mlb = MultiLabelBinarizer(classes=list(range(num_classes)))
 
-    if only_dominant:
-        list_emotions = get_list_emotions_for_each_seg()
-        bin_array_emotions = mlb.fit_transform(list_emotions)
-        return bin_array_emotions
-
-    else:  # Collect all emotions present in the sample
-
-        # Infer present emotions from true or predicted presence scores, using threshold set by the user
-        # Happens in two cases: when computing true labels, or when the predicted labels are presence scores ('all' or
-        # 'coarse')
-        if is_true_labels or (not is_true_labels and (label_type == 'all' or 'coarse' in label_type)):
+    # In this case, we work with true or estimated presence scores
+    if is_true_labels or (not is_true_labels and (label_type == 'all' or 'coarse' in label_type)):
+        if is_dominant:
+            # Infer dominant emotions by taking the highest presence score
+            list_emotions = get_list_emotions_for_each_seg()
+            bin_array_emotions = mlb.fit_transform(list_emotions)
+            return bin_array_emotions
+        else:
+            # Infer present emotions from true or predicted presence scores, using threshold set by the user
+            # Happens in two cases: when computing true labels, or when the predicted labels are presence scores
+            # ('all' or 'coarse')
             list_emotions_all_thresholds = []
             for thres in threshold_emo_pres:  # Loop over all threshold values
                 list_emotions_thres = get_list_emotions_for_each_seg(thres_seg=thres)
@@ -172,18 +173,18 @@ def get_class_from_presence_score(score_array, with_neutral_class, threshold_emo
             list_bin_array_emotions = [mlb.fit_transform(l) for l in list_emotions_all_thresholds]
             return list_bin_array_emotions
 
-        # Infer present emotions from the predicted model output, where the model perform
-        # multi-label classification (so values are between 0 and 1), using thres_per_emo_best_metric
-        else:
-            bin_array = np.empty(score_array.shape)
-            for cl_i in range(num_classes):
-                score_cl_i = score_array[:, cl_i]
-                score_cl_bin_i = np.empty(score_cl_i.shape)
-                score_cl_bin_i[score_cl_i > thres_per_emo_best_metric[cl_i]] = 1
-                score_cl_bin_i[score_cl_i <= thres_per_emo_best_metric[cl_i]] = 0
-                bin_array[:, cl_i] = score_cl_bin_i
-            assert ((bin_array == 0) | (bin_array == 1)).all()  # Check if bin_array is binary
-            return [bin_array]  # for the moment we create a list
+    # Infer dominant or present emotions from the predicted model output, where the model perform
+    # multi-label classification (so values are between 0 and 1), using thres_per_emo_best_metric
+    else:
+        bin_array = np.empty(score_array.shape)
+        for cl_i in range(num_classes):
+            score_cl_i = score_array[:, cl_i]
+            score_cl_bin_i = np.empty(score_cl_i.shape)
+            score_cl_bin_i[score_cl_i > thres_per_emo_best_metric[cl_i]] = 1
+            score_cl_bin_i[score_cl_i <= thres_per_emo_best_metric[cl_i]] = 0
+            bin_array[:, cl_i] = score_cl_bin_i
+        assert ((bin_array == 0) | (bin_array == 1)).all()  # Check if bin_array is binary
+        return bin_array if is_dominant else [bin_array]  # for the moment we create a list
 
 
 def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
@@ -256,7 +257,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
         for id, thres in enumerate(threshold_emo_pres):
             if not pickle_file_exists(filename_pres[id], 'processed_folds', 'cmu_mosei'):
                 true_classes_pres_i = get_class_from_presence_score(true_scores_all, predict_neutral_class, [thres],
-                                                                    None, num_classes, only_dominant=False,
+                                                                    None, num_classes, is_dominant=False,
                                                                     is_true_labels=True)
                 true_classes_pres += true_classes_pres_i
                 save_with_pickle(true_classes_pres_i, filename_pres[id], 'processed_folds', 'cmu_mosei')
@@ -267,8 +268,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     if return_all_tasks or label_type == 'dominant':
         if not pickle_file_exists(filename_dom, 'processed_folds', 'cmu_mosei'):
             true_classes_dom = get_class_from_presence_score(true_scores_all, predict_neutral_class, threshold_emo_pres,
-                                                             None, num_classes, only_dominant=True,
-                                                             is_true_labels=True)
+                                                             None, num_classes, is_dominant=True, is_true_labels=True)
             save_with_pickle(true_classes_dom, filename_dom, 'processed_folds', 'cmu_mosei')
         else:
             true_classes_dom = load_from_pickle(filename_dom, 'processed_folds', 'cmu_mosei')
@@ -344,7 +344,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     # Get present emotion classes predicted by the model, based on thresholds
     if compute_pres:
         pred_classes_pres = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                          thres_per_emo_best, num_classes, only_dominant=False,
+                                                          thres_per_emo_best, num_classes, is_dominant=False,
                                                           is_true_labels=False, label_type=label_type)
         if label_type == 'all' or 'coarse' in label_type:
             thres_for_model_output_str = "based on the threshold_emo_present set by the user ({})".format(
@@ -360,7 +360,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     # Get dominant emotion classes predicted by the model
     if compute_dom:
         pred_classes_dom = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                         None, num_classes, only_dominant=True, is_true_labels=False)
+                                                         None, num_classes, is_dominant=True, is_true_labels=False)
         print("[pred_classes_dom computed] Binary array giving the dominance of the emotion class "
               "(highest score from prediction).")
         if save_pred:
