@@ -202,9 +202,10 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
                 write_csv(path, header_presence, data)
 
         # Dominant emotion metrics
-        header_dominant, data_dominant = get_header_and_data_metrics(met_dom, header_id, data_id,
-                                                                     predict_neutral_class, task="dominant")
-        write_csv(csv_path_dominant, header_dominant, data_dominant)
+        if met_dom is not None:
+            header_dominant, data_dominant = get_header_and_data_metrics(met_dom, header_id, data_id,
+                                                                         predict_neutral_class, task="dominant")
+            write_csv(csv_path_dominant, header_dominant, data_dominant)
 
         # print(len(header_regression), len(data_regression))
         # print(len(header_score_coa), len(data_score_coa))

@@ -299,15 +299,15 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
     """
 
     # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
-    pred_scores_all, pred_scores_coa, pred_classes_pres = None, None, None
+    pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = None, None, None, None
     if label_type == 'all':
-        compute_fine, compute_coa, compute_pres = True, True, True
+        compute_fine, compute_coa, compute_pres, compute_dom = True, True, True, True
     elif 'coarse' in label_type:
-        compute_fine, compute_coa, compute_pres = False, True, True
+        compute_fine, compute_coa, compute_pres, compute_dom = False, True, True, True
     elif label_type == 'present':
-        compute_fine, compute_coa, compute_pres = False, False, True
+        compute_fine, compute_coa, compute_pres, compute_dom = False, False, True, False
     else:  # dominant
-        compute_fine, compute_coa, compute_pres = False, False, False
+        compute_fine, compute_coa, compute_pres, compute_dom = False, False, False, True
 
     # Save raw predictions
     if save_pred:
@@ -337,11 +337,12 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_e
                              root_folder=model_folder)
 
     # Get dominant emotion classes predicted by the model
-    pred_classes_dom = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
-                                                     None, num_classes, only_dominant=True)
-    if save_pred:
-        save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
-                         root_folder=model_folder)
+    if compute_dom:
+        pred_classes_dom = get_class_from_presence_score(pred_raw, predict_neutral_class, threshold_emo_pres,
+                                                         None, num_classes, only_dominant=True)
+        if save_pred:
+            save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
+                             root_folder=model_folder)
 
     return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
