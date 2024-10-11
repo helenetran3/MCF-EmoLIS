@@ -133,7 +133,7 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
 
 def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, model_eval_output,
                              metrics_regression, metrics_scores_all, metrics_score_coa, metrics_presence,
-                             metrics_dominant, with_cross_val, predict_neutral_class, threshold_emo_pres):
+                             metrics_dominant, with_cross_val, predict_neutral_class, thres_score_pres):
     """
     Save results of a single model to a csv file.
 
@@ -150,7 +150,7 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     :param metrics_dominant: List of metrics for detecting the dominant emotion(s)
     :param with_cross_val: boolean (cross_validation or not)
     :param predict_neutral_class: Whether we predict the neutral class
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :return: One-line results added to the csv file.
     """
 
@@ -164,7 +164,7 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     csv_path_score_coa = create_csv_path(model_name, filename="classif_score_coa", ext_name=ext_name,
                                          with_cross_val=with_cross_val)
     csv_path_presence = [create_csv_path(model_name, filename="classif_pres_t_{}".format(thres), ext_name=ext_name,
-                                         with_cross_val=with_cross_val) for thres in threshold_emo_pres]
+                                         with_cross_val=with_cross_val) for thres in thres_score_pres]
     csv_path_dominant = create_csv_path(model_name, filename="classif_dom", ext_name=ext_name,
                                         with_cross_val=with_cross_val)
     
@@ -245,6 +245,7 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
     predict_neutral_class = param_task['predict_neutral_class']
     set_length = param_task['set_length']
     label_type = param_task['label_type']
+    thres_score_pres = param_task['thres_score_pres']
     csv_path = create_csv_path(model_name, "model_ids")
     num_classes = 7 if predict_neutral_class else 6
 
@@ -263,8 +264,8 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
             data_training[i] = loss_function
         if header_training[i] == 'val_metrics' and type(data_training[i]) == list:
             data_training[i] = val_metrics
-    data = data + data_training + [predict_neutral_class, label_type, set_length, with_cross_val]
-    header = header + header_training + ['neutral_class', 'label_type', 'set_length', 'cross_val']
+    data = data + data_training + [predict_neutral_class, label_type, thres_score_pres, set_length, with_cross_val]
+    header = header + header_training + ['neutral_class', 'label_type', 'thres_score_pres', 'set_length', 'cross_val']
 
     write_csv(csv_path, header, data)
 

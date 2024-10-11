@@ -31,7 +31,7 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
 
     if best_thres_per_emo is None:
         # Compute the best thresholds for each emotion class
-        thresholds = np.arange(0, 1, 0.05)
+        thresholds = np.arange(0.05, 1, 0.05)
         val_metrics = []
 
         for thres in thresholds:
@@ -280,7 +280,7 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
 
 def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
-                                     all_scores, display_fig, threshold_emo_pres):
+                                     all_scores, display_fig, thres_score_pres):
     """
     Generate up to three plots, depending on the label type: one for fine-grained presence score, one for coarse-grained,
     and one for dominant emotions (and present if applicable).
@@ -293,7 +293,7 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
     'coarse_oh', 'present', 'dominant')
     :param all_scores: list of available presence scores
     :param display_fig: whether we display the figures (bool)
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     """
     display = None
     end_of_title_dict = {'all': " fine-grained",
@@ -309,13 +309,13 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
     def plot_task(task_name):
         plot_size = 10 if task_name == 'all' else 5 if task_name == 'coa' else 3
         # if task_name == 'dom_and_pres':
-        #     f, axes = plt.subplots(len(threshold_emo_pres) + 1, num_classes,
-        #                            figsize=(plot_size * num_classes, plot_size * (len(threshold_emo_pres) + 1)),
+        #     f, axes = plt.subplots(len(thres_score_pres) + 1, num_classes,
+        #                            figsize=(plot_size * num_classes, plot_size * (len(thres_score_pres) + 1)),
         #                            tight_layout=True)
         # else:
         if task_name == 'pres':
-            f, axes = plt.subplots(len(threshold_emo_pres), num_classes,
-                                   figsize=(plot_size * num_classes, plot_size * len(threshold_emo_pres)),
+            f, axes = plt.subplots(len(thres_score_pres), num_classes,
+                                   figsize=(plot_size * num_classes, plot_size * len(thres_score_pres)),
                                    tight_layout=True)
         else:
             f, axes = plt.subplots(1, num_classes, figsize=(plot_size * num_classes, plot_size))
@@ -330,7 +330,7 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
             d.ax_.set_title(emotions[emo_i] + end_of_title)
             if task_name == 'all':  # 90° rotation of x labels for better readability
                 d.ax_.tick_params(axis='x', rotation=90)
-            # if i != len(threshold_emo_pres)-1:  ## Remove "Predicted label" xlabel from the graph
+            # if i != len(thres_score_pres)-1:  ## Remove "Predicted label" xlabel from the graph
             #     display.ax_.set_xlabel('')
             if emo_i != 0:
                 d.ax_.set_ylabel('')
@@ -368,7 +368,7 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
                 display = hold_out_plot_matrix(conf_matrix, line_id=0, task_name=task_name)
 
         else:  # task_name == 'pres'
-            for i, thres in enumerate(threshold_emo_pres):
+            for i, thres in enumerate(thres_score_pres):
                 conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}{}'.format(model_id, thres, ext_name),
                                                     pickle_folder="confusion_matrix", root_folder=model_folder)
                 if with_cross_val:
@@ -397,13 +397,13 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
 
 
 def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
-                                        model_id, model_folder, task_name, all_scores, threshold_emo_pres=None):
+                                        model_id, model_folder, task_name, all_scores, thres_score_pres=None):
     """
     Compute the multilabel confusion matrix for each emotion (whether the emotion is present or not).
     Pickle file generated.
 
     :param true_classes: List of arrays giving the emotions truly present (varying thresholds for presence score
-    given by threshold_emo_pres) or the dominant emotions
+    given by thres_score_pres) or the dominant emotions
     :param pred_classes: List of arrays giving the emotions present/dominant predicted by the model
     :param with_cross_val: boolean (cross_validation or not)
     :param num_classes: number of classes (7 with neutral class, else 6)
@@ -411,7 +411,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
     :param model_folder: The folder where the results will be saved
     :param task_name: Name of the task, among 'all', 'coa', 'pres' and 'dom'
     :param all_scores: list of available presence scores
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3.
+    :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3.
     This parameter should be used only when dealing with emotions present.
     """
 
@@ -455,7 +455,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
     # emotions present
     if task_name == 'pres':
-        for thres_id, thres in enumerate(threshold_emo_pres):
+        for thres_id, thres in enumerate(thres_score_pres):
             if with_cross_val:
                 cross_valid_conf_matrix(task_name, thres, thres_id)
             else:
@@ -475,7 +475,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                               pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                              with_cross_val, threshold_emo_pres, num_classes, all_scores, round_decimals,
+                              with_cross_val, thres_score_pres, num_classes, all_scores, round_decimals,
                               model_id, model_folder):
     """
     Compute metrics for four tasks: estimation of presence score (regression), classification of presence score among
@@ -485,17 +485,17 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :param true_scores_all: array of shape (test_size, num_classes) giving the true presence score of the emotions
     :param true_scores_coa: array of shape (test_size, num_classes) giving the true presence score among [0, 1, 2, 3]
     :param true_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the true presence of an
-    emotion (> threshold defined by threshold_emo_pres)
+    emotion (> threshold defined by thres_score_pres)
     :param true_classes_dom: binary array of shape (test_size, num_classes) giving the truly dominant emotions
     :param pred_raw: array of shape (test_size, num_classes) from the model raw output
     :param pred_scores_all: array of shape (test_size, num_classes) predicting the original presence scores
     :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
-    an emotion (> threshold defined by threshold_emo_pres)
+    an emotion (> threshold defined by thres_score_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
     :param with_cross_val: boolean (cross_validation or not)
     :param all_scores: list of available presence scores
-    :param threshold_emo_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: Number of decimals to be rounded for metrics
     :param model_id: Model id (int)
@@ -536,7 +536,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
             metrics_presence = [get_classification_metrics(true_classes_pres[j], pred_classes_pres_i[j], num_classes,
                                                            round_decimals, model_id, model_folder, with_cross_val,
                                                            fold_id, thres)
-                                for j, thres in enumerate(threshold_emo_pres)]
+                                for j, thres in enumerate(thres_score_pres)]
 
         # Classification metrics of dominant emotions
         if pred_classes_dom_i is not None:
@@ -579,7 +579,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
     presence scores (all_scores)
     :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
-    an emotion (> threshold defined by threshold_emo_pres)
+    an emotion (> threshold defined by thres_score_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
     :param neutral_test_ind: list of indexes of the neutral samples in test set
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
@@ -598,7 +598,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
         return np.array(new_true_list)
 
     predict_neutral_class = param_task['predict_neutral_class']
-    threshold_emo_pres = [param_task['threshold_emo_present']]
+    thres_score_pres = [param_task['thres_score_pres']]
     label_type = param_task['label_type']
     round_decimals = param_log['round_decimals']
     plot_confusion_matrix = param_log['plot_confusion_matrix']
@@ -613,7 +613,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
 
     # True labels
     true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
-        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, threshold_emo_pres, num_classes,
+        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, num_classes,
                             label_type, return_all_tasks=True)
 
     if not predict_neutral_class:
@@ -632,13 +632,13 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
                                             model_id, model_folder, "coa", all_scores)
     if label_type != 'dominant':
         compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, with_cross_val, num_classes,
-                                            model_id, model_folder, "pres", all_scores, threshold_emo_pres)
+                                            model_id, model_folder, "pres", all_scores, thres_score_pres)
     if label_type != 'present':
         compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, with_cross_val, num_classes,
                                             model_id, model_folder, "dom", all_scores)
     if plot_confusion_matrix:
         plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
-                                         all_scores, display_fig, threshold_emo_pres)
+                                         all_scores, display_fig, thres_score_pres)
 
     print("\n\n")
     print("In the following, all the metrics displayed for each emotion are in this order: happiness, sadness, "
@@ -656,10 +656,10 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
     metrics_regression, metrics_all, metrics_score_coa, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                                   pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                  with_cross_val, threshold_emo_pres, num_classes, all_scores, round_decimals, model_id,
+                                  with_cross_val, thres_score_pres, num_classes, all_scores, round_decimals, model_id,
                                   model_folder)
 
     # Save metrics in csv file
     save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,
                              metrics_regression, metrics_all, metrics_score_coa, metrics_presence, metrics_dominant,
-                             with_cross_val, predict_neutral_class, threshold_emo_pres)
+                             with_cross_val, predict_neutral_class, thres_score_pres)

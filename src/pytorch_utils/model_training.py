@@ -40,7 +40,7 @@ def inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_n
     # print("hello back")
 
 
-def model_checkpoint(valid_loss, valid_loss_best, valid_thres_per_emo, valid_thres_per_emo_best,
+def model_checkpoint(valid_loss, valid_loss_best, valid_thres_ml_per_emo, valid_thres_ml_best,
                      model, optimizer, epoch, train_loss, model_name, ext_model_name):
 
     model_folder = os.path.join('results', model_name, 'models')
@@ -49,7 +49,7 @@ def model_checkpoint(valid_loss, valid_loss_best, valid_thres_per_emo, valid_thr
         os.makedirs(model_folder)
 
     if epoch == 0 or valid_loss < valid_loss_best:
-        valid_thres_per_emo_best = valid_thres_per_emo
+        valid_thres_ml_best = valid_thres_ml_per_emo
         valid_loss_best = valid_loss
 
         model_path = os.path.join(model_folder, "model_{}.pt".format(ext_model_name))
@@ -61,7 +61,7 @@ def model_checkpoint(valid_loss, valid_loss_best, valid_thres_per_emo, valid_thr
             'valid_loss': valid_loss
         }, model_path)
 
-    return valid_loss_best, valid_thres_per_emo_best
+    return valid_loss_best, valid_thres_ml_best
 
 
 def model_early_stopping(valid_loss, valid_loss_best, num_epochs_without_improvement, patience):
@@ -84,7 +84,7 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
     """
     Save and plot history, display and save figures
 
-    :param history_train: List of training losses, or list of list of num_classes+1 metrics, '+1' being the avg
+    :param history_train: List of training losses, or list of list of num_classes+1 metrics, '+1' being the avg (can be None)
     :param history_valid: List of validation losses, or list of list of num_classes+1 metrics, '+1' being the avg
     :param ext_name: Extension name (str)
     :param history_folder: Name of the folder where the history plot will be saved
@@ -101,18 +101,20 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
         os.makedirs(full_path_folder)
 
     # summarize history for training and validation metric used to monitor
-    if type(history_train[0]) == list:
+    if type(history_valid[0]) == list:
         emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-        splits = ['_train', '_val']
+        splits = ['_train', '_val'] if history_train is not None else ['_val']
         legend_text = [emo + sp for emo in emotions for sp in splits]
-        for cl_i in range(len(history_train[0])):
-            history_train_i = [ht[cl_i] for ht in history_train]
+        for cl_i in range(len(history_valid[0])):
+            if history_train is not None:
+                history_train_i = [ht[cl_i] for ht in history_train]
+                plt.plot(history_train_i)
             history_valid_i = [hv[cl_i] for hv in history_valid]
-            plt.plot(history_train_i)
             plt.plot(history_valid_i)
     else:
-        legend_text = ['train', 'val']
-        plt.plot(history_train)
+        legend_text = ['train', 'val'] if history_train is not None else ['val']
+        if history_train is not None:
+            plt.plot(history_train)
         plt.plot(history_valid)
     plt.title('Model loss')
     plt.ylabel('loss')
@@ -180,7 +182,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
     # Parameters for ModelCheckpoint and EarlyStopping callbacks
-    val_metrics_best, valid_thres_per_emo, valid_thres_per_emo_best = None, None, None
+    val_metrics_best, valid_thres_ml_per_emo, valid_thres_ml_best = None, None, None
     num_epochs_without_improvement = 0
 
     # Parameters for history
@@ -267,7 +269,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             train_monitor /= num_iterations
 
         # # Compute best threshold per emotion for multilabel classification according to F1 score
-        # if param_training['thres_ml_best'] or val_metrics is None:
+        # if param_training['thres_ml_from_best_metric'] or val_metrics is None:
         #     train_thres_per_emo, train_monitor_per_emo = compute_best_thres_for_monitor_metric(
         #         np.array(true_train).reshape(-1, num_classes), np.array(pred_train).reshape(-1, num_classes),
         #         round_decimals)
@@ -318,8 +320,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             valid_monitor /= valid_size
 
         # Compute best threshold per emotion for multilabel classification according to F1 score
-        if param_training['thres_ml_best'] or val_metrics is None:
-            valid_thres_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
+        if label_type in ['present', 'dominant'] and (param_training['thres_ml_from_best_metric'] or val_metrics is None):
+            valid_thres_ml_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
                 np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
                 round_decimals)
 
@@ -330,11 +332,11 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 # We monitor the average for the rest of the code
                 valid_monitor = valid_monitor_avg
 
-            # For Tensorboard
-            emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-            for cl_i in range(len(emotions)):
-                # writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
-                writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
+                # For Tensorboard
+                emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
+                for cl_i in range(len(emotions)):
+                    # writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
+                    writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
         writer.add_scalar("Training loss", train_loss, epoch)
@@ -357,9 +359,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         else:
             print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
-        if param_training['thres_ml_best'] or val_metrics is None:
+        if param_training['thres_ml_from_best_metric'] or val_metrics is None:
             # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
-            print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_per_emo}")
+            print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_ml_per_emo}")
         print("-------------------------------------------------------------------------------------------------------")
 
         # Display and save history plot
@@ -367,16 +369,17 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         history_valid += [valid_loss]
         if val_metrics is None:
             # history_train_monitor += [train_monitor_all]
+            history_train_monitor = None
             history_valid_monitor += [valid_monitor_all]
         else:
             history_train_monitor += [train_monitor]
             history_valid_monitor += [valid_monitor]
 
         # For model checkpoint
-        val_metrics_best, valid_thres_per_emo_best = model_checkpoint(valid_monitor, val_metrics_best,
-                                                                      valid_thres_per_emo, valid_thres_per_emo_best,
-                                                                      model, optimizer, epoch, train_loss,
-                                                                      model_name, ext_model_name)
+        val_metrics_best, valid_thres_ml_best = model_checkpoint(valid_monitor, val_metrics_best,
+                                                                 valid_thres_ml_per_emo, valid_thres_ml_best,
+                                                                 model, optimizer, epoch, train_loss,
+                                                                 model_name, ext_model_name)
 
         # For early stopping
         if patience != -1:
@@ -388,16 +391,15 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     model_folder = os.path.join('results', model_name)
     save_and_plot_history(history_train, history_valid, ext_model_name, history_folder="history",
                           root_folder=model_folder, display_fig=display_fig)
-    if val_metrics is not None:
-        save_and_plot_history(history_train_monitor, history_valid_monitor, ext_model_name,
-                              history_folder="history_monitor", root_folder=model_folder, display_fig=display_fig)
+    save_and_plot_history(history_train_monitor, history_valid_monitor, ext_model_name,
+                          history_folder="history_monitor", root_folder=model_folder, display_fig=display_fig)
 
     writer.close()
 
-    if not param_training['thres_ml_best']:
-        valid_thres_per_emo_best = [0.5 for _ in range(num_classes)]
+    if label_type in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
+        valid_thres_ml_best = [0.5 for _ in range(num_classes)]
 
-    return valid_thres_per_emo_best
+    return valid_thres_ml_best
 
 
 def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
@@ -408,15 +410,15 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
                               loss_function, val_metrics, is_tf=False)
 
     if with_cross_valid:
-        valid_thres_per_emo_best = []
+        valid_thres_ml_best = []
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
-            valid_thres_per_emo_best += [run_one_training(train_list_i, valid_list_i, param_model, param_training,
-                                                          param_log, num_steps, model_name, model_id, loss_function,
-                                                          val_metrics, label_type, device, with_cross_valid, fold_id)]
+            valid_thres_ml_best += [run_one_training(train_list_i, valid_list_i, param_model, param_training,
+                                                     param_log, num_steps, model_name, model_id, loss_function,
+                                                     val_metrics, label_type, device, with_cross_valid, fold_id)]
 
     else:
-        valid_thres_per_emo_best = run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                                                    num_steps, model_name, model_id, loss_function, val_metrics,
-                                                    label_type, device, with_cross_valid)
+        valid_thres_ml_best = run_one_training(train_list, valid_list, param_model, param_training, param_log,
+                                               num_steps, model_name, model_id, loss_function, val_metrics,
+                                               label_type, device, with_cross_valid)
 
-    return valid_thres_per_emo_best
+    return valid_thres_ml_best

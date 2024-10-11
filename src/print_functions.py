@@ -27,6 +27,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     predict_neutral_class = param_task['predict_neutral_class']
     label_type = param_task['label_type']
     num_folds = param_training['cross_val_folds']
+    thres_score_pres = param_task['thres_score_pres']
 
     y_train, y_valid, y_test = (train_list[0][1], valid_list[0][1], test_list[0][1]) if with_cross_valid \
         else (train_list[1], valid_list[1], test_list[1])
@@ -45,6 +46,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     print("Number of output cells:", num_classes)
     print("\n>>> Model training")
     print("Task:", label_type)
+    print("Score threshold for the presence of an emotion:", thres_score_pres)
     print("Cross-validation:", with_cross_valid, "({} folds)".format(num_folds) if with_cross_valid else "")
     if label_type == 'dominant' or label_type == 'present':
         print("Predict neutral class:", predict_neutral_class)

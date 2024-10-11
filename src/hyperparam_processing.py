@@ -395,10 +395,10 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
 
         # Task
         hyperparam_task = hyperparam_dict['task']
-        required_keys = ['model_name', 'label_type', 'set_length', 'threshold_emo_present', 'predict_neutral_class',
+        required_keys = ['model_name', 'label_type', 'set_length', 'thres_score_pres', 'predict_neutral_class',
                          'align_to_text', 'image_feature', 'with_custom_split']
         check_if_key_is_in_list_actual_keys(required_keys, hyperparam_task, json_name)
-        check_value_is_number('threshold_emo_present', hyperparam_task['threshold_emo_present'])
+        check_value_is_number('thres_score_pres', hyperparam_task['thres_score_pres'])
         check_value_is_binary('predict_neutral_class', hyperparam_task['predict_neutral_class'])
         check_value_is_binary('align_to_text', hyperparam_task['align_to_text'])
         check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])

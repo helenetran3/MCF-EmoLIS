@@ -1,10 +1,10 @@
 {
   "task":
   {
-    "model_name": "mult",
-    "label_type": "present",
-    "set_length": "max",
-    "threshold_emo_present": 0,
+    "model_name": "ef_rnn_me2e",
+    "label_type": "all",
+    "set_length": 2,
+    "thres_score_pres": 0,
     "predict_neutral_class": 0,
     "align_to_text": 1,
     "image_feature": "facet",
@@ -13,13 +13,13 @@
 
   "training":
   {
-    "num_epochs": 30,
-    "patience": 8,
+    "num_epochs": 1,
+    "patience": 0,
     "batch_size": 32,
     "optimizer": "adam",
     "loss_function": "wei_bce",
     "val_metrics": "wei_bce",
-    "thres_ml_best": 0,
+    "thres_ml_from_best_metric": 1,
     "learning_rate": 5e-4,
     "cross_val_folds": -1,
     "random_state": 42,

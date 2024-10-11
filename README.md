@@ -99,7 +99,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
      usage: main.py [-h] [-pnd PICKLE_NAME_DATASET] [-pnf PICKLE_NAME_FOLD] [-t] [-al]
                [-f {facet,openface}] [-c] [-mn {ef_williams,mult}]
                [-lt {all,coarse,present,dominant}] [-nc]
-               [-tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]] [-rd ROUND_DECIMALS]
+               [-tp THRES_SCORE_PRES [THRES_SCORE_PRES ...]] [-rd ROUND_DECIMALS]
                [-sp] [-pcm] [-df]
 
     SOTA Multimodal Emotion Recognition models using CMU-MOSEI database.
@@ -128,7 +128,7 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
                             label classification), dominant (multi-class classification)
       -nc, --predict_neutral_class
                             Predict neutral class.
-      -tp THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...], --threshold_emo_present THRESHOLD_EMO_PRESENT [THRESHOLD_EMO_PRESENT ...]
+      -tp THRES_SCORE_PRES [THRES_SCORE_PRES ...], --thres_score_pres THRES_SCORE_PRES [THRES_SCORE_PRES ...]
                             Threshold at which emotions are considered to be present. Values must
                             be between 0 and 3. Note that setting thresholds greater than 0 might
                             lead to no positive true and predicted classes and skew

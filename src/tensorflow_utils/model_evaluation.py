@@ -56,7 +56,7 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
                        loss_function_str, val_metrics_str, all_scores, fold_id=None):
 
     predict_neutral_class = param_task['predict_neutral_class']
-    threshold_emo_pres = [param_task['threshold_emo_present']]
+    thres_score_pres = [param_task['thres_score_pres']]
     label_type = param_task['label_type']
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
@@ -89,7 +89,7 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
         pred_raw = pred_raw*3
 
     pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-        compute_pred_labels(pred_raw, all_scores, predict_neutral_class, threshold_emo_pres, save_pred, model_id,
+        compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score_pres, save_pred, model_id,
                             num_classes, model_folder, label_type)
 
     # ## For debugging
