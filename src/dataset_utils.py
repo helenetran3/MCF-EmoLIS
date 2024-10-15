@@ -5,7 +5,7 @@ from src.pickle_functions import *
 from src.label_processing import trunc
 from statistics import mean
 from sklearn.model_selection import KFold
-#from scipy.interpolate import griddata
+from scipy.interpolate import griddata
 
 
 # CMU-MOSEI DATA DOWNLOAD FUNCTIONS
@@ -141,6 +141,71 @@ def get_fold_ids(param_task):
     return train_ids, valid_ids, test_ids
 
 
+def process_not_finite_values(data_seg, method):
+
+    num_some_nan, one_col_with_all_infinite, num_some_nan_after = 0, 0, 0
+    num_col_with_half_nan = 0
+    max_perc_nan_col = 0
+
+    num_not_finite = np.sum(~np.isfinite(data_seg))
+    if num_not_finite > 0:
+        num_some_nan += 1
+
+        if method not in ['linear_2d', 'linear_1d', 'mean']:
+            raise ValueError("'{}' method to replace NaN or inf values is invalid. Please choose among "
+                             "'linear_2d', 'linear_1d' and 'mean'.".format(method))
+        # Processing
+        mean_not_finite = ~np.isfinite(np.sum(data_seg, axis=0))
+        col_with_all_infinite = []
+        for j in range(data_seg.shape[1]):
+            data_j = np.copy(data_seg[:, j])
+            if mean_not_finite[j]:
+                if np.all(~np.isfinite(data_j)):
+                    one_col_with_all_infinite += 1
+                    col_with_all_infinite += [j]
+                else:
+                    # Compute percentage of not finite values in the column
+                    perc_nan_col = np.sum(~np.isfinite(data_j)) / data_j.shape[0]
+                    max_perc_nan_col = max(perc_nan_col, max_perc_nan_col)
+                    if np.sum(~np.isfinite(data_j)) / data_j.shape[0] > 0.4:
+                        num_col_with_half_nan += 1
+
+                    # Replace NaN/inf values with either linear interpolation or mean
+                    if method == 'mean':
+                        mean_j = np.mean(data_j[np.isfinite(data_j)])
+                        for i in range(data_seg.shape[0]):
+                            if not np.isfinite(data_seg[i, j]):
+                                data_seg[i, j] = mean_j
+                    elif method == 'linear_1d':
+                        x = np.array(range(data_j.shape[0]))
+                        data_j[~np.isfinite(data_j)] = np.interp(x[~np.isfinite(data_j)],
+                                                                 x[np.isfinite(data_j)], data_j[np.isfinite(data_j)])
+                        # TODO Nearest neighbor
+
+        # Linear interpolation when possible, else nearest neighbor (for the borders)
+        if method == 'linear_2d':
+            x, y = np.indices(data_seg.shape)
+            data_seg[~np.isfinite(data_seg)] = griddata((x[np.isfinite(data_seg)], y[np.isfinite(data_seg)]),
+                                                        data_seg[np.isfinite(data_seg)],
+                                                        (x[~np.isfinite(data_seg)], y[~np.isfinite(data_seg)]),
+                                                        method='linear')
+
+            data_seg[~np.isfinite(data_seg)] = griddata((x[np.isfinite(data_seg)], y[np.isfinite(data_seg)]),
+                                                        data_seg[np.isfinite(data_seg)],
+                                                        (x[~np.isfinite(data_seg)], y[~np.isfinite(data_seg)]),
+                                                        method='nearest')
+        num_steps = data_seg.shape[0]
+        for j in col_with_all_infinite:
+            data_seg[:, j] = np.array([0 for _ in range(num_steps)])
+
+        # After imputation, check if there are still infinite values
+        num_not_finite = np.sum(~np.isfinite(data_seg))
+        if num_not_finite > 0:
+            num_some_nan_after += 1
+
+    return data_seg, num_some_nan, one_col_with_all_infinite, num_some_nan_after, num_col_with_half_nan, max_perc_nan_col
+
+
 def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log):
     """
     For each training, validation and test sets, create a list of three sublists:
@@ -162,6 +227,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     """
 
     image_feature = param_task['image_feature']
+    replace_nan = param_task['replace_nan']
     pickle_name_fold = param_log['pickle_name_fold']
 
     # a sentinel epsilon for safe division, without it we will replace illegal values with a constant
@@ -181,6 +247,18 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     pattern = re.compile('(.*)\[.*\]')
     num_drop = 0  # counter to get the number of data points that doesn't go through the checking process
     num_no_split = 0  # counter for those that doesn't belong to any split
+    num_some_nan_bf_img, num_some_nan_bf_aud, num_some_nan_img, num_some_nan_aud = 0, 0, 0, 0
+    num_some_nan_bf_after_imput_img, num_some_nan_bf_after_imput_aud = 0, 0
+    num_some_nan_after_imput_img, num_some_nan_after_imput_aud = 0, 0
+    img_one_col_with_all_infinite_bf, aud_one_col_with_all_infinite_bf = 0, 0
+    img_one_col_with_all_infinite, aud_one_col_with_all_infinite = 0, 0
+    img_one_col_with_half_infinite_bf, aud_one_col_with_half_infinite_bf = 0, 0
+    img_one_col_with_half_infinite, aud_one_col_with_half_infinite = 0, 0
+    num_all_nan, num_half_nan = 0, 0
+    total_num_samples = 0
+    max_percentage_nan_img, max_percentage_nan_aud = 0, 0
+    max_percentage_nan_col_img_bf, max_percentage_nan_col_aud_bf = 0, 0
+    max_percentage_nan_col_img, max_percentage_nan_col_aud = 0, 0
 
     for seg_id in dataset['All Labels'].keys():
 
@@ -192,6 +270,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             num_drop += 1
             continue
 
+        total_num_samples += 1
         image_seg = image_dataset[seg_id]['features']
         audio_seg = audio_dataset[seg_id]['features']
         text_seg = text_dataset[seg_id]['features']
@@ -208,10 +287,19 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             num_drop += 1
             continue
 
-        # # Remove nan values # No nan in this dataset
-        # image_seg = np.nan_to_num(image_seg)
-        # audio_seg = np.nan_to_num(audio_seg)
-        # label_seg = np.nan_to_num(label_seg)
+        # Before normalization, non finite value processing for image and audio
+        image_seg, num_img1, num_img2, num_img3, num_img4, num_img5 = process_not_finite_values(image_seg, replace_nan)
+        num_some_nan_bf_img += num_img1
+        img_one_col_with_all_infinite_bf += num_img2
+        num_some_nan_bf_after_imput_img += num_img3
+        img_one_col_with_half_infinite_bf += num_img4
+        max_percentage_nan_col_img_bf = max(num_img5, max_percentage_nan_col_img_bf)
+        audio_seg, num_aud1, num_aud2, num_aud3, num_aud4, num_aud5 = process_not_finite_values(audio_seg, replace_nan)
+        num_some_nan_bf_aud += num_aud1
+        aud_one_col_with_all_infinite_bf += num_aud2
+        num_some_nan_bf_after_imput_aud += num_aud3
+        aud_one_col_with_half_infinite_bf += num_aud4
+        max_percentage_nan_col_aud_bf = max(num_aud5, max_percentage_nan_col_aud_bf)
 
         # z-normalization per instance and remove nan/infs
         with np.errstate(invalid="ignore"):  # ignore errors which creates nan/infs, will be dealt right after
@@ -220,42 +308,48 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
 
         if np.all(np.logical_or(np.isnan(image_seg), np.isinf(image_seg))):
             print("Encountered datapoint {} with image data full of NaNs or infs.".format(seg_id))
+            num_all_nan += 1
             num_drop += 1
             continue
         if np.all(np.logical_or(np.isnan(audio_seg), np.isinf(audio_seg))):
             print("Encountered datapoint {} with audio data full of NaNs or infs.".format(seg_id))
+            num_all_nan += 1
             num_drop += 1
             continue
 
-        mean_img = image_seg[np.isfinite(image_seg)].mean()
-        image_seg[np.isinf(image_seg)] = mean_img
-        image_seg[np.isnan(image_seg)] = mean_img
-        mean_aud = audio_seg[np.isfinite(audio_seg)].mean()
-        audio_seg[np.isinf(audio_seg)] = mean_aud
-        audio_seg[np.isnan(audio_seg)] = mean_aud
+        shape_img = image_seg.shape[0] * image_seg.shape[1]
+        perc_not_finite_img = np.sum(np.logical_or(np.isnan(image_seg), np.isinf(image_seg))) / shape_img
+        if perc_not_finite_img >= 0.3:
+            print("Encountered datapoint {} with image data with more than 30% of NaNs or infs.".format(seg_id))
+            num_half_nan += 1
+            num_drop += 1
+            continue
+        if perc_not_finite_img > max_percentage_nan_img:
+            max_percentage_nan_img = perc_not_finite_img
 
-        #if not np.all(np.isfinite(image_seg)):
-        # if np.isnan(np.sum(image_seg)):
-        #    x, y = np.indices(image_seg.shape)
-        #    image_seg[~np.isfinite(image_seg)] = griddata((x[np.isfinite(image_seg)], y[np.isfinite(image_seg)]),
-        #                                                  image_seg[np.isfinite(image_seg)],
-        #                                                  (x[~np.isfinite(image_seg)], y[~np.isfinite(image_seg)]))
+        shape_aud = audio_seg.shape[0] * audio_seg.shape[1]
+        perc_not_finite_aud = np.sum(np.logical_or(np.isnan(audio_seg), np.isinf(audio_seg))) / shape_aud
+        if perc_not_finite_aud >= 0.3:
+            print("Encountered datapoint {} with audio data with more than 30% of NaNs or infs.".format(seg_id))
+            num_half_nan += 1
+            num_drop += 1
+            continue
+        if perc_not_finite_aud > max_percentage_nan_aud:
+            max_percentage_nan_aud = perc_not_finite_aud
 
-        #    image_seg[~np.isfinite(image_seg)] = griddata((x[np.isfinite(image_seg)], y[np.isfinite(image_seg)]),
-        #                                                  image_seg[np.isfinite(image_seg)],
-        #                                                  (x[~np.isfinite(image_seg)], y[~np.isfinite(image_seg)]),
-        #                                                  method='nearest')
-
-        #if not np.all(np.isfinite(audio_seg)):
-        #    x, y = np.indices(audio_seg.shape)
-        #    audio_seg[~np.isfinite(audio_seg)] = griddata((x[np.isfinite(audio_seg)], y[np.isfinite(audio_seg)]),
-        #                                                  audio_seg[np.isfinite(audio_seg)],
-        #                                                  (x[~np.isfinite(audio_seg)], y[~np.isfinite(audio_seg)]))
-
-        #    audio_seg[~np.isfinite(audio_seg)] = griddata((x[np.isfinite(audio_seg)], y[np.isfinite(audio_seg)]),
-        #                                                  audio_seg[np.isfinite(audio_seg)],
-        #                                                  (x[~np.isfinite(audio_seg)], y[~np.isfinite(audio_seg)]),
-        #                                                  method='nearest')
+        # After normalization, non-finite value processing for image and audio
+        image_seg, num_img1, num_img2, num_img3, num_img4, num_img5 = process_not_finite_values(image_seg, replace_nan)
+        num_some_nan_img += num_img1
+        img_one_col_with_all_infinite += num_img2
+        num_some_nan_after_imput_img += num_img3
+        img_one_col_with_half_infinite += num_img4
+        max_percentage_nan_col_img = max(num_img5, max_percentage_nan_col_img)
+        audio_seg, num_aud1, num_aud2, num_aud3, num_aud4, num_aud5 = process_not_finite_values(audio_seg, replace_nan)
+        num_some_nan_aud += num_aud1
+        aud_one_col_with_all_infinite += num_aud2
+        num_some_nan_after_imput_aud += num_aud3
+        aud_one_col_with_half_infinite += num_aud4
+        max_percentage_nan_col_aud = max(max_percentage_nan_col_aud, num_aud5)
 
         # data_seg = np.concatenate((text_seg, image_seg, audio_seg), axis=1)  # early fusion
 
@@ -287,6 +381,44 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
           .format(num_drop, 100 * (num_drop / total_data)))
     print("Total number of {} datapoints do not belong to any split ({:.2f}% of total data)."
           .format(num_no_split, 100 * (num_no_split / total_data)))
+    print("----------------------------------------------------")
+    print("Total number samples: {}".format(total_num_samples))
+    print("----------------------------------------------------")
+    print("[Before normalization]\n")
+    print("[Image, before processing] Number of data with some NaN or inf: {}".format(num_some_nan_bf_img))
+    print("[Image, before processing] Number of columns with all NaN or inf: {}".format(img_one_col_with_all_infinite_bf))
+    print("[Image, before processing] Number of columns with at least 40% NaN or inf: {}".format(img_one_col_with_half_infinite_bf))
+    print("[Image, before processing] Max percentage columns with NaN or inf: {}%".format(np.round(max_percentage_nan_col_img_bf*100, decimals=2)))
+    print("[Image, after processing] Number of data with some NaN or inf: {}".format(num_some_nan_bf_after_imput_img))
+    print("\n[Audio, before processing] Number of data with some NaN or inf: {}".format(num_some_nan_bf_aud))
+    print("[Audio, before processing] Number of columns with all NaN or inf: {}".format(aud_one_col_with_all_infinite_bf))
+    print("[Audio, before processing] Number of columns with at least 40% NaN or inf: {}".format(aud_one_col_with_half_infinite_bf))
+    print("[Audio, before processing] Max percentage columns with NaN or inf: {}%".format(np.round(max_percentage_nan_col_aud_bf*100, decimals=2)))
+    print("[Audio, after processing] Number of data with some NaN or inf: {}".format(num_some_nan_bf_after_imput_aud))
+    print("----------------------------------------------------")
+    print("[After normalization]\n")
+    print("Number of data with all NaN or inf after normalization (dropped): {}".format(num_all_nan))
+    print("Number of data with at least 30% NaN or inf after normalization (dropped): {}".format(num_half_nan))
+    print("\n[Image, before processing] Number of data with some NaN or inf: {}".format(num_some_nan_img))
+    print("[Image, before processing] Max percentage NaN or inf: {}%".format(np.round(max_percentage_nan_img*100, decimals=2)))
+    print("[Image, before processing] Number of columns with all NaN or inf: {}".format(img_one_col_with_all_infinite))
+    print("[Image, before processing] Number of columns with at least 40% NaN or inf: {}".format(img_one_col_with_half_infinite))
+    print("[Image, before processing] Max percentage columns with NaN or inf: {}%".format(np.round(max_percentage_nan_col_img*100, decimals=2)))
+    print("[Image, after processing] Number of data with some NaN or inf: {}".format(num_some_nan_after_imput_img))
+    print("\n[Audio, before processing] Number of data with some NaN or inf: {}".format(num_some_nan_aud))
+    print("[Audio, before processing] Max percentage NaN or inf: {}".format(np.round(max_percentage_nan_aud, decimals=2)))
+    print("[Audio, before processing] Number of columns with all NaN or inf: {}".format(aud_one_col_with_all_infinite))
+    print("[Audio, before processing] Number of columns with at least 40% NaN or inf: {}".format(aud_one_col_with_half_infinite))
+    print("[Audio, before processing] Max percentage columns with NaN or inf: {}%".format(np.round(max_percentage_nan_col_aud*100, decimals=2)))
+    print("[Audio, after processing] Number of data with some NaN or inf: {}".format(num_some_nan_after_imput_aud))
+    # print("Number of data with some NaN or inf after normalization: {}".format(num_some_nan))
+    # print("Number of img columns with all NaN or inf due to std: {}".format(img_one_col_with_all_infinite_due_to_std))
+    # print("Number of aud columns with all NaN or inf due to std: {}".format(aud_one_col_with_all_infinite_due_to_std))
+    # print("Number of img columns with all NaN or inf not due to std: {}".format(img_one_col_with_all_infinite))
+    # print("Number of aud columns with all NaN or inf not due tu std: {}".format(aud_one_col_with_all_infinite))
+    # print("Number of data with some NaN or inf after norm, imputation img: {}".format(num_some_nan_after_imput_img))
+    # print("Number of data with some NaN or inf after norm, imputation aud: {}".format(num_some_nan_after_imput_aud))
+    print("----------------------------------------------------")
     print("Number of training datapoints: {} ({:.2f}%)".format(train_size, 100 * (train_size / total_data_split)))
     print("Number of validation datapoints: {} ({:.2f}%)".format(valid_size, 100 * (valid_size / total_data_split)))
     print("Number of test datapoints: {} ({:.2f}%)".format(test_size, 100 * (test_size / total_data_split)))

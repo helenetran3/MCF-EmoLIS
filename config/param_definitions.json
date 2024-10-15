@@ -18,6 +18,7 @@
         "predict_neutral_class": "Whether we predict the neutral class (0 or 1). Only useful for label_type 'present' or 'dominant.",
         "align_to_text": "Whether audio and image data are aligned to the textual modality (0 or 1)",
         "image_feature": "Image features. Values: facet or openface.",
+        "replace_nan": "Method for replacing NaN and/or infinite values, among 'mean' (mean value along the column), 'linear_2d' (which perform 2D linear interpolation when applicable then nearest neighbor), 'linear_1d' (same but for each feature column)",
         "with_custom_split": "Whether we perform custom split on training and validation sets (0 or 1). For more details, cf. Williams et al. (2018) paper."
     },
 
