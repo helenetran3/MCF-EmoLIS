@@ -238,6 +238,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     thres_nan = param_task['thres_nan']
     thres_nan_100 = np.round(thres_nan*100)
     replace_nan = param_task['replace_nan']
+    nan_str = replace_nan + "_t_" + thres_nan
     pickle_name_fold = param_log['pickle_name_fold']
 
     # a sentinel epsilon for safe division, without it we will replace illegal values with a constant
@@ -449,12 +450,9 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     test_res = [x_test, y_test_emo, seg_test]
 
     # Save lists with pickle
-    save_with_pickle(train_res, pickle_name_fold + "_train_" + replace_nan,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(valid_res, pickle_name_fold + "_valid_" + replace_nan,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(test_res, pickle_name_fold + "_test_" + replace_nan,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(train_res, pickle_name_fold + "_train_" + nan_str, pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(valid_res, pickle_name_fold + "_valid_" + nan_str, pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(test_res, pickle_name_fold + "_test_" + nan_str, pickle_folder="raw_folds", root_folder="cmu_mosei")
 
     return train_res, valid_res, test_res
 
