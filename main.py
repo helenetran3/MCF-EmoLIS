@@ -19,7 +19,7 @@ def main():
     pickle_name_fold = param_log['pickle_name_fold']
     replace_nan = param_task['replace_nan']
     thres_nan = param_task['thres_nan']
-    nan_str = replace_nan + "_t_" + thres_nan
+    nan_str = replace_nan + "_t_" + str(thres_nan)
     if pickle_file_exists(pickle_name_fold + "_train_" + nan_str, "raw_folds", "cmu_mosei"):
         train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + nan_str, "raw_folds", "cmu_mosei")
         valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + nan_str, "raw_folds", "cmu_mosei")
