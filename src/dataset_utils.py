@@ -441,9 +441,12 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     test_res = [x_test, y_test_emo, seg_test]
 
     # Save lists with pickle
-    save_with_pickle(train_res, pickle_name_fold + "_train", pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(valid_res, pickle_name_fold + "_valid", pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(test_res, pickle_name_fold + "_test", pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(train_res, pickle_name_fold + "_train_" + replace_nan,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(valid_res, pickle_name_fold + "_valid_" + replace_nan,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(test_res, pickle_name_fold + "_test_" + replace_nan,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
 
     return train_res, valid_res, test_res
 
