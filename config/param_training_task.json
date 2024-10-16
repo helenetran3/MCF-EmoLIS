@@ -1,21 +1,21 @@
 {
   "task":
   {
-    "model_name": "ef_rnn_me2e",
-    "label_type": "all",
-    "set_length": 2,
-    "thres_score_pres": 0,
+    "model_name": ["mult", "ef_rnn_me2e", "ef_trans_me2e", "lf_rnn_me2e", "lf_trans_me2e", "mfn"],
+    "label_type": "present",
+    "set_length": "max",
+    "threshold_emo_present": 0,
     "predict_neutral_class": 0,
     "align_to_text": 1,
     "image_feature": "facet",
-    "replace_nan": "linear_2d",
+    "replace_nan": "linear_1d",
     "with_custom_split": 0
   },
 
   "training":
   {
-    "num_epochs": 1,
-    "patience": 0,
+    "num_epochs": 30,
+    "patience": 8,
     "batch_size": 32,
     "optimizer": "adam",
     "loss_function": "wei_bce",
