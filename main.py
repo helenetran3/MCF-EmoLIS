@@ -18,7 +18,7 @@ def main():
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     pickle_name_fold = param_log['pickle_name_fold']
     replace_nan = param_task['replace_nan']
-    if pickle_file_exists(pickle_name_fold + "_train", "raw_folds", "cmu_mosei"):
+    if pickle_file_exists(pickle_name_fold + "_train" + replace_nan, "raw_folds", "cmu_mosei"):
         train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + replace_nan, "raw_folds", "cmu_mosei")
         valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + replace_nan, "raw_folds", "cmu_mosei")
         test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + replace_nan,  "raw_folds", "cmu_mosei")

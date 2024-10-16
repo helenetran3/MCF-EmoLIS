@@ -4,7 +4,7 @@
     "model_name": ["mult", "ef_rnn_me2e", "ef_trans_me2e", "lf_rnn_me2e", "lf_trans_me2e", "mfn"],
     "label_type": "present",
     "set_length": "max",
-    "threshold_emo_present": 0,
+    "thres_score_pres": 0,
     "predict_neutral_class": 0,
     "align_to_text": 1,
     "image_feature": "facet",
