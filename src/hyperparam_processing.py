@@ -412,6 +412,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_in_list('label_type', hyperparam_task['label_type'],
                                ['all', 'coarse', 'coarse_prob', 'coarse_oh', 'present', 'dominant'])
         check_value_is_in_list('image_feature', hyperparam_task['image_feature'], ['facet', 'openface'])
+        check_value_is_in_list('replace_nan', hyperparam_task['replace_nan'], ['mean', 'linear_1d', 'linear_2d'])
 
     if json_name == 'param_logistics':
         hyperparam_log = hyperparam_dict['logistics']

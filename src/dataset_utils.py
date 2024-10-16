@@ -142,6 +142,16 @@ def get_fold_ids(param_task):
 
 
 def process_not_finite_values(data_seg, method):
+    """
+    Replace NaN and inf values by the method chosen by the user.
+
+    :param data_seg: Array of shape (num_steps, num_features) that may contain NaN and/or inf values
+    :param method: Method of replacement of NaN/inf values, among 'mean', 'linear_1d', 'linear_2d'
+      - 'mean': replace all NaN/inf values by the mean of the feature column
+      - 'linear_1d': 1D linear interpolation of the feature column, over the time axis
+      - 'linear_2d': 2D linear interpolation when possible, else nearest neighbor (for the borders)
+    :return: data_seg without any NaN/inf values
+    """
 
     num_some_nan, one_col_with_all_infinite, num_some_nan_after = 0, 0, 0
     num_col_with_half_nan = 0
@@ -151,9 +161,6 @@ def process_not_finite_values(data_seg, method):
     if num_not_finite > 0:
         num_some_nan += 1
 
-        if method not in ['linear_2d', 'linear_1d', 'mean']:
-            raise ValueError("'{}' method to replace NaN or inf values is invalid. Please choose among "
-                             "'linear_2d', 'linear_1d' and 'mean'.".format(method))
         # Processing
         mean_not_finite = ~np.isfinite(np.sum(data_seg, axis=0))
         col_with_all_infinite = []
@@ -178,9 +185,10 @@ def process_not_finite_values(data_seg, method):
                                 data_seg[i, j] = mean_j
                     elif method == 'linear_1d':
                         x = np.array(range(data_j.shape[0]))
+                        # Linear interpolation
                         data_j[~np.isfinite(data_j)] = np.interp(x[~np.isfinite(data_j)],
                                                                  x[np.isfinite(data_j)], data_j[np.isfinite(data_j)])
-                        # TODO Nearest neighbor
+                        data_seg[:, j] = data_j
 
         # Linear interpolation when possible, else nearest neighbor (for the borders)
         if method == 'linear_2d':
@@ -423,7 +431,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     print("Number of validation datapoints: {} ({:.2f}%)".format(valid_size, 100 * (valid_size / total_data_split)))
     print("Number of test datapoints: {} ({:.2f}%)".format(test_size, 100 * (test_size / total_data_split)))
 
-    # Remove sentiment labels + round to a non-continuous value
+    # Remove sentiment labels + truncate to 2 decimals to obtain a non-continuous value
     y_train_emo = [trunc(y[:, 1:], decimals=2) for y in y_train]
     y_valid_emo = [trunc(y[:, 1:], decimals=2) for y in y_valid]
     y_test_emo = [trunc(y[:, 1:], decimals=2) for y in y_test]
