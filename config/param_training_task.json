@@ -8,7 +8,7 @@
     "predict_neutral_class": 0,
     "align_to_text": 1,
     "image_feature": "facet",
-    "thres_nan": 0,
+    "thres_nan": 0.11,
     "replace_nan": "linear_1d",
     "with_custom_split": 0
   },
