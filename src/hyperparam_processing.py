@@ -399,6 +399,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                          'align_to_text', 'image_feature', 'with_custom_split']
         check_if_key_is_in_list_actual_keys(required_keys, hyperparam_task, json_name)
         check_value_is_number('thres_score_pres', hyperparam_task['thres_score_pres'])
+        check_value_is_number('thres_nan', hyperparam_task['thres_nan'])
         check_value_is_binary('predict_neutral_class', hyperparam_task['predict_neutral_class'])
         check_value_is_binary('align_to_text', hyperparam_task['align_to_text'])
         check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])
