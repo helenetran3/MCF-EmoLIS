@@ -457,8 +457,8 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
                                       thres_nan, num_classes, label_type)
     new_y_valid = compute_true_labels(y_valid, "valid", all_scores, predict_neutral_class, thres_score_pres,
                                       thres_nan, num_classes, label_type)
-    new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, num_classes,
-                                     thres_nan, label_type)
+    new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres,
+                                     thres_nan, num_classes, label_type)
 
     if label_type == 'present':  # TODO We only take the first threshold for the moment
         new_y_train = new_y_train[0]
