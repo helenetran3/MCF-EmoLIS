@@ -2,7 +2,7 @@
   "task":
   {
     "model_name": ["mult", "ef_rnn_me2e", "ef_trans_me2e", "lf_rnn_me2e", "lf_trans_me2e", "mfn"],
-    "label_type": "present",
+    "label_type": ["coarse", "present"],
     "set_length": "max",
     "thres_score_pres": 0,
     "predict_neutral_class": 0,
@@ -19,9 +19,10 @@
     "patience": 8,
     "batch_size": 32,
     "optimizer": "adam",
-    "loss_function": "wei_bce",
-    "val_metrics": "wei_bce",
-    "thres_ml_from_best_metric": 1,
+    "loss_function": "wei_bce_multitask",
+    "val_metrics": "wei_bce_multitask",
+    "coef_coa": 0.2,
+    "thres_ml_from_best_metric": 0,
     "learning_rate": 5e-4,
     "cross_val_folds": -1,
     "random_state": 42,

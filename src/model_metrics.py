@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from src.pickle_functions import save_with_pickle, load_from_pickle
 from src.csv_functions import save_results_in_csv_file
-from src.label_processing import compute_true_labels
+from src.label_processing import label_multitask, compute_true_labels
 
 from sklearn.preprocessing import label_binarize, LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
@@ -386,14 +386,40 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
         if display_fig:
             plt.show()
 
-    if label_type == 'all':
+    if type(label_type) == dict:
+        # In multitask mode, we only plot the two tasks specified by the user
+        label_to_display = [val if 'coarse' not in val else 'coarse' for val in list(label_type.values())]
+        if 'all' in label_to_display:
+            plot_task("all")
+        if 'coarse' in label_to_display:
+            plot_task("coa")
+        if 'present' in label_to_display:
+            plot_task("pres")
+        if 'dominant' in label_to_display:
+            plot_task("dom")
+    else:
+        # In single-task mode, we plot the targeted task and those with coarser granularity when applicable
+        label_to_display = label_type if 'coarse' not in label_type else 'coarse'
+        # label_granularity = ['all', 'coarse', 'present', 'dominant']
+        # granularity_index = label_granularity.index(label_task)
+        # label_to_display = label_granularity[granularity_index:]
+        if 'all' in label_to_display:
+            plot_task("all")
+        if 'all' in label_to_display or 'coarse' in label_to_display:
+            plot_task("coa")
+        if 'dominant' not in label_to_display:
+            plot_task("pres")
+        if 'present' not in label_to_display:
+            plot_task("dom")
+
+    if 'all' in label_to_display:
         plot_task("all")
-    if label_type == 'all' or 'coarse' in label_type:
+    if 'coarse' in label_to_display:
         plot_task("coa")
-    if label_type != 'dominant':
-        plot_task("pres")
-    if label_type != 'present':
+    if 'present' in label_to_display:
         plot_task("dom")
+    if 'dominant' in label_to_display:
+        plot_task("pres")
 
 
 def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
@@ -494,9 +520,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     an emotion (> threshold defined by thres_score_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
     :param with_cross_val: boolean (cross_validation or not)
-    :param all_scores: list of available presence scores
     :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     :param num_classes: number of classes (7 with neutral class, else 6)
+    :param all_scores: list of available presence scores
     :param round_decimals: Number of decimals to be rounded for metrics
     :param model_id: Model id (int)
     :param model_folder: The folder where the result will be saved
@@ -505,43 +531,77 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
     # Some metrics do not make sense for the targeted task (label_type): we do not print them
     label_type_for_reg = 'coarse' if 'coarse' in label_type else label_type
+    if type(label_type) == dict:
+        label_inv_dict = {label_type['coarse_task']: 'coarse_task', label_type['fine_task']: 'fine_task'}
 
     def compute_metrics_one_model(pred_raw_i, pred_all_i, pred_scores_coa_i, pred_classes_pres_i, pred_classes_dom_i,
                                   fold_id=None):
-        true_label_for_reg = {'all': true_scores_all, 'coarse': true_scores_coa,
-                              'present': true_classes_pres, 'dominant': true_classes_dom}
+
         metrics_regression, metrics_score_fine, metrics_score_coa, metrics_presence, metrics_dominant = \
             None, None, None, None, None
 
-        # This block computes regression metrics for the targeted task
         print("\n------- Presence score estimation (regression) --------\n")
-        tl_for_reg = true_label_for_reg[label_type_for_reg]
-        tl_for_reg = tl_for_reg[0] if label_type == 'present' else tl_for_reg
-        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, round_decimals)
+
+        def get_regression_met(label_t, pred_r):
+            true_label_for_reg = {'all': true_scores_all, 'coarse': true_scores_coa,
+                                  'present': true_classes_pres, 'dominant': true_classes_dom}
+            label_t = label_t if 'coarse' not in label_t else 'coarse'
+            tl_for_reg = true_label_for_reg[label_t]
+            tl_for_reg = tl_for_reg[0] if label_type == 'present' else tl_for_reg
+            return get_regression_metrics(tl_for_reg, pred_r, round_decimals)
+
+        if type(label_type) == list:
+            metrics_reg = []
+            for label in list(label_inv_dict.keys()):
+                task_type = label_inv_dict[label]
+                metrics_reg += get_regression_met(label, pred_raw_i[task_type])
+            metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
+        else:
+            metrics_regression = get_regression_met(label_type, pred_raw_i)
 
         if pred_all_i is not None:
             print(f"\n------- Presence score classification: fine-grained (all available scores) -------\n")
-            metrics_score_fine = get_classification_metrics_score(true_scores_all, pred_all_i, num_classes,
+            if type(label_type) == dict:
+                task_type = label_inv_dict['all']
+                pred_scores_all_met = pred_all_i[task_type]
+            else:
+                pred_scores_all_met = pred_all_i
+            metrics_score_fine = get_classification_metrics_score(true_scores_all, pred_scores_all_met, num_classes,
                                                                   all_scores, round_decimals, coarse=False)
 
         # Classification metrics of presence scores
         if pred_scores_coa_i is not None:
+            if type(label_type) == dict:
+                task_type = [label_inv_dict[k] for k in list(label_inv_dict.keys()) if 'coarse' in k][0]
+                pred_scores_coa_met = pred_scores_coa_i[task_type]
+            else:
+                pred_scores_coa_met = pred_scores_coa_i
             print("\n------- Presence score classification: coarse-grained [0,1,2,3] -------\n")
-            metrics_score_coa = get_classification_metrics_score(true_scores_coa, pred_scores_coa_i, num_classes,
+            metrics_score_coa = get_classification_metrics_score(true_scores_coa, pred_scores_coa_met, num_classes,
                                                                  all_scores, round_decimals, coarse=True)
 
         # Classification metrics of emotion present
         if pred_classes_pres_i is not None:
+            if type(label_type) == dict:
+                task_type = label_inv_dict['present']
+                pred_classes_pres_met = pred_classes_pres_i[task_type]
+            else:
+                pred_classes_pres_met = pred_classes_pres_i
             print("\n------- Detecting the presence of emotions ------------")
-            metrics_presence = [get_classification_metrics(true_classes_pres[j], pred_classes_pres_i[j], num_classes,
+            metrics_presence = [get_classification_metrics(true_classes_pres[j], pred_classes_pres_met[j], num_classes,
                                                            round_decimals, model_id, model_folder, with_cross_val,
                                                            fold_id, thres)
                                 for j, thres in enumerate(thres_score_pres)]
 
         # Classification metrics of dominant emotions
         if pred_classes_dom_i is not None:
+            if type(label_type) == dict:
+                task_type = label_inv_dict['dominant']
+                pred_classes_dom_met = pred_classes_dom_i[task_type]
+            else:
+                pred_classes_dom_met = pred_classes_dom_i
             print("\n------- Predicting dominant emotions ------------------\n")
-            metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom_i, num_classes,
+            metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom_met, num_classes,
                                                           round_decimals, model_id, model_folder, with_cross_val,
                                                           fold_id)
 
@@ -567,7 +627,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_output,
                                    pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
-                                   loss_function, val_metrics_str, all_scores):
+                                   label_type, loss_function, val_metrics_str, all_scores):
     """
     Compute and save model metrics, based on loss function value and prediction scores.
 
@@ -587,6 +647,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
+    :param label_type: Type of labels used for model training and evaluation (str or dict of keys ['coarse_task', 'fine_task'])
     :param loss_function: Name of the loss function (str)
     :param val_metrics_str: Name of the validation metric used for monitoring (str)
     :param all_scores: list of available presence scores [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
@@ -600,7 +661,6 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
     thres_nan = param_task['thres_nan']
-    label_type = param_task['label_type']
     round_decimals = param_log['round_decimals']
     plot_confusion_matrix = param_log['plot_confusion_matrix']
     display_fig = param_log['display_fig']
@@ -623,20 +683,57 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
         true_classes_pres = [remove_neutral_test(tcp) for tcp in true_classes_pres]
         true_classes_dom = remove_neutral_test(true_classes_dom)
 
+    ####################################################################################################################
     # Confusion matrices
-    if label_type == 'all':
-        compute_multilabel_confusion_matrix(true_scores_all, pred_scores_all, with_cross_val, num_classes,
-                                            model_id, model_folder, "all", all_scores)
+    ####################################################################################################################
 
-    if label_type != 'dominant' and label_type != 'present':
-        compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa, with_cross_val, num_classes,
-                                            model_id, model_folder, "coa", all_scores)
-    if label_type != 'dominant':
-        compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, with_cross_val, num_classes,
-                                            model_id, model_folder, "pres", all_scores, thres_score_pres)
-    if label_type != 'present':
-        compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, with_cross_val, num_classes,
-                                            model_id, model_folder, "dom", all_scores)
+    if type(label_type) == dict:
+        # Here, we compute only the two confusion matrices associated with the coarse and fine tasks
+        label_inv_dict = {label_type['coarse_task']: 'coarse_task', label_type['fine_task']: 'fine_task'}
+
+        # Task: 'all'
+        if 'all' in list(label_inv_dict.keys()):
+            task_type = label_inv_dict['all']
+            compute_multilabel_confusion_matrix(true_scores_all, pred_scores_all[task_type], with_cross_val,
+                                                num_classes, model_id, model_folder, "all", all_scores)
+        # Task: 'coarse'
+        if any(['coarse' in label_inv for label_inv in list(label_inv_dict.keys())]):
+            task_type = [label_inv_dict[k] for k in list(label_inv_dict.keys()) if 'coarse' in k][0]
+            compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa[task_type], with_cross_val,
+                                                num_classes, model_id, model_folder, "coa", all_scores)
+        # Task: 'present'
+        if 'present' in list(label_inv_dict.keys()):
+            task_type = label_inv_dict['present']
+            compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres[task_type], with_cross_val,
+                                                num_classes, model_id, model_folder, "pres", all_scores,
+                                                thres_score_pres)
+        # Task: 'dominant'
+        if 'dominant' in list(label_inv_dict.keys()):
+            task_type = label_inv_dict['dominant']
+            compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom[task_type], with_cross_val,
+                                                num_classes, model_id, model_folder, "dom", all_scores)
+
+    else:
+        # Only one label type is defined here. We compute its confusion matrix,
+        # along with label types with higher granularity (from smallest to highest: all, coarse, present, dominant)
+
+        # Task: 'all'
+        if label_type == 'all':
+            compute_multilabel_confusion_matrix(true_scores_all, pred_scores_all, with_cross_val, num_classes,
+                                                model_id, model_folder, "all", all_scores)
+        # Task: 'coarse'
+        if label_type != 'dominant' and label_type != 'present':
+            compute_multilabel_confusion_matrix(true_scores_coa, pred_scores_coa, with_cross_val, num_classes,
+                                                model_id, model_folder, "coa", all_scores)
+        # Task: 'present'
+        if label_type != 'dominant':
+            compute_multilabel_confusion_matrix(true_classes_pres, pred_classes_pres, with_cross_val, num_classes,
+                                                model_id, model_folder, "pres", all_scores, thres_score_pres)
+        # Task: 'dominant'
+        if label_type != 'present':
+            compute_multilabel_confusion_matrix(true_classes_dom, pred_classes_dom, with_cross_val, num_classes,
+                                                model_id, model_folder, "dom", all_scores)
+
     if plot_confusion_matrix:
         plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
                                          all_scores, display_fig, thres_score_pres)

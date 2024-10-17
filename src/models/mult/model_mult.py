@@ -278,9 +278,11 @@ class MModel(nn.Module):
         output_main = self.out_layer[0](last_hs_proj)
 
         if self.multitask:
+            # Output of the self-attention transformer of the Multi-label (ML) branch
             last_hs = last_hs.unsqueeze(2)
             last_hs = last_hs if last_hs.size(2) == self.d_last_hs else self.proj_last_hs(last_hs)
             last_hs = last_hs.permute(2, 0, 1)  # (1, batch_size, d_last_hs)
+            # Apply self-attention transformers to all projected vectors
             proj_mem = [self.trans_mem_multi[i](proj_x[i]) for i in range(3)]
             # Fusion between projection of inputs & self-attention outputs of the main task
             x_l_multi = torch.concat([proj_mem[0], last_hs], dim=0).transpose(0, 1)
@@ -293,13 +295,20 @@ class MModel(nn.Module):
                 torch.relu(self.proj1[1](last_hs_multi)), p=self.out_dropout, train=self.training))
             last_hs_proj_multi += last_hs_multi
             output_multi = self.out_layer[1](last_hs_proj_multi)
+        
+        print('output output_main:', output_main.size())
+        print("num_classes:", self.num_classes)
 
-        output = {"main": output_main, "multi": output_multi} if self.multitask else output_main
+        if self.multitask:
+            output = {"coarse_task": torch.sigmoid(output_main), "fine_task": torch.sigmoid(output_multi)}
+            print('output coarse:', output["coarse_task"].size())
+            print('output fine:', output["fine_task"].size())
 
-        output = output["main"] if self.multitask else output  # TODO Temporary
-        if self.gml:
-            output = output.view(-1, self.num_classes, self.num_scores)
+        elif self.gml:
+            output = output_main.view(-1, self.num_classes, self.num_scores)
             output = torch.softmax(output, dim=2)
+
         else:
-            output = torch.sigmoid(output)
+            output = torch.sigmoid(output_main)
+
         return output#, last_hs_1

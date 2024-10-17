@@ -10,7 +10,8 @@ from src.models.me2e import mme2e
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams',
                    'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_trans_me2e',
                    'mfn', 'mme2e', 'mult', 'mult_gml_2']
-possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_gml', 'wei_cce_gml', 'kl_div']
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_multitask',
+                    'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
@@ -46,11 +47,12 @@ def get_model_module(model_str, is_tf):
         raise ValueError("Model name '{}' not valid. Please choose among {}.".format(model_str, possible_models))
 
 
-def get_loss_function(loss_function_str, is_tf):
+def get_loss_function(loss_function_str, param_training, is_tf):
     """
     Get TensorFlow or PyTorch loss function from string.
 
     :param loss_function_str: string
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
     :return: TensorFlow or Pytorch loss function
     """
@@ -111,6 +113,17 @@ def get_loss_function(loss_function_str, is_tf):
             loss = Variable(loss, requires_grad=True)
             return loss
 
+        def wei_bce_multitask(output, target):
+            assert isinstance(output, dict)
+            assert isinstance(target, dict)
+            assert list(output.keys()) == list(target.keys()) == ['coarse_task', 'fine_task']
+            coef_coa = param_training['coef_coa']
+            loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
+            loss_fin = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['fine_task'], target['fine_task'])
+            loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
+            loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
+            return loss
+
         loss_fn_dict = {
             'mae': nn.L1Loss(),
             'mse': nn.MSELoss(),
@@ -118,6 +131,7 @@ def get_loss_function(loss_function_str, is_tf):
             'cce': nn.CrossEntropyLoss(),
             'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight),
             'wei_cce': nn.CrossEntropyLoss(weight=pos_weight),
+            'wei_bce_multitask': wei_bce_multitask,
             'wei_bce_gml': wei_bce_gml,
             'wei_cce_gml': wei_cce_gml,
             'kl_div': nn.KLDivLoss(reduction='batchmean')
@@ -137,11 +151,12 @@ def get_loss_function(loss_function_str, is_tf):
                          " Please choose among {}.".format(loss_function_str, possible_loss_fn))
 
 
-def get_val_metrics(val_metrics_str, is_tf):
+def get_val_metrics(val_metrics_str, param_training, is_tf):
     """
     Get TensorFlow or PyTorch loss function from string.
 
     :param val_metrics_str: string
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
     :return: TensorFlow or Pytorch validation metrics
     """
@@ -268,7 +283,7 @@ def get_val_metrics(val_metrics_str, is_tf):
 
     # Add loss functions to val_metrics_dict
     for loss_fn in possible_loss_fn:
-        val_metrics_dict[loss_fn] = get_loss_function(loss_fn, is_tf)
+        val_metrics_dict[loss_fn] = get_loss_function(loss_fn, param_training, is_tf)
 
     if val_metrics_str != -1:
         if val_metrics_str.lower() in val_metrics_dict.keys():
@@ -330,26 +345,45 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                     raise ValueError("'{}' does not have '{}' key. Please create one in '{}.json' file."
                                       .format(root_key, key, json_name))
 
-    def check_value_is_number(hp_name, hp_value):
+    def check_value_is_number(hp_name, hp_value, min_value=None, max_value=None):
         type_value = type(hp_value)
         if not (type_value is int or type_value is float):
             raise ValueError("The value '{}' assigned to hyperparameter '{}' is not a number. "
                              "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+        if min_value is not None and hp_value < min_value and hp_value != -1:
+            raise ValueError("The value '{}' assigned to hyperparameter '{}' is smaller than {} (or not equal to -1). "
+                             "Please check '{}.json' file.".format(hp_value, hp_name, min_value, json_name))
+        if max_value is not None and hp_value > max_value and hp_value != -1:
+            raise ValueError("The value '{}' assigned to hyperparameter '{}' is greater than {} (or not equal to -1). "
+                             "Please check '{}.json' file.".format(hp_value, hp_name, max_value, json_name))
 
     def check_value_is_int_superior_to_min_value(hp_name, hp_value, min_value):
-        check_value_is_number(hp_name, hp_value)
+        check_value_is_number(hp_name, hp_value, min_value=min_value)
         type_value = type(hp_value)
         if type_value is not int:
             raise ValueError("The value '{}' assigned to hyperparameter '{}' is not an integer. "
                              "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
-        if hp_value < min_value and hp_value !=-1:
-            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not >= to {} (or equal to -1). "
-                             "Please check '{}.json' file.".format(hp_value, hp_name, min_value, json_name))
 
     def check_value_is_in_list(hp_name, hp_value, list_possible_values):
-        if hp_value not in list_possible_values:
-            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not among possible values: {}. "
-                             "Please check '{}.json' file.".format(hp_value, hp_name, list_possible_values, json_name))
+        def check_value_i_is_in_list(hp_val_i):
+            if hp_val_i not in list_possible_values:
+                raise ValueError("The value '{}' assigned to hyperparameter '{}' is not among possible values: {}. "
+                                 "Please check '{}.json' file.".format(hp_value, hp_name, list_possible_values,
+                                                                       json_name))
+        if type(hp_value) == list:
+            if hp_name == 'label_type':
+                if len(hp_value) > 2:
+                    raise ValueError("The list '{}' assigned to hyperparameter '{}' contain more than 2 elements. "
+                                     "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+                task1, task2 = hp_value[0], hp_value[1]
+                if task1 == task2 or ('coarse' in task1 and 'coarse' in task2):
+                    raise ValueError("The list '{}' assigned to hyperparameter '{}' contain two values that are "
+                                     "assigned to the same type of task. "
+                                     "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+            for hp_value_i in hp_value:
+                check_value_i_is_in_list(hp_value_i)
+        else:
+            check_value_i_is_in_list(hp_value)
 
     def check_value_is_binary(hp_name, hp_value):
         check_value_is_in_list(hp_name, hp_value, [0, 1])
@@ -387,8 +421,9 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_int_superior_to_min_value('cross_val_folds', hyperparam_training['cross_val_folds'], min_value=2)
         check_value_is_int_superior_to_min_value('random_state', hyperparam_training['random_state'], min_value=0)
         check_value_is_int_superior_to_min_value('when', hyperparam_training['when'], min_value=0)
-        check_value_is_number('learning_rate', hyperparam_training['learning_rate'])
+        check_value_is_number('learning_rate', hyperparam_training['learning_rate'], min_value=0)
         check_value_is_number('clip', hyperparam_training['clip'])
+        check_value_is_number('coef_coa', hyperparam_training['coef_coa'], min_value=0, max_value=1)
         check_value_is_in_list('optimizer', hyperparam_training['optimizer'], possible_optimizers)
         check_hyperparam_in_form_of_lists(hyperparam_training['loss_function'], 'loss_function', possible_loss_fn)
         check_hyperparam_in_form_of_lists(hyperparam_training['val_metrics'], 'val_metrics', possible_val_metrics)
@@ -404,12 +439,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
         check_value_is_binary('align_to_text', hyperparam_task['align_to_text'])
         check_value_is_binary('with_custom_split', hyperparam_task['with_custom_split'])
         check_set_length_param(hyperparam_task['set_length'])
-        model = hyperparam_task['model_name']
-        if type(model) == list:
-            for model_i in model:
-                check_value_is_in_list('model_name', model_i, possible_models)
-        else:
-            check_value_is_in_list('model_name', model, possible_models)
+        check_value_is_in_list('model_name', hyperparam_task['model_name'], possible_models)
         check_value_is_in_list('label_type', hyperparam_task['label_type'],
                                ['all', 'coarse', 'coarse_prob', 'coarse_oh', 'present', 'dominant'])
         check_value_is_in_list('image_feature', hyperparam_task['image_feature'], ['facet', 'openface'])

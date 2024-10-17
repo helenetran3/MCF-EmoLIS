@@ -9,6 +9,20 @@ def trunc(val, decimals):
     return np.trunc((val * 10 ** decimals) / (10 ** decimals))
 
 
+def label_multitask(label_type):
+    assert type(label_type) == list
+    assert len(label_type) == 2
+    granularity_deg = {'all': 1, 'coarse': 2, 'present': 3, 'dominant': 4}
+    label_0, label_1 = label_type[0], label_type[1]
+    label_0 = 'coarse' if 'coarse' in label_0 else label_0
+    label_1 = 'coarse' if 'coarse' in label_1 else label_1
+    if granularity_deg[label_0] > granularity_deg[label_1]:
+        y_label = {'coarse_task': label_type[0], 'fine_task': label_type[1]}
+    else:
+        y_label = {'coarse_task': label_type[1], 'fine_task': label_type[0]}
+    return y_label
+
+
 def from_one_hot_to_plain(scores_array, num_classes):
     # Prediction given in one_hot, go back to plain scores for model metric calculation
     # Check if the input score array is in one hot format
@@ -379,7 +393,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score
     return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
-def update_labels(train_list, valid_list, test_list, param_task, all_scores):
+def update_labels(train_list, valid_list, test_list, param_task, label_type, all_scores):
     """
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
@@ -398,6 +412,58 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input, + neutral_test_ind
     """
 
+    def change_y(train_l, valid_l, test_l):
+
+        y1, y2, y3 = train_l[1], valid_l[1], test_l[1]
+
+        def change_type_and_shape_for_training(y_array):
+            """
+            Create a list of arrays of shape (1, num_classes)
+            :param y_array: array of shape (num_samples, num_classes)
+            :return: a list of arrays of shape (1, num_classes)
+            """
+            num_output = y_array.shape[-1]
+            y_list = list(y_array)
+            y_list_res = [y.reshape((-1, num_output)) for y in y_list]
+            return y_list_res
+
+        def change_y_single_task(task):
+            new_y1 = compute_true_labels(y1, "train", all_scores, predict_neutral_class, thres_score_pres,
+                                         thres_nan, num_classes, task)
+            new_y2 = compute_true_labels(y2, "valid", all_scores, predict_neutral_class, thres_score_pres,
+                                         thres_nan, num_classes, task)
+            new_y3 = compute_true_labels(y3, "test", all_scores, predict_neutral_class, thres_score_pres,
+                                         thres_nan, num_classes, task)
+
+            if task == 'present':  # TODO We only take the first threshold for the moment
+                new_y1 = new_y1[0]
+                new_y2 = new_y2[0]
+                new_y3 = new_y3[0]
+
+            # Adapt to model training and evaluation
+            new_y1 = change_type_and_shape_for_training(new_y1)
+            new_y2 = change_type_and_shape_for_training(new_y2)
+            new_y3 = change_type_and_shape_for_training(new_y3)
+
+            return new_y1, new_y2, new_y3
+
+        # Multitask case
+        if type(label_type) == dict:
+            coa_y1, coa_y2, coa_y3 = change_y_single_task(label_type['coarse_task'])
+            fin_y1, fin_y2, fin_y3 = change_y_single_task(label_type['fine_task'])
+            new_y_train = {'coarse_task': coa_y1, 'fine_task': fin_y1}
+            new_y_valid = {'coarse_task': coa_y2, 'fine_task': fin_y2}
+            new_y_test = {'coarse_task': coa_y3, 'fine_task': fin_y3}
+
+        else:
+            new_y_train, new_y_valid, new_y_test = change_y_single_task(label_type)
+
+        new_train_l = [train_list[0], new_y_train, train_list[2]]
+        new_valid_l = [valid_list[0], new_y_valid, valid_list[2]]
+        new_test_l = [test_list[0], new_y_test, test_list[2]]
+
+        return new_train_l, new_valid_l, new_test_l
+
     def remove_neutral_class(train_l, valid_l, test_l):
         """
         Remove samples assigned to neutral class + return the list of their indexes for test split
@@ -409,14 +475,30 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
         """
 
         def remove_neutral_class_split(split_list, test=False):
-            y_arr = np.vstack(split_list[1])
-            num_emo = np.sum(y_arr, axis=1)
-            non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
-            num_neutral = np.sum((num_emo == 0))
+            y = split_list[1]
+            if type(y) == dict:
+                non_neutral_ind = []
+                for task_i in ['coarse_task', 'fine_task']:
+                    y_arr = np.vstack(y[task_i])
+                    num_emo = np.sum(y_arr, axis=1)
+                    non_neutral_ind += [num_emo != 0]  # Boolean array of shape (split_size,)
+                non_neutral_ind = np.all(non_neutral_ind, axis=0)
+                num_neutral = y_arr.shape[0] - np.sum(non_neutral_ind)
+
+            else:
+                y_arr = np.vstack(y)
+                num_emo = np.sum(y_arr, axis=1)
+                non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
+                num_neutral = np.sum((num_emo == 0))
 
             # Take only samples where at least one emotion class is assigned
             X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
-            y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
+            if type(y) == dict:
+                y_list = {}
+                for task_i in ['coarse_task', 'fine_task']:
+                    y_list[task_i] = [elt for (elt, ind) in zip(split_list[1][task_i], non_neutral_ind) if ind]
+            else:
+                y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
             seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
             neutral_test_index = [i for i, ind in enumerate(non_neutral_ind) if not ind] if test else None
 
@@ -432,47 +514,13 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
 
         return new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
 
-    def change_type_and_shape_for_training(y_array):
-        """
-        Create a list of arrays of shape (1, num_classes)
-        :param y_array: array of shape (num_samples, num_classes)
-        :return: a list of arrays of shape (1, num_classes)
-        """
-        num_output = y_array.shape[-1]
-        y_list = list(y_array)
-        y_list_res = [y.reshape((-1, num_output)) for y in y_list]
-        return y_list_res
-
-    label_type = param_task['label_type']
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
     thres_nan = param_task['thres_nan']
     num_classes = 7 if predict_neutral_class else 6
 
-    y_train = train_list[1]
-    y_valid = valid_list[1]
-    y_test = test_list[1]
-
-    new_y_train = compute_true_labels(y_train, "train", all_scores, predict_neutral_class, thres_score_pres,
-                                      thres_nan, num_classes, label_type)
-    new_y_valid = compute_true_labels(y_valid, "valid", all_scores, predict_neutral_class, thres_score_pres,
-                                      thres_nan, num_classes, label_type)
-    new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres,
-                                     thres_nan, num_classes, label_type)
-
-    if label_type == 'present':  # TODO We only take the first threshold for the moment
-        new_y_train = new_y_train[0]
-        new_y_valid = new_y_valid[0]
-        new_y_test = new_y_test[0]
-
-    # Adapt to model training and evaluation
-    new_y_train = change_type_and_shape_for_training(new_y_train)
-    new_y_valid = change_type_and_shape_for_training(new_y_valid)
-    new_y_test = change_type_and_shape_for_training(new_y_test)
-
-    new_train_list = [train_list[0], new_y_train, train_list[2]]
-    new_valid_list = [valid_list[0], new_y_valid, valid_list[2]]
-    new_test_list = [test_list[0], new_y_test, test_list[2]]
+    # Update y
+    new_train_list, new_valid_list, new_test_list = change_y(train_list, valid_list, test_list)
 
     # When predict_neutral_class is False (no class created for Neutral),
     # samples with neutral class belong to any of available classes
@@ -499,6 +547,7 @@ def balance_dataset(train_list, valid_list, test_list, param_task, all_scores):
     label_type = param_task['label_type']
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
+    thres_nan = param_task['thres_nan']
     ext_name = "_n" if predict_neutral_class else ""
     num_classes = 7 if predict_neutral_class else 6
 
@@ -509,11 +558,11 @@ def balance_dataset(train_list, valid_list, test_list, param_task, all_scores):
     # TODO Find a way to balance emotional profiles
 
     # new_y_train = compute_true_labels(y_train, "train", all_scores, predict_neutral_class, thres_score_pres,
-    #                                   num_classes, ext_name, "dominant")
+    #                                   thres_nan, num_classes, label_type)
     # new_y_valid = compute_true_labels(y_valid, "valid", all_scores, predict_neutral_class, thres_score_pres,
-    #                                   num_classes, ext_name, "dominant")
-    # new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, num_classes,
-    #                                  ext_name, "dominant")
+    #                                   thres_nan, num_classes, label_type)
+    # new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres,
+    #                                  thres_nan, num_classes, label_type)
 
     # print("new_y_train dominant:", np.sum(new_y_train, axis=0))
     # print("new_y_valid dominant:", np.sum(new_y_valid, axis=0))

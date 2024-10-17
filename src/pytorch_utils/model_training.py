@@ -101,29 +101,48 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
         os.makedirs(full_path_folder)
 
     # summarize history for training and validation metric used to monitor
-    if type(history_valid[0]) == list:
-        emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-        splits = ['_train', '_val'] if history_train is not None else ['_val']
-        legend_text = [emo + sp for emo in emotions for sp in splits]
-        for cl_i in range(len(history_valid[0])):
-            if history_train is not None:
-                history_train_i = [ht[cl_i] for ht in history_train]
-                plt.plot(history_train_i)
-            history_valid_i = [hv[cl_i] for hv in history_valid]
-            plt.plot(history_valid_i)
+    emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
+    splits = ['_train', '_val'] if history_train is not None else ['_val']
+    legend_text = [emo + sp for emo in emotions for sp in splits]
+    if type(history_valid) == dict or type(history_valid[0]) == list:
+        if type(history_valid) == dict:
+            for task_j in ['coarse_task', 'fine_task']:
+                for cl_i in range(len(history_valid[task_j][0])):
+                    if history_train is not None:
+                        history_train_i = [ht[cl_i] for ht in history_train[task_j]]
+                        plt.plot(history_train_i)
+                    history_valid_i = [hv[cl_i] for hv in history_valid[task_j]]
+                    plt.plot(history_valid_i)
+                    plt.title('Model loss')
+                    plt.ylabel('loss')
+                    plt.xlabel('epoch')
+                    plt.legend(legend_text)
+                    history_plot_path = os.path.join(full_path_folder,
+                                                     'history_{}_loss_{}.png'.format(ext_name, task_j))
+                    plt.savefig(history_plot_path, bbox_inches='tight')
+                    if display_fig:
+                        plt.show()
     else:
-        legend_text = ['train', 'val'] if history_train is not None else ['val']
-        if history_train is not None:
-            plt.plot(history_train)
-        plt.plot(history_valid)
-    plt.title('Model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(legend_text)
-    history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(ext_name))
-    plt.savefig(history_plot_path, bbox_inches='tight')
-    if display_fig:
-        plt.show()
+        if type(history_valid[0]) == list:
+            for cl_i in range(len(history_valid[0])):
+                if history_train is not None:
+                    history_train_i = [ht[cl_i] for ht in history_train]
+                    plt.plot(history_train_i)
+                history_valid_i = [hv[cl_i] for hv in history_valid]
+                plt.plot(history_valid_i)
+        else:
+            legend_text = ['train', 'val'] if history_train is not None else ['val']
+            if history_train is not None:
+                plt.plot(history_train)
+            plt.plot(history_valid)
+        plt.title('Model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(legend_text)
+        history_plot_path = os.path.join(full_path_folder, 'history_{}_loss.png'.format(ext_name))
+        plt.savefig(history_plot_path, bbox_inches='tight')
+        if display_fig:
+            plt.show()
 
 
 def run_one_training(train_list, valid_list, param_model, param_training, param_log,
@@ -138,7 +157,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     num_training_prints = param_log['num_training_prints']
     round_decimals = param_log['round_decimals']
     display_fig = param_log['display_fig']
-    one_hot = ("oh" in label_type)
+    one_hot = ("oh" in label_type) if type(label_type) != dict else \
+        {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
 
     # Writer for Tensorboard
@@ -152,7 +172,10 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
-    num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
+    if type(label_type) == dict:
+        num_classes = y_train['fine_task'][0].shape[1] if not one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+    else:
+        num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
 
     # Create dataloaders for training and validation data
     training_data = DatasetTorch(x_train, y_train, seg_train, num_steps, one_hot, device)
@@ -160,8 +183,11 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     my_collate_fn = None if num_steps is not None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
-    train_size = len(train_dataloader.dataset)
-    valid_size = len(valid_dataloader.dataset)
+    print("train_dataloader.dataset[0][0][0]", train_dataloader.dataset[0][0][0])
+    train_size = len(train_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(train_dataloader.dataset)
+    valid_size = len(valid_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(valid_dataloader.dataset)
+    print("train_size:", train_size)
+    print("valid_size:", valid_size)
 
     # Create an instance of the model
     num_features_text = x_train[0][0].shape[1]
@@ -175,8 +201,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     # inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
 
     # Optimizing the model parameters
-    loss_fn = get_loss_function(loss_function_str, is_tf=False)
-    val_metrics = get_val_metrics(val_metrics_str, is_tf=False)
+    loss_fn = get_loss_function(loss_function_str, param_training, is_tf=False)
+    val_metrics = get_val_metrics(val_metrics_str, param_training, is_tf=False)
     optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
@@ -206,7 +232,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         model.train()
         num_iterations = train_size // batch_size if train_size % batch_size == 0 else train_size // batch_size + 1
         with alive_bar(num_iterations, title='Model training') as bar:
-            pred_train, true_train = [], []
+            # pred_train, true_train = [], []
             for batch_id, (X, y) in enumerate(train_dataloader):
 
                 if num_steps is None:  # Varying sequence length
@@ -220,8 +246,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         batch_loss = loss_fn(pred, y_sample)
                         if val_metrics is not None:
                             batch_monitor = val_metrics(pred, y_sample).item()
-                        pred_train += pred.tolist()
-                        true_train += y_sample.tolist()
+                        # pred_train += pred.tolist()
+                        # true_train += y_sample.tolist()
 
                 else:  # Fixed sequence length
                     x_text, x_image, x_audio = X
@@ -230,11 +256,16 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_image = x_image.float()
                         x_audio = x_audio.float()
                     pred = model(x_text, x_image, x_audio)
-                    batch_loss = loss_fn(pred, y.float())
+                    if type(y) == dict:
+                        for task_i in ['coarse_task', 'fine_task']:
+                            y[task_i] = y[task_i].float()
+                    else:
+                        y = y.float()
+                    batch_loss = loss_fn(pred, y)
                     if val_metrics is not None:
-                        batch_monitor = val_metrics(pred, y.float()).item()
-                    pred_train += pred.tolist()
-                    true_train += y.tolist()
+                        batch_monitor = val_metrics(pred, y).item()
+                    # pred_train += pred.tolist()
+                    # true_train += y.tolist()
 
                 optimizer.zero_grad()
                 batch_loss.backward()
@@ -281,7 +312,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         # Model evaluation on validation data
         model.eval()
         with alive_bar(valid_size, title='Model validation') as bar:
-            pred_valid, true_valid = [], []
+            pred_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
+            true_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
             for idx, (X, y) in enumerate(valid_dataloader):
 
                 if num_steps is None:  # Varying sequence length
@@ -295,8 +327,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         valid_loss += loss_fn(pred, y_sample).item()
                         if val_metrics is not None:
                             valid_monitor += val_metrics(pred, y_sample).item()
-                        pred_valid += pred.tolist()
-                        true_valid += y_sample.tolist()
+                        if type(label_type) == dict:
+                            pred_valid['coarse_task'] += pred['coarse_task'].tolist()
+                            pred_valid['fine_task'] += pred['fine_task'].tolist()
+                            true_valid['coarse_task'] += y_sample['coarse_task'].tolist()
+                            true_valid['fine_task'] += y_sample['fine_task'].tolist()
+                        else:
+                            pred_valid += pred.tolist()
+                            true_valid += y_sample.tolist()
 
                 else:  # Fixed sequence length
                     x_text, x_audio, x_image = X
@@ -304,12 +342,23 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_text = x_text.float()
                         x_audio = x_audio.float()
                         x_image = x_image.float()
+                    if type(y) == dict:
+                        for task_i in ['coarse_task', 'fine_task']:
+                            y[task_i] = y[task_i].float()
+                    else:
+                        y = y.float()
                     pred = model(x_text, x_audio, x_image)
-                    valid_loss += loss_fn(pred, y.float()).item()
+                    valid_loss += loss_fn(pred, y).item()
                     if val_metrics is not None:
-                        valid_monitor += val_metrics(pred, y.float()).item()
-                    pred_valid += pred.tolist()
-                    true_valid += y.tolist()
+                        valid_monitor += val_metrics(pred, y).item()
+                    if type(label_type) == dict:
+                        pred_valid['coarse_task'] += pred['coarse_task'].tolist()
+                        pred_valid['fine_task'] += pred['fine_task'].tolist()
+                        true_valid['coarse_task'] += y['coarse_task'].tolist()
+                        true_valid['fine_task'] += y['fine_task'].tolist()
+                    else:
+                        pred_valid += pred.tolist()
+                        true_valid += y.tolist()
 
                 bar()
                 # if idx % 100 == 0 or idx == valid_size-1:
@@ -321,22 +370,41 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         # Compute best threshold per emotion for multilabel classification according to F1 score
         if label_type in ['present', 'dominant'] and (param_training['thres_ml_from_best_metric'] or val_metrics is None):
-            valid_thres_ml_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
-                np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
-                round_decimals)
+            if type(label_type) == dict:
+                valid_thres_ml_per_emo, valid_monitor_per_emo_i = {}, {}
+                for task_i in ['coarse_task', 'valid_task']:
+                    t_valid, p_valid = true_valid[task_i], pred_valid[task_i]
+                    vt, vm = compute_best_thres_for_monitor_metric(np.array(t_valid).reshape(-1, num_classes),
+                                                                   np.array(p_valid).reshape(-1, num_classes),
+                                                                   round_decimals)
+                    valid_thres_ml_per_emo[task_i] = vt  # List of thresholds
+                    valid_monitor_per_emo_i[task_i] += vm  # List of validation metrics
+            else:
+                valid_thres_ml_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
+                    np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
+                    round_decimals)
 
             # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
             if val_metrics is None:
-                valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
-                valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
+                if type(label_type) == dict:
+                    mean_per_task = [np.mean(valid_monitor_per_emo_i[task_i])
+                                     for task_i in ['coarse_task', 'fine_task']]
+                    valid_monitor_avg = np.round(np.mean(mean_per_task), round_decimals)
+                    valid_monitor_all = valid_monitor_per_emo_i.copy()
+                    valid_monitor_all['coarse_task'] += [mean_per_task[0]]
+                    valid_monitor_all['fine_task'] += [mean_per_task[1]]
+                else:
+                    valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
+                    valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
+
                 # We monitor the average for the rest of the code
                 valid_monitor = valid_monitor_avg
 
-                # For Tensorboard
-                emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-                for cl_i in range(len(emotions)):
-                    # writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
-                    writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
+            # # For Tensorboard
+            # emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
+            # for cl_i in range(len(emotions)):
+            #     writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
+            #     writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
         writer.add_scalar("Training loss", train_loss, epoch)
@@ -355,7 +423,12 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         if val_metrics is None:
             # print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")
             print(f"          - Avg valid F1 score: {valid_monitor_avg}")
-            print(f"          - Avg valid F1 score per emo: {valid_monitor_per_emo}")
+            if type(label_type) == dict:
+                for task_i in ['coarse_task', 'fine_task']:
+                    print(f"          - Avg valid F1 score per emo - {label_type[task_i]}: "
+                          f"{valid_monitor_per_emo_i[task_i]}")
+            else:
+                print(f"          - Avg valid F1 score per emo: {valid_monitor_per_emo}")
         else:
             print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
@@ -397,7 +470,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     writer.close()
 
     if label_type in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
-        valid_thres_ml_best = [0.5 for _ in range(num_classes)]
+        thres_list = [0.5 for _ in range(num_classes)]
+        valid_thres_ml_best = thres_list if type(label_type) != dict else \
+            {'coarse_task': thres_list, 'fine_task': thres_list}
 
     return valid_thres_ml_best
 
@@ -407,7 +482,7 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
 
     print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
                               param_task, param_model, param_training, num_steps, model_name, model_id,
-                              loss_function, val_metrics, is_tf=False)
+                              loss_function, val_metrics, label_type, is_tf=False)
 
     if with_cross_valid:
         valid_thres_ml_best = []

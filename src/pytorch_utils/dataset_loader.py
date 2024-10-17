@@ -4,14 +4,14 @@ import numpy as np
 
 class DatasetTorch(torch.utils.data.Dataset):
 
-    def __init__(self, x_list, y_list, seg_list, num_steps, one_hot, device):
+    def __init__(self, x_list, y, seg_list, num_steps, one_hot, device):
         """
         :param x_list: list of lists of 3 arrays of shape (number steps, number features)
-        :param y_list: list of arrays of shape (1, 7), for the 7 emotions
+        :param y: list (or dict of 2 lists, keys=['coarse_task','fine_task']) of arrays of shape (1, 7), for the 7 emotions
         :param seg_list: list of ids of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
         """
         self.x_list = x_list
-        self.y_list = y_list
+        self.y = y
         self.seg_list = seg_list
         self.num_steps = num_steps
         self.oh = one_hot
@@ -56,13 +56,21 @@ class DatasetTorch(torch.utils.data.Dataset):
         x_image_i = torch.from_numpy(x_image_i).to(self.device)
         x_audio_i = torch.from_numpy(x_audio_i).to(self.device)
 
-        y_i = self.y_list[index]
-        y_i = y_i if self.oh else y_i.flatten()  # To deal with one-hot encoded labels
-        y_i = torch.from_numpy(y_i).to(self.device)
+        if type(self.y) == dict:
+            y_i = {}
+            for task_i in ['coarse_task', 'fine_task']:
+                y_index = self.y[task_i][index]
+                y_index = y_index if self.oh[task_i] else y_index.flatten()
+                y_i[task_i] = torch.from_numpy(y_index).to(self.device)
+        else:
+            y_i = self.y[index]
+            y_i = y_i if self.oh else y_i.flatten()  # To deal with one-hot encoded labels
+            y_i = torch.from_numpy(y_i).to(self.device)
+
         return (x_text_i, x_image_i, x_audio_i), y_i  # , seg_i
 
     def __len__(self):
-        return len(self.y_list)
+        return len(self.y)
 
 
 def collate_fn_for_variable_length(batch):
