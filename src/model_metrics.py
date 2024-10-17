@@ -599,6 +599,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
 
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
+    thres_nan = param_task['thres_nan']
     label_type = param_task['label_type']
     round_decimals = param_log['round_decimals']
     plot_confusion_matrix = param_log['plot_confusion_matrix']
@@ -613,7 +614,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
 
     # True labels
     true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
-        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, num_classes,
+        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, thres_nan, num_classes,
                             label_type, return_all_tasks=True)
 
     if not predict_neutral_class:
