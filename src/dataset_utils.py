@@ -269,6 +269,8 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     max_percentage_nan_img, max_percentage_nan_aud = 0, 0
     max_percentage_nan_col_img_bf, max_percentage_nan_col_aud_bf = 0, 0
     max_percentage_nan_col_img, max_percentage_nan_col_aud = 0, 0
+    num_nan_labels = 0
+    num_nan_text = 0
 
     for seg_id in dataset['All Labels'].keys():
 
@@ -307,6 +309,11 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             num_perc_nan += 1
             num_drop += 1
             continue
+
+        if np.sum(~np.isfinite(text_seg))>0:
+            num_nan_text += 1
+        if np.sum(~np.isfinite(label_seg))>0:
+            num_nan_labels += 1
 
         # Before normalization, non finite value processing for image and audio
         image_seg, num_img1, num_img2, num_img3, num_img4, num_img5 = process_not_finite_values(image_seg, replace_nan)
@@ -401,6 +408,8 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
           " {}".format(thres_nan_100, num_perc_nan))
     print("----------------------------------------------------")
     print("Total number samples: {}".format(total_data))
+    print("Number of text data with NaN/inf:", num_nan_text)
+    print("Number of label data with NaN/inf:", num_nan_labels)
     print("----------------------------------------------------")
     print("[Before normalization]\n")
     print("[Image, before processing] Number of data with some NaN or inf: {}".format(num_some_nan_bf_img))
