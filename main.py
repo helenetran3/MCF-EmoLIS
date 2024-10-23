@@ -57,7 +57,8 @@ def main():
     def run_one_experiment(model_name, loss_function, val_metrics, param_model):
         model_id = get_current_model_id(model_name)
         is_tf = bool(param_model['is_TensorFlow'])
-        num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task, is_tf)
+        num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task,
+                                       with_cross_validation, is_tf)
         label_type = param_task['label_type']
 
         # Model training
