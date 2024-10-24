@@ -6,7 +6,8 @@ from sklearn.preprocessing import LabelEncoder, LabelBinarizer, MultiLabelBinari
 
 
 def trunc(val, decimals):
-    return np.trunc((val * 10 ** decimals) / (10 ** decimals))
+    stepper = 10 ** decimals
+    return np.trunc((val * stepper)) / stepper
 
 
 def from_one_hot_to_plain(scores_array, num_classes):
