@@ -1,6 +1,6 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset, \
-    split_for_cross_validation
+    split_for_cross_validation, data_normalization
 from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
 from src.label_processing import label_multitask, get_available_presence_scores_arr, update_labels, balance_dataset
@@ -50,13 +50,20 @@ def main():
     if with_cross_validation:
         train_list_task, valid_list_task = split_for_cross_validation(train_list_task, valid_list_task, param_training)
 
+    # Data normalization
+    train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,
+                                                                          test_list_task, param_task,
+                                                                          with_cross_validation)
+
     # Balance dataset  #TODO
     balance_dataset(train_list_task, valid_list_task, test_list_task, param_task, all_scores)
 
     def run_one_experiment(model_name, loss_function, val_metrics, param_model_j):
         model_id = get_current_model_id(model_name)
         is_tf = bool(param_model_j['is_TensorFlow'])
-        num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task, is_tf)
+        num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task,
+                                       with_cross_validation, is_tf)
+        label_type = param_task['label_type']
 
         # Model training
         if is_tf:

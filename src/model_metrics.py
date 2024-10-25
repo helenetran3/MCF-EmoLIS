@@ -452,7 +452,14 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
             if task_name_cv == 'coa' or task_name_cv == 'all':
                 conf_matrix = []
                 for cl_i in range(num_classes):
-                    conf_matrix += [confusion_matrix(tc[:, cl_i], pc[:, cl_i], labels=all_scores)]
+                    if task_name_cv == 'all':  # transform score values to string (to avoid issues with decimal values)
+                        labels = [str(sc) for sc in all_scores]
+                        tc_i = np.array([str(t) for t in list(tc[:, cl_i])])
+                        pc_i = np.array([str(p) for p in list(pc[:, cl_i])])
+                    else:
+                        labels = [0, 1, 2, 3]
+                        tc_i, pc_i = tc[:, cl_i], pc[:, cl_i]
+                    conf_matrix += [confusion_matrix(tc_i, pc_i, labels=labels)]
             else:
                 conf_matrix = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
             conf_matrices += [conf_matrix]
@@ -466,7 +473,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
         if task_name_cv == 'coa' or task_name_cv == 'all':
             conf_matrix = []
             for cl_i in range(num_classes):
-                if task_name_cv == 'all':  # we transform score values to string (to avoid issues with decimal values)
+                if task_name_cv == 'all':  # transform score values to string (to avoid issues with decimal values)
                     labels = [str(sc) for sc in all_scores]
                     tc_i = np.array([str(t) for t in list(tc[:, cl_i])])
                     pc_i = np.array([str(p) for p in list(pc[:, cl_i])])
