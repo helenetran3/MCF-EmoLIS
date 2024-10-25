@@ -63,7 +63,6 @@ def main():
         is_tf = bool(param_model_j['is_TensorFlow'])
         num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task,
                                        with_cross_validation, is_tf)
-        label_type = param_task['label_type']
 
         # Model training
         if is_tf:

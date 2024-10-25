@@ -369,42 +369,46 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             valid_monitor /= valid_size
 
         # Compute best threshold per emotion for multilabel classification according to F1 score
-        if label_type in ['present', 'dominant'] and (param_training['thres_ml_from_best_metric'] or val_metrics is None):
-            if type(label_type) == dict:
-                valid_thres_ml_per_emo, valid_monitor_per_emo_i = {}, {}
-                for task_i in ['coarse_task', 'valid_task']:
+        if type(label_type) == str:
+            if label_type in ['present', 'dominant'] and (param_training['thres_ml_from_best_metric'] or
+                                                          val_metrics is None):
+                valid_thres_ml_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
+                    np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
+                    round_decimals)
+
+        elif type(label_type) == dict:
+            valid_thres_ml_per_emo, valid_monitor_per_emo_i = {}, {}
+            for task_i in ['coarse_task', 'fine_task']:
+                if val_metrics is None or (param_training['thres_ml_from_best_metric'] and
+                                           task_i in ['present', 'dominant']):
                     t_valid, p_valid = true_valid[task_i], pred_valid[task_i]
                     vt, vm = compute_best_thres_for_monitor_metric(np.array(t_valid).reshape(-1, num_classes),
                                                                    np.array(p_valid).reshape(-1, num_classes),
                                                                    round_decimals)
                     valid_thres_ml_per_emo[task_i] = vt  # List of thresholds
+                    # Used only when val_metrics is None
                     valid_monitor_per_emo_i[task_i] += vm  # List of validation metrics
+
+        # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
+        if val_metrics is None:
+            if type(label_type) == dict:
+                mean_per_task = [np.mean(valid_monitor_per_emo_i[task_i]) for task_i in ['coarse_task', 'fine_task']]
+                valid_monitor_avg = np.round(np.mean(mean_per_task), round_decimals)
+                valid_monitor_all = valid_monitor_per_emo_i.copy()
+                valid_monitor_all['coarse_task'] += [mean_per_task[0]]
+                valid_monitor_all['fine_task'] += [mean_per_task[1]]
             else:
-                valid_thres_ml_per_emo, valid_monitor_per_emo = compute_best_thres_for_monitor_metric(
-                    np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
-                    round_decimals)
+                valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
+                valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
 
-            # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
-            if val_metrics is None:
-                if type(label_type) == dict:
-                    mean_per_task = [np.mean(valid_monitor_per_emo_i[task_i])
-                                     for task_i in ['coarse_task', 'fine_task']]
-                    valid_monitor_avg = np.round(np.mean(mean_per_task), round_decimals)
-                    valid_monitor_all = valid_monitor_per_emo_i.copy()
-                    valid_monitor_all['coarse_task'] += [mean_per_task[0]]
-                    valid_monitor_all['fine_task'] += [mean_per_task[1]]
-                else:
-                    valid_monitor_avg = np.round(np.mean(valid_monitor_per_emo), round_decimals)
-                    valid_monitor_all = valid_monitor_per_emo + [valid_monitor_avg]
+            # We monitor the average for the rest of the code
+            valid_monitor = valid_monitor_avg
 
-                # We monitor the average for the rest of the code
-                valid_monitor = valid_monitor_avg
-
-            # # For Tensorboard
-            # emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-            # for cl_i in range(len(emotions)):
-            #     writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
-            #     writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
+        # # For Tensorboard
+        # emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
+        # for cl_i in range(len(emotions)):
+        #     writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
+        #     writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
 
         # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
         writer.add_scalar("Training loss", train_loss, epoch)
@@ -469,10 +473,17 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     writer.close()
 
-    if label_type in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
-        thres_list = [0.5 for _ in range(num_classes)]
-        valid_thres_ml_best = thres_list if type(label_type) != dict else \
-            {'coarse_task': thres_list, 'fine_task': thres_list}
+    thres_list = [0.5 for _ in range(num_classes)]
+    if type(label_type) != dict and label_type in ['present', 'dominant'] and \
+            not param_training['thres_ml_from_best_metric']:
+        valid_thres_ml_best = thres_list
+    elif type(label_type) == dict and not param_training['thres_ml_from_best_metric']:
+        valid_thres_ml_best = {}
+        for task_i, label_i in zip(label_type.keys(), label_type.values()):
+            if label_i in ['present', 'dominant']:
+                valid_thres_ml_best[task_i] = thres_list
+            else:
+                valid_thres_ml_best[task_i] = None
 
     return valid_thres_ml_best
 

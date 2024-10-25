@@ -114,8 +114,12 @@ def get_loss_function(loss_function_str, param_training, is_tf):
             return loss
 
         def wei_bce_multitask(output, target):
-            assert isinstance(output, dict)
-            assert isinstance(target, dict)
+            if not isinstance(output, dict) or \
+                    (isinstance(output, dict) and not list(output.keys()) == ['coarse_task', 'fine_task']):
+                raise ValueError("Model output does not return a dictionary with keys ['coarse_task', 'fine_task']")
+            if not isinstance(target, dict) or \
+                    (isinstance(target, dict) and not list(target.keys()) == ['coarse_task', 'fine_task']):
+                raise ValueError("Targeted task is not a list of 2 tasks")
             assert list(output.keys()) == list(target.keys()) == ['coarse_task', 'fine_task']
             coef_coa = param_training['coef_coa']
             loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])

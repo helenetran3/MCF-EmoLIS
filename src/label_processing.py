@@ -11,12 +11,16 @@ def trunc(val, decimals):
 
 
 def label_multitask(label_type):
-    assert type(label_type) == list
-    assert len(label_type) == 2
+    if len(label_type) != 2:
+        raise ValueError("The list format for label_type is reserved for multitask and must contain exactly 2 elements."
+                         " Please change in config/param_training_task.json.")
     granularity_deg = {'all': 1, 'coarse': 2, 'present': 3, 'dominant': 4}
     label_0, label_1 = label_type[0], label_type[1]
     label_0 = 'coarse' if 'coarse' in label_0 else label_0
     label_1 = 'coarse' if 'coarse' in label_1 else label_1
+    if label_0 == label_1:
+        raise ValueError("The elements of the list 'label_type' should not be the same. "
+                         "Please change in config/param_training_task.json.")
     if granularity_deg[label_0] > granularity_deg[label_1]:
         y_label = {'coarse_task': label_type[0], 'fine_task': label_type[1]}
     else:
