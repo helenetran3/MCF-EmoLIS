@@ -1,14 +1,14 @@
 {
   "task":
   {
-    "model_name": ["mult", "ef_rnn_me2e", "ef_trans_me2e", "lf_rnn_me2e", "lf_trans_me2e", "mfn"],
+    "model_name": ["ef_rnn_me2e", "ef_trans_me2e", "lf_rnn_me2e", "lf_trans_me2e", "mult", "mfn"],
     "label_type": "present",
     "set_length": "max",
     "thres_score_pres": 0,
     "predict_neutral_class": 0,
     "align_to_text": 1,
     "image_feature": "facet",
-    "thres_nan": 0.11,
+    "thres_nan": 0,
     "replace_nan": "linear_1d",
     "with_custom_split": 0
   },
