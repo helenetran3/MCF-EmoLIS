@@ -35,13 +35,15 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     one_hot = ("oh" in label_type) if type(label_type) != dict else \
         {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
     if type(label_type) == dict:
-        num_classes = y_train['fine_task'][0].shape[1] if one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+        num_classes = y_train['fine_task'][0].shape[1] if not one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
+        num_train_samples = len(y_train['fine_task'])
+        num_valid_samples = len(y_valid['fine_task'])
+        num_test_samples = len(y_test['fine_task'])
     else:
         num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
-    
-    num_train_samples = len(y_train)
-    num_valid_samples = len(y_valid)
-    num_test_samples = len(y_test)
+        num_train_samples = len(y_train)
+        num_valid_samples = len(y_valid)
+        num_test_samples = len(y_test)
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
     print("\n\n============================== Training Parameters ===========================================")

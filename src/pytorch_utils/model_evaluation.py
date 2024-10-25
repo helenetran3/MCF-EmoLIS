@@ -191,7 +191,7 @@ def evaluate_torch_model(test_list, param_task, param_model, param_training, par
             [], [], [], [], [], []
         for fold_i in range(num_folds):
             loss_vals_i, pred_raw_i, pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i = \
-                run_one_evaluation(test_list[fold_id], with_cross_valid, fold_i,
+                run_one_evaluation(test_list[fold_i], with_cross_valid, fold_i,
                                    param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
                                    label_type, loss_function, val_metrics, thres_multilabel, all_scores, device)
 

@@ -412,15 +412,6 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
         if 'present' not in label_to_display:
             plot_task("dom")
 
-    if 'all' in label_to_display:
-        plot_task("all")
-    if 'coarse' in label_to_display:
-        plot_task("coa")
-    if 'present' in label_to_display:
-        plot_task("dom")
-    if 'dominant' in label_to_display:
-        plot_task("pres")
-
 
 def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
                                         model_id, model_folder, task_name, all_scores, thres_score_pres=None):

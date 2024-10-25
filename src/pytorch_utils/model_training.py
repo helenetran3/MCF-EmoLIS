@@ -183,11 +183,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     my_collate_fn = None if num_steps is not None else collate_fn_for_variable_length
     train_dataloader = DataLoader(training_data, batch_size=batch_size, collate_fn=my_collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_data, collate_fn=my_collate_fn)
-    print("train_dataloader.dataset[0][0][0]", train_dataloader.dataset[0][0][0])
-    train_size = len(train_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(train_dataloader.dataset)
-    valid_size = len(valid_dataloader.dataset[0][0][0]) if type(label_type) == dict else len(valid_dataloader.dataset)
-    print("train_size:", train_size)
-    print("valid_size:", valid_size)
+    train_size = len(train_dataloader.dataset)
+    valid_size = len(valid_dataloader.dataset)
 
     # Create an instance of the model
     num_features_text = x_train[0][0].shape[1]
@@ -474,9 +471,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     writer.close()
 
     thres_list = [0.5 for _ in range(num_classes)]
-    if type(label_type) != dict and label_type in ['present', 'dominant'] and \
-            not param_training['thres_ml_from_best_metric']:
-        valid_thres_ml_best = thres_list
+    if type(label_type) == str:
+        if label_type in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
+            valid_thres_ml_best = thres_list
     elif type(label_type) == dict and not param_training['thres_ml_from_best_metric']:
         valid_thres_ml_best = {}
         for task_i, label_i in zip(label_type.keys(), label_type.values()):
