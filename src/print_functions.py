@@ -34,7 +34,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     num_classes = y_train[0].shape[1]  # predict neutral class is already inferred from label preprocessing
     num_train_samples = len(y_train)
     num_valid_samples = len(y_valid)
-    num_test_samples = len(test_list[1])
+    num_test_samples = len(y_test)
     total_data = num_train_samples + num_valid_samples + num_test_samples
 
     print("\n\n============================== Training Parameters ===========================================")
