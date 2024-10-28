@@ -162,21 +162,27 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     ####################################################################################################################
     # This block computes the prediction vectors for the four tasks 'all', 'coarse', 'present', 'dominant"
     ####################################################################################################################
-    def compute_pred_label_i(pred_raw_arr, thres_ml_list, label_t, text_id):
+    def compute_pred_label_i(pred_raw_arr, thres_ml_list, label_t, text_id, multitask):
         pred_all, pred_coa, pred_pres, pred_dom = \
             compute_pred_labels(pred_raw_arr, all_scores, predict_neutral_class, thres_score_pres,
-                                thres_ml_list, save_pred, text_id, num_classes, model_folder, label_t)
+                                thres_ml_list, save_pred, text_id, num_classes, model_folder, label_t, multitask)
         return pred_all, pred_coa, pred_pres, pred_dom
 
     if type(label_type) == dict:
-        pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = {}, {}, {}, {}
+        pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = None, None, None, None
         for task_i in ['coarse_task', 'fine_task']:
-            pred_scores_all[task_i], pred_scores_coa[task_i], pred_classes_pres[task_i], pred_classes_dom[task_i] = \
-                compute_pred_label_i(pred_raw_array[task_i], thres_multilabel[task_i], label_type[task_i],
-                                     str(model_id) + task_i[:3])
+            pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i = compute_pred_label_i(pred_raw_array[task_i],
+                                                                                   thres_multilabel[task_i],
+                                                                                   label_type[task_i],
+                                                                                   str(model_id) + task_i[:3],
+                                                                                   multitask=True)
+            pred_scores_all = pred_all_i if pred_all_i is not None else pred_scores_all
+            pred_scores_coa = pred_coa_i if pred_coa_i is not None else pred_scores_coa
+            pred_classes_pres = pred_pres_i if pred_pres_i is not None else pred_classes_pres
+            pred_classes_dom = pred_dom_i if pred_dom_i is not None else pred_classes_dom
     else:
         pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            compute_pred_label_i(pred_raw_array, thres_multilabel, label_type, model_id)
+            compute_pred_label_i(pred_raw_array, thres_multilabel, label_type, model_id, multitask=False)
 
     return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, \
         pred_classes_dom

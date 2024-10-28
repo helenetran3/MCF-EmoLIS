@@ -314,7 +314,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
 
 
 def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score_pres, thres_multilabel,
-                        save_pred, model_id, num_classes, model_folder, label_type):
+                        save_pred, model_id, num_classes, model_folder, label_type, multitask):
     """
     Compute the prediction labels (all arrays of shape (test_size, 6), pred_classes_pres is a list of arrays of this type)
     pred_scores_coa: Closest predicted score among [0, 1, 2, 3]
@@ -336,13 +336,17 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score
     # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
     pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = None, None, None, None
     if label_type == 'all':
-        compute_fine, compute_coa, compute_pres, compute_dom = True, True, True, True
+        compute_fine, compute_coa, compute_pres, compute_dom = (True, True, True, True) if not multitask else \
+            (True, False, False, False)
     elif 'coarse' in label_type:
-        compute_fine, compute_coa, compute_pres, compute_dom = False, True, True, True
+        compute_fine, compute_coa, compute_pres, compute_dom = (False, True, True, True) if not multitask else \
+            (False, True, False, False)
     elif label_type == 'present':
-        compute_fine, compute_coa, compute_pres, compute_dom = False, False, True, False
+        compute_fine, compute_coa, compute_pres, compute_dom = (False, False, True, False) if not multitask else \
+            (False, False, True, False)
     else:  # dominant
-        compute_fine, compute_coa, compute_pres, compute_dom = False, False, False, True
+        compute_fine, compute_coa, compute_pres, compute_dom = (False, False, False, True) if not multitask else \
+            (False, False, False, True)
 
     # Save raw predictions
     if save_pred:
