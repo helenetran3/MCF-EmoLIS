@@ -295,14 +295,9 @@ class MModel(nn.Module):
                 torch.relu(self.proj1[1](last_hs_multi)), p=self.out_dropout, train=self.training))
             last_hs_proj_multi += last_hs_multi
             output_multi = self.out_layer[1](last_hs_proj_multi)
-        
-        print('output output_main:', output_main.size())
-        print("num_classes:", self.num_classes)
 
         if self.multitask:
             output = {"coarse_task": torch.sigmoid(output_main), "fine_task": torch.sigmoid(output_multi)}
-            print('output coarse:', output["coarse_task"].size())
-            print('output fine:', output["fine_task"].size())
 
         elif self.gml:
             output = output_main.view(-1, self.num_classes, self.num_scores)

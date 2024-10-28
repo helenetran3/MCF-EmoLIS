@@ -545,9 +545,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
         if type(label_type) == dict:
             metrics_reg = []
-            for label in list(label_type.values()):
-                print("\n>>> Task: {}".format(label))
-                metrics_reg += get_regression_met(label, pred_raw_i[label])
+            for task_i in ['coarse_task', 'fine_task']:
+                print("\n>>> Task: {}".format(label_type[task_i]))
+                metrics_reg += get_regression_met(label_type[task_i], pred_raw_i[task_i])
             metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
         else:
             print("\n")
