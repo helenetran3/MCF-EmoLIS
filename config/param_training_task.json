@@ -1,7 +1,7 @@
 {
   "task":
   {
-    "model_name": ["ef_rnn_me2e", "ef_trans_me2e", "lf_rnn_me2e", "lf_trans_me2e", "mult", "mfn"],
+    "model_name": "mult",
     "label_type": ["coarse", "present"],
     "set_length": "max",
     "thres_score_pres": 0,
@@ -15,8 +15,8 @@
 
   "training":
   {
-    "num_epochs": 30,
-    "patience": 8,
+    "num_epochs": 1,
+    "patience": 1,
     "batch_size": 32,
     "optimizer": "adam",
     "loss_function": "wei_bce_multitask",
