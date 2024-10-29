@@ -10,7 +10,7 @@ from src.models.me2e import mme2e
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams',
                    'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_trans_me2e',
                    'mfn', 'mme2e', 'mult', 'mult_gml_2']
-possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_multitask',
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_multitask', 'wei_bce_mse_multitask',
                     'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
@@ -113,17 +113,29 @@ def get_loss_function(loss_function_str, param_training, is_tf):
             loss = Variable(loss, requires_grad=True)
             return loss
 
-        def wei_bce_multitask(output, target):
+        def check_multitask(output, target):
             if not isinstance(output, dict) or \
                     (isinstance(output, dict) and not list(output.keys()) == ['coarse_task', 'fine_task']):
                 raise ValueError("Model output does not return a dictionary with keys ['coarse_task', 'fine_task']")
             if not isinstance(target, dict) or \
                     (isinstance(target, dict) and not list(target.keys()) == ['coarse_task', 'fine_task']):
-                raise ValueError("Targeted task is not a list of 2 tasks")
-            assert list(output.keys()) == list(target.keys()) == ['coarse_task', 'fine_task']
+                raise ValueError("Targeted task is not a list of 2 tasks. Please check 'label_type' in "
+                                 "config/param_training_task.json")
+
+        def wei_bce_multitask(output, target):
+            check_multitask(output, target)
             coef_coa = param_training['coef_coa']
             loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
             loss_fin = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['fine_task'], target['fine_task'])
+            loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
+            loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
+            return loss
+
+        def wei_bce_mse_multitask(output, target):
+            check_multitask(output, target)
+            coef_coa = param_training['coef_coa']
+            loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
+            loss_fin = nn.MSELoss()(output['fine_task'], target['fine_task'])
             loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
             loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
             return loss
@@ -136,6 +148,7 @@ def get_loss_function(loss_function_str, param_training, is_tf):
             'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight),
             'wei_cce': nn.CrossEntropyLoss(weight=pos_weight),
             'wei_bce_multitask': wei_bce_multitask,
+            'wei_bce_mse_multitask': wei_bce_mse_multitask,
             'wei_bce_gml': wei_bce_gml,
             'wei_cce_gml': wei_cce_gml,
             'kl_div': nn.KLDivLoss(reduction='batchmean')
