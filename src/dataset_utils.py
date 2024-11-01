@@ -220,7 +220,9 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     thres_nan = param_task['thres_nan']
     thres_nan_100 = np.round(thres_nan*100)
     replace_nan = param_task['replace_nan']
-    nan_str = replace_nan + "_t_" + str(thres_nan)
+    nan_str = replace_nan + "_tnan_" + str(thres_nan)
+    length_seq = param_task['set_length']
+    length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
     pickle_name_fold = param_log['pickle_name_fold']
 
     # Placeholders for training, validation, and test sets
@@ -238,6 +240,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     num_drop = 0  # counter to get the number of data points that doesn't go through the checking process
     num_no_split = 0  # counter for those that doesn't belong to any split
     num_nan = 0
+    num_too_long_seq = 0
     # num_some_nan_bf_after_imput_img, num_some_nan_bf_after_imput_aud = 0, 0
     num_nan_labels, num_nan_text = 0, 0
 
@@ -262,10 +265,12 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             num_drop += 1
             continue
 
-        if image_seg.shape[0] == 1:
-            print("Encountered datapoint {} of length 1.".format(seg_id))
-            num_drop += 1
-            continue
+        if type(length_seq) == int:
+            if image_seg.shape[0] > length_seq:
+                print("Encountered datapoint {} of length greater than {}.".format(seg_id, length_seq))
+                num_drop += 1
+                num_too_long_seq += 1
+                continue
 
         # Remove samples with percentage of NaN/inf above thres_nan
         shape_img = image_seg.shape[0] * image_seg.shape[1]
@@ -331,7 +336,10 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
           .format(num_drop, 100 * (num_drop / total_data)))
     print("Total number of {} datapoints do not belong to any split ({:.2f}% of total data)."
           .format(num_no_split, 100 * (num_no_split / total_data)))
-    print("Total number of dropped datapoints with at least {}% NaN or inf: {}".format(thres_nan_100, num_nan))
+    print("Among dropped datapoints, {} with at least {}% NaN or inf ({:.2f}% of total data)."
+          .format(num_nan, thres_nan_100, 100 * (num_nan / total_data)))
+    print("Among dropped datapoints, {} with sequence length > {} ({:.2f}% of total data)."
+          .format(num_too_long_seq, length_seq, 100 * (num_too_long_seq / total_data)))
     print("----------------------------------------------------")
     print("Total number samples: {}".format(total_data))
     # print("Number of text data with NaN/inf:", num_nan_text)
@@ -354,9 +362,12 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     test_res = [x_test, y_test_emo, seg_test]
 
     # Save lists with pickle
-    save_with_pickle(train_res, pickle_name_fold + "_train_" + nan_str, pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(valid_res, pickle_name_fold + "_valid_" + nan_str, pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(test_res, pickle_name_fold + "_test_" + nan_str, pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(train_res, pickle_name_fold + "_train_" + nan_str + length_str,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(valid_res, pickle_name_fold + "_valid_" + nan_str + length_str,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(test_res, pickle_name_fold + "_test_" + nan_str + length_str,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
 
     return train_res, valid_res, test_res
 
