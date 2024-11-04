@@ -621,8 +621,8 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
 
     # True labels
     true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
-        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, thres_nan, num_classes,
-                            label_type, return_all_tasks=True)
+        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, param_task,
+                            num_classes, label_type, return_all_tasks=True)
 
     if not predict_neutral_class:
         true_scores_all = remove_neutral_test(true_scores_all)
