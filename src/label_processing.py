@@ -447,7 +447,7 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
             new_y3 = compute_true_labels(y3, "test", all_scores, predict_neutral_class, thres_score_pres,
                                          param_task, num_classes, label_t)
 
-            if task == 'present':  # TODO We only take the first threshold for the moment
+            if label_t == 'present':  # TODO We only take the first threshold for the moment
                 new_y1 = new_y1[0]
                 new_y2 = new_y2[0]
                 new_y3 = new_y3[0]
