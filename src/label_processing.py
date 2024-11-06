@@ -210,7 +210,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, thres_score_p
         return bin_array if is_dominant else [bin_array]  # for the moment we create a list
 
 
-def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, thres_score_pres, thres_nan, num_classes,
+def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, thres_score_pres, param_task, num_classes,
                         label_type, return_all_tasks=False):
     """
     Compute the true labels from a list of 2D arrays of shape (1, num_classes) (y_list)
@@ -226,7 +226,7 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     :param all_scores: list of available presence scores
     :param predict_neutral_class: Whether we predict the neutral class
     :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
-    :param thres_nan: Percentage threshold (between 0 and 1) of NaN/inf above which the sample is withdrawn
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param num_classes: number of emotion classes (7 with neutral class, else 6)
     :param label_type: Type of labels used for model training and evaluation. Possible values: all (for all presence
                          scores provided by the dataset), coarse (presence score for each emotion among [0, 1, 2, 3]),
@@ -240,7 +240,10 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
 
     # Filenames
-    ext_name = "_tnan_" + str(thres_nan)
+    thres_nan = param_task['thres_nan']
+    length_seq = param_task['set_length']
+    length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
+    ext_name = "_tnan_" + str(thres_nan) + length_str
     ext_name += "_pred-neu" if predict_neutral_class else "_rm-neu"
     ext_name_coa_train = '_prob' if ('prob' in label_type) else '_oh' if ('oh' in label_type) else ''
     filename_all = root_name + "_true_scores_all" + ext_name
@@ -436,13 +439,13 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
             y_list_res = [y.reshape((-1, num_output)) for y in y_list]
             return y_list_res
 
-        def change_y_single_task(task):
+        def change_y_single_task(label_t):
             new_y1 = compute_true_labels(y1, "train", all_scores, predict_neutral_class, thres_score_pres,
-                                         thres_nan, num_classes, task)
+                                         param_task, num_classes, label_t)
             new_y2 = compute_true_labels(y2, "valid", all_scores, predict_neutral_class, thres_score_pres,
-                                         thres_nan, num_classes, task)
+                                         param_task, num_classes, label_t)
             new_y3 = compute_true_labels(y3, "test", all_scores, predict_neutral_class, thres_score_pres,
-                                         thres_nan, num_classes, task)
+                                         param_task, num_classes, label_t)
 
             if task == 'present':  # TODO We only take the first threshold for the moment
                 new_y1 = new_y1[0]
