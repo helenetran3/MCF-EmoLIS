@@ -450,7 +450,6 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     label_type = param_task['label_type']
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
-    thres_nan = param_task['thres_nan']
     num_classes = 7 if predict_neutral_class else 6
 
     y_train = train_list[1]

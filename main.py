@@ -55,9 +55,9 @@ def main():
     # Balance dataset  #TODO
     balance_dataset(train_list_task, valid_list_task, test_list_task, param_task, all_scores)
 
-    def run_one_experiment(model_name, loss_function, val_metrics, param_model):
+    def run_one_experiment(model_name, loss_function, val_metrics, param_model_j):
         model_id = get_current_model_id(model_name)
-        is_tf = bool(param_model['is_TensorFlow'])
+        is_tf = bool(param_model_j['is_TensorFlow'])
         num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task,
                                        with_cross_validation, is_tf)
         label_type = param_task['label_type']
@@ -67,7 +67,7 @@ def main():
             from src.tensorflow_utils.model_training import train_tf_model
             from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
-            train_tf_model(train_list_task, valid_list_task, test_list_task, param_task, param_model, param_training,
+            train_tf_model(train_list_task, valid_list_task, test_list_task, param_task, param_model_j, param_training,
                            param_log, num_steps, model_name, model_id, loss_function, val_metrics, with_cross_validation)
 
             model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
@@ -83,18 +83,17 @@ def main():
             print(f"\nUsing {device} device")
 
             thres_multilabel = train_torch_model(train_list_task, valid_list_task, test_list_task,
-                                                 param_task, param_model, param_training, param_log,
+                                                 param_task, param_model_j, param_training, param_log,
                                                  num_steps, model_name, model_id, loss_function, val_metrics,
                                                  label_type, device, with_cross_validation)
-            # model_id = 2
 
             model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-                evaluate_torch_model(test_list_task, param_task, param_model, param_training,
+                evaluate_torch_model(test_list_task, param_task, param_model_j, param_training,
                                      param_log, num_steps, model_name, model_id, loss_function, val_metrics,
                                      thres_multilabel, all_scores, device, with_cross_validation)
 
         # Save model parameters in csv file
-        save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name,
+        save_model_param_in_csv_file(model_id, param_task, param_model_j, param_training, model_name,
                                      loss_function, val_metrics, with_cross_validation)
 
         # Compute and save metrics
