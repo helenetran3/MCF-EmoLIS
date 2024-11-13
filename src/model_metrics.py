@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from src.pickle_functions import save_with_pickle, load_from_pickle
 from src.csv_functions import save_results_in_csv_file
 from src.label_processing import label_multitask, compute_true_labels
+from src.print_functions import print_mean_std_cross_validation
 
 from sklearn.preprocessing import label_binarize, LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
@@ -533,6 +534,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         metrics_regression, metrics_score_fine, metrics_score_coa, metrics_presence, metrics_dominant = \
             None, None, None, None, None
 
+        if fold_id is not None:
+            print("\n\n=============================== Fold {} ===============================".format(fold_id))
+
         print("\n------- Presence score estimation (regression) --------")
 
         def get_regression_met(label_t, pred_r):
@@ -591,6 +595,10 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
             met_coa += [mc]
             met_pres += [mp]
             met_dom += [md]
+
+        # Print Mean and Std of values
+        print_mean_std_cross_validation(met_reg, met_fin, met_coa, met_pres, met_dom, num_classes, round_decimals)
+
     else:
         met_reg, met_fin, met_coa, met_pres, met_dom = compute_metrics_one_model(pred_raw, pred_scores_all,
                                                                                  pred_scores_coa, pred_classes_pres,
