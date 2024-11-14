@@ -72,7 +72,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
         num_features_image = x_train[0][1].shape[1]
         num_features_audio = x_train[0][2].shape[1]
         model_module = get_model_module(model_name, is_tf=True)
-        model_tf = model_module.MModel(model_id, param_model, num_features_text, num_features_image,
+        model_tf = model_module.MModel(model_id, param_model, param_task, num_features_text, num_features_image,
                                        num_features_audio, num_steps, num_classes).build()
         print(model_tf.summary())
     print("\n")

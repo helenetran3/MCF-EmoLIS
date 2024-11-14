@@ -15,8 +15,8 @@ class MModel(nn.Module):
     :param num_features_audio: size of audio feature vector (it should be the same at each step)
     :param num_classes: number of classes to predict
     """
-    def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio, num_classes,
-                 num_layers=1, dropout=0.1, bi=True):
+    def __init__(self, model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
+                 num_classes, num_layers=1, dropout=0.1, bi=True):
 
         super(MModel, self).__init__()
 

@@ -12,11 +12,12 @@
 import torch
 from torch import nn
 
+from src.label_processing import label_multitask
 from src.models.mult.modules.transformer import TransformerEncoder
 
 
 class MModel(nn.Module):
-    def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio,
+    def __init__(self, model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
                  num_classes):
         """
         Construct a mult model.
@@ -49,6 +50,9 @@ class MModel(nn.Module):
         self.lav_as_modality = param_model['lav_as_modality']
         self.multitask = param_model['multitask']
         self.gml = param_model['gml']
+
+        label_type = param_task['label_type']
+        self.label_type = label_multitask(label_type) if type(label_type) == list else label_type
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
@@ -297,7 +301,14 @@ class MModel(nn.Module):
             output_multi = self.out_layer[1](last_hs_proj_multi)
 
         if self.multitask:
-            output = {"coarse_task": torch.sigmoid(output_main), "fine_task": torch.sigmoid(output_multi)}
+            activation = {}
+            for task_i in ['coarse_task', 'fine_task']:
+                if self.label_type[task_i] in ['present', 'dominant']:
+                    activation[task_i] = torch.sigmoid
+                else:
+                    activation[task_i] = torch.relu  # For 'coarse' and 'all' tasks, we do not perform 'coarse_oh' here
+            output = {"coarse_task": activation['coarse_task'](output_main),
+                      "fine_task": activation['fine_task'](output_multi)}
 
         elif self.gml:
             output = output_main.view(-1, self.num_classes, self.num_scores)
