@@ -15,7 +15,8 @@ from torch import nn
 
 class MModel(nn.Module):
     # def __init__(self, config, NN1Config, NN2Config, gamma1Config, gamma2Config, outConfig):
-    def __init__(self, model_id, param_model, num_features_text,  num_features_image, num_features_audio, num_classes):
+    def __init__(self, model_id, param_model, param_task, num_features_text,  num_features_image, num_features_audio,
+                 num_classes):
         super(MModel, self).__init__()
         [self.d_l, self.d_v, self.d_a] = [num_features_text,  num_features_image, num_features_audio]
         [self.dh_l, self.dh_v, self.dh_a] = [param_model['dim_h_text'], param_model['dim_h_image'],

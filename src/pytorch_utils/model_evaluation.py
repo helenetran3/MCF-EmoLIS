@@ -46,7 +46,7 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     model_folder = os.path.join('results', model_name)
     model_path = os.path.join(model_folder, 'models', "model_{}.pt".format(ext_model_name))
     model_module = get_model_module(model_name, is_tf=False)
-    model = model_module.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
+    model = model_module.MModel(model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
                                 num_classes).to(device)
     checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint['model_state_dict'])

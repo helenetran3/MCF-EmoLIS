@@ -6,7 +6,8 @@ from src.models.me2e.modules.transformer_encoder import WrappedTransformerEncode
 
 
 class MModel(nn.Module):
-    def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio, num_classes):
+    def __init__(self, model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
+                 num_classes):
         super(MModel, self).__init__()
 
         self.model_name = 'lf_rnn_me2e'

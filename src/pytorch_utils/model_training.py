@@ -126,7 +126,7 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
         plt.show()
 
 
-def run_one_training(train_list, valid_list, param_model, param_training, param_log,
+def run_one_training(train_list, valid_list, param_model, param_training, param_task, param_log,
                      num_steps, model_name, model_id, loss_function_str, val_metrics_str, label_type, device,
                      with_cross_valid, fold_id=None):
 
@@ -168,8 +168,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     num_features_image = x_train[0][1].shape[1]
     num_features_audio = x_train[0][2].shape[1]
     model_class = get_model_module(model_name, is_tf=False)
-    model = model_class.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
-                               num_classes).to(device)
+    model = model_class.MModel(model_id, param_model, param_task, num_features_text, num_features_image,
+                               num_features_audio, num_classes).to(device)
 
     # # Inspect model using Tensorboard
     # inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
@@ -413,12 +413,13 @@ def train_torch_model(train_list, valid_list, test_list, param_task, param_model
         valid_thres_ml_best = []
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
             valid_thres_ml_best += [run_one_training(train_list_i, valid_list_i, param_model, param_training,
-                                                     param_log, num_steps, model_name, model_id, loss_function,
-                                                     val_metrics, label_type, device, with_cross_valid, fold_id)]
+                                                     param_task, param_log, num_steps, model_name, model_id,
+                                                     loss_function, val_metrics, label_type, device, with_cross_valid,
+                                                     fold_id)]
 
     else:
-        valid_thres_ml_best = run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                                               num_steps, model_name, model_id, loss_function, val_metrics,
+        valid_thres_ml_best = run_one_training(train_list, valid_list, param_model, param_training, param_task,
+                                               param_log, num_steps, model_name, model_id, loss_function, val_metrics,
                                                label_type, device, with_cross_valid)
 
     return valid_thres_ml_best

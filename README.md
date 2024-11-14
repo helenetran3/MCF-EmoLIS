@@ -302,7 +302,7 @@ _For PyTorch:_
 
 1. Create your model in a Python class and name it `MModel`: `class MModel(nn.Module)`.
 2. The class must at least contain the following functions:
-   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_model, num_features_text, 
+   1. `__init__` with these exact parameters: `def __init__(self, model_id, param_model, param_task, num_features_text, 
    num_features_image, num_features_audio, num_classes)`. The parameter `param_model` is a dictionary defined in 
    `config/param_model.json` (will be explained in the next subsection) 
    2. `forward` which inputs the three feature arrays (text - image - audio, in this order) and returns the output 
