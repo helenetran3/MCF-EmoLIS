@@ -9,12 +9,14 @@ class MModel(nn.Module):
 
     :param model_id: Model id (int)
     :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param num_features_text: size of text feature vector (it should be the same at each step)
     :param num_features_image: size of image feature vector (it should be the same at each step)
     :param num_features_audio: size of audio feature vector (it should be the same at each step)
     :param num_classes: number of classes to predict
     """
-    def __init__(self, model_id, param_model,  param_task, num_features_text, num_features_image, num_features_audio,
+
+    def __init__(self, model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
                  num_classes, num_layers=1, dropout=0.1, bi=True):
 
         super(MModel, self).__init__()
@@ -26,6 +28,7 @@ class MModel(nn.Module):
         self.num_features_audio = num_features_audio
         self.mods = 'tav'  # we use the three modalities here
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
 
         self.num_features_tav = num_features_text + num_features_image + num_features_audio
         self.num_scores = 4
@@ -58,6 +61,9 @@ class MModel(nn.Module):
             x_hn = x_hn.view(-1, self.num_classes, self.num_scores)
             x_hn = torch.softmax(x_hn, dim=2)
         else:
-            x_hn = torch.sigmoid(x_hn)
+            if self.label_type in ['present', 'dominant']:
+                x_hn = torch.sigmoid(x_hn)
+            else:
+                x_hn = torch.relu(x_hn)
 
         return x_hn
