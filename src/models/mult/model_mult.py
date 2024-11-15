@@ -49,6 +49,7 @@ class MModel(nn.Module):
         self.lav_as_modality = param_model['lav_as_modality']
         self.multitask = param_model['multitask']
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
@@ -301,5 +302,8 @@ class MModel(nn.Module):
             output = output.view(-1, self.num_classes, self.num_scores)
             output = torch.softmax(output, dim=2)
         else:
-            output = torch.sigmoid(output)
+            if self.label_type in ['present', 'dominant']:
+                output = torch.sigmoid(output)
+            else:
+                output = torch.relu(output)
         return output#, last_hs_1

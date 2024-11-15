@@ -18,6 +18,7 @@ class MModel(nn.Module):
         self.num_scores = 4
         self.mods = 'tav'  # we use the three modalities here
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
 
         nlayers = param_model['trans_nlayers']
         num_features_tav_incr = num_features_text + num_features_image + num_features_audio + 1 # 409+1 for div by 5
@@ -50,7 +51,10 @@ class MModel(nn.Module):
             x_aff = x_aff.view(-1, self.num_classes, self.num_scores)
             x_aff = torch.softmax(x_aff, dim=2)
         else:
-            x_aff = torch.sigmoid(x_aff)
+            if self.label_type in ['present', 'dominant']:
+                x_aff = torch.sigmoid(x_aff)
+            else:
+                x_aff = torch.relu(x_aff)
 
         return x_aff
 

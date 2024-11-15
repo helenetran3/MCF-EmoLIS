@@ -26,6 +26,7 @@ class MModel(nn.Module):
         self.num_features_audio = num_features_audio
         self.mods = 'tav'  # we use the three modalities here
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
 
         self.num_features_tav = num_features_text + num_features_image + num_features_audio
         self.num_scores = 4
@@ -58,6 +59,9 @@ class MModel(nn.Module):
             x_hn = x_hn.view(-1, self.num_classes, self.num_scores)
             x_hn = torch.softmax(x_hn, dim=2)
         else:
-            x_hn = torch.sigmoid(x_hn)
+            if self.label_type in ['present', 'dominant']:
+                x_hn = torch.sigmoid(x_hn)
+            else:
+                x_hn = torch.relu(x_hn)
 
         return x_hn
