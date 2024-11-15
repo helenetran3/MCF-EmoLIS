@@ -19,6 +19,7 @@ class MModel(nn.Module):
         self.num_scores = 4
         self.mods = 'tav'  # we use the three modalities here
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
 
         nlayers = param_model['trans_nlayers']
         # nheads = args['trans_nheads']
@@ -114,7 +115,10 @@ class MModel(nn.Module):
         if self.gml:
             return torch.softmax(wei_fus, dim=2)
         else:
-            return torch.sigmoid(wei_fus)
+            if self.label_type in ['present', 'dominant']:
+                return torch.sigmoid(wei_fus)
+            else:
+                return torch.relu(wei_fus)
 
     @staticmethod
     def get_len_samples(x_feat, mod_name):

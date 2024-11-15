@@ -29,6 +29,7 @@ class MModel(nn.Module):
         self.num_scores = 4
         self.mods = 'tav'  # we use the three modalities here
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
 
         self.rnns = nn.ModuleDict({
             't': nn.LSTM(
@@ -133,4 +134,7 @@ class MModel(nn.Module):
         if self.gml:
             return torch.softmax(wei_fus, dim=2)
         else:
-            return torch.sigmoid(wei_fus)
+            if self.label_type in ['present', 'dominant']:
+                return torch.sigmoid(wei_fus)
+            else:
+                return torch.relu(wei_fus)

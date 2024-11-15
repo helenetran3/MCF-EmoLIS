@@ -10,7 +10,8 @@ from src.models.me2e.modules.vgg_block import VggBasicBlock
 
 
 class MModel(nn.Module):
-    def __init__(self, model_id, param_model, num_features_text, num_features_image, num_features_audio, num_classes):
+    def __init__(self, model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
+                 num_classes):
         super(MModel, self).__init__()
         self.model_name = 'mme2e'
         self.model_id = model_id

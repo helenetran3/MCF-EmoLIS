@@ -154,6 +154,8 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     :return: One-line results added to the csv file.
     """
 
+    # TODO metrics dict
+
     ext_name = "_n" if predict_neutral_class else ""
 
     # Create filenames
@@ -168,12 +170,13 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     csv_path_dominant = create_csv_path(model_name, filename="classif_dom", ext_name=ext_name,
                                         with_cross_val=with_cross_val)
     
-    def write_csv_one_model(eval_out, met_reg, met_fin, met_coa, met_pres, met_dom, fold_id=None):
+    def write_csv_one_model(eval_out, met_reg, met_fin, met_coa, met_pres, met_dom, task_mt=None, fold_id=None):
         
         # Create model parameter header and data for each csv file
         header_id = ['model_id'] if not with_cross_val else ['model_id', 'fold_id']
         header_id = header_id + [loss_function, val_metrics]
-        data_id = [model_id] if not with_cross_val else [model_id, fold_id]
+        model_id_str = str(model_id) + '_' + task_mt if task_mt is not None else str(model_id)
+        data_id = [model_id] if not with_cross_val else [model_id_str, fold_id]
         data_id = data_id + eval_out
 
         # Regression metrics
@@ -214,17 +217,28 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
         #     print(len(header_presence), len(data_presence[i]))
 
     if with_cross_val:
-        for fold_id, (l_val_i, m_reg_i, m_all_i, m_coa_i, m_pres_i, m_dom_i) in enumerate(zip(model_eval_output,
-                                                                                              metrics_regression,
-                                                                                              metrics_scores_all,
-                                                                                              metrics_score_coa,
-                                                                                              metrics_presence,
-                                                                                              metrics_dominant)):
-            write_csv_one_model(l_val_i, m_reg_i, m_all_i, m_coa_i, m_pres_i, m_dom_i, fold_id)
+        for fold_i, (l_val_i, m_reg_i, m_all_i, m_coa_i, m_pres_i, m_dom_i) in enumerate(zip(model_eval_output,
+                                                                                             metrics_regression,
+                                                                                             metrics_scores_all,
+                                                                                             metrics_score_coa,
+                                                                                             metrics_presence,
+                                                                                             metrics_dominant)):
+            if type(metrics_regression) == dict:
+                for task_i in ['coarse_task', 'fine_task']:
+                    write_csv_one_model(l_val_i[task_i], m_reg_i[task_i], m_all_i[task_i], m_coa_i[task_i],
+                                        m_pres_i[task_i], m_dom_i[task_i], task_mt=task_i, fold_id=fold_i)
+            else:
+                write_csv_one_model(l_val_i, m_reg_i, m_all_i, m_coa_i, m_pres_i, m_dom_i, fold_id=fold_i)
             
     else:
-        write_csv_one_model(model_eval_output, metrics_regression, metrics_scores_all, metrics_score_coa,
-                            metrics_presence, metrics_dominant)
+        if type(metrics_regression) == dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                write_csv_one_model(model_eval_output[task_i], metrics_regression[task_i],
+                                    metrics_scores_all[task_i], metrics_score_coa[task_i],
+                                    metrics_presence[task_i], metrics_dominant[task_i], task_mt=task_i)
+        else:
+            write_csv_one_model(model_eval_output, metrics_regression, metrics_scores_all, metrics_score_coa,
+                                metrics_presence, metrics_dominant)
 
 
 def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, loss_function,

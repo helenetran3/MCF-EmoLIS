@@ -50,6 +50,7 @@ class MModel(nn.Module):
         self.lav_as_modality = param_model['lav_as_modality']
         self.multitask = param_model['multitask']
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
 
         label_type = param_task['label_type']
         self.label_type = label_multitask(label_type) if type(label_type) == list else label_type
@@ -315,6 +316,9 @@ class MModel(nn.Module):
             output = torch.softmax(output, dim=2)
 
         else:
-            output = torch.sigmoid(output_main)
+            if self.label_type in ['present', 'dominant']:
+                output = torch.sigmoid(output_main)
+            else:
+                output = torch.relu(output_main)
 
         return output#, last_hs_1

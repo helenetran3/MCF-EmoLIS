@@ -25,6 +25,7 @@ class MModel(nn.Module):
         self.mem_dim = param_model["memsize"]
         window_dim = param_model["windowsize"]
         self.gml = param_model['gml']
+        self.label_type = param_task['label_type']
         self.num_classes = num_classes  # We changed 1 to num_classes
         self.num_scores = 4
         output_dim = self.num_classes * self.num_scores if self.gml else self.num_classes
@@ -136,6 +137,9 @@ class MModel(nn.Module):
             output = output.view(-1, self.num_classes, self.num_scores)
             output = torch.softmax(output, dim=2)
         else:
-            output = torch.sigmoid(output)
+            if self.label_type in ['present', 'dominant']:
+                output = torch.sigmoid(output)
+            else:
+                output = torch.relu(output)
 
         return output

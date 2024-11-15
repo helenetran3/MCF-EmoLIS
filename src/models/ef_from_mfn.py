@@ -11,6 +11,7 @@ class MModel(nn.Module):
 
         :param model_id: Model id (int)
         :param param_model: dictionary of 'architecture' hyperparameters of the model chosen (cf. param_model.json)
+        :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
         :param num_features_text: size of text feature vector (it should be the same at each step)
         :param num_features_image: size of image feature vector (it should be the same at each step)
         :param num_features_audio: size of audio feature vector (it should be the same at each step)
