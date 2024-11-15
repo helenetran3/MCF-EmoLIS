@@ -109,7 +109,7 @@
             "dominant_modality": 0,
             "with_cross_module": 0,
             "lav_as_modality": 0,
-            "multitask": 0,
+            "multitask": 1,
             "gml": 0,
 
             "vonly": 0,

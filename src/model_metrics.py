@@ -126,26 +126,26 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_
 
     acc_each = [np.round(accuracy_score(ts, ps)*100, round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    acc_macro = np.round(np.mean(acc_each)*100, round_decimals)
+    acc_macro = np.round(np.mean(acc_each), round_decimals)
     print("Accuracy (for each, unweighted across scores):", acc_each)
     print("Accuracy (unweighted mean):", acc_macro)
 
     # Only macro because with weighted, the over_presence of class "0" will bias the result
     f1_each = [np.round(f1_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
                for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    f1_macro = np.round(np.mean(f1_each)*100, round_decimals)
+    f1_macro = np.round(np.mean(f1_each), round_decimals)
     print("F1 score (for each, unweighted across scores):", f1_each)
     print("F1 score (unweighted mean):", f1_macro)
 
     rec_each = [np.round(recall_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
                 for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    rec_macro = np.round(np.mean(rec_each)*100, round_decimals)
+    rec_macro = np.round(np.mean(rec_each), round_decimals)
     print("Recall (for each, unweighted across scores):", rec_each)
     print("Recall (unweighted mean):", rec_macro)
 
     prec_each = [np.round(precision_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
                  for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-    prec_macro = np.round(np.mean(prec_each)*100, round_decimals)
+    prec_macro = np.round(np.mean(prec_each), round_decimals)
     print("Precision (for each, unweighted across scores):", prec_each)
     print("Precision (unweighted mean):", prec_macro)
 
