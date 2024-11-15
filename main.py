@@ -23,7 +23,7 @@ def main():
     pickle_name_fold = param_log['pickle_name_fold']
     replace_nan = param_task['replace_nan']
     thres_nan = param_task['thres_nan']
-    nan_str = replace_nan + "_t_" + str(thres_nan)
+    nan_str = replace_nan + "_tnan_" + str(thres_nan)
     length_seq = param_task['set_length']
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
     if pickle_file_exists(pickle_name_fold + "_train_" + nan_str + length_str, "raw_folds", "cmu_mosei"):

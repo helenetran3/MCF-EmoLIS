@@ -387,31 +387,29 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
         if display_fig:
             plt.show()
 
-    if type(label_type) == dict:
-        # In multitask mode, we only plot the two tasks specified by the user
-        label_to_display = [val if 'coarse' not in val else 'coarse' for val in list(label_type.values())]
-        if 'all' in label_to_display:
-            plot_task("all")
-        if 'coarse' in label_to_display:
-            plot_task("coa")
-        if 'present' in label_to_display:
-            plot_task("pres")
-        if 'dominant' in label_to_display:
-            plot_task("dom")
-    else:
-        # In single-task mode, we plot the targeted task and those with coarser granularity when applicable
-        label_to_display = label_type if 'coarse' not in label_type else 'coarse'
-        # label_granularity = ['all', 'coarse', 'present', 'dominant']
-        # granularity_index = label_granularity.index(label_task)
-        # label_to_display = label_granularity[granularity_index:]
-        if 'all' in label_to_display:
-            plot_task("all")
-        if 'all' in label_to_display or 'coarse' in label_to_display:
-            plot_task("coa")
-        if 'dominant' not in label_to_display:
-            plot_task("pres")
-        if 'present' not in label_to_display:
-            plot_task("dom")
+    # if type(label_type) == dict:
+    #     # In multitask mode, we only plot the two tasks specified by the user
+    #     label_to_display = [val if 'coarse' not in val else 'coarse' for val in list(label_type.values())]
+    #     if 'all' in label_to_display:
+    #         plot_task("all")
+    #     if 'coarse' in label_to_display:
+    #         plot_task("coa")
+    #     if 'present' in label_to_display:
+    #         plot_task("pres")
+    #     if 'dominant' in label_to_display:
+    #         plot_task("dom")
+    # else:
+
+    # Plot the targeted task and those with coarser granularity when applicable
+    label_to_display = label_type if 'coarse' not in label_type else 'coarse'
+    if 'all' in label_to_display:
+        plot_task("all")
+    if 'all' in label_to_display or 'coarse' in label_to_display:
+        plot_task("coa")
+    if 'dominant' not in label_to_display:
+        plot_task("pres")
+    if 'present' not in label_to_display:
+        plot_task("dom")
 
 
 def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
@@ -539,7 +537,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         if fold_id is not None:
             print("\n\n=============================== Fold {} ===============================".format(fold_id))
         if task_mt is not None:
-            print("\n>>>>>>>>> Metrics for {}: {}".format(task_mt, label_type[task_mt]))
+            print("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            print(">>>>>> Metrics for {}: {}".format(task_mt, label_type[task_mt]))
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
 
         print("\n------- Presence score estimation (regression) --------")
 
@@ -552,11 +552,11 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
             return get_regression_metrics(tl_for_reg, pred_r, round_decimals)
 
         if type(label_type) == dict:
-            metrics_reg = []
-            for task_i in ['coarse_task', 'fine_task']:
-                print("\n>>> Task: {}".format(label_type[task_i]))
-                metrics_reg += get_regression_met(label_type[task_i], pred_raw_i[task_i])
-            metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
+            # metrics_reg = []
+            # for task_i in ['coarse_task', 'fine_task']:
+            print("\n>>> Task: {}".format(label_type[task_mt]))
+            metrics_regression = get_regression_met(label_type[task_mt], pred_raw_i)
+            # metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
         else:
             print("\n")
             metrics_regression = get_regression_met(label_type, pred_raw_i)
@@ -720,7 +720,7 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
 
         if plot_confusion_matrix:
             plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id_str, model_folder,
-                                             label_type, all_scores, display_fig, thres_score_pres)
+                                             label_i, all_scores, display_fig, thres_score_pres)
 
     if type(label_type) == dict:
         for task_i in ['coarse_task', 'fine_task']:
