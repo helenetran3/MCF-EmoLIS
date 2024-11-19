@@ -431,48 +431,20 @@ def data_normalization(train_list, valid_list, test_list, param_task, with_cross
 
     def normalization_one_split(split_list, split_type):
 
-        def normalization_modality(mod_list, mean_col, std_col, mod_type):
+        def normalization_modality(mod_list, mean_col, std_col):
 
-            # num_all_nan, num_some_nan = 0, 0
-            num_some_nan_after_norm, num_some_nan_after_imput = 0, 0
             new_mod_list = []
-
             # a sentinel epsilon for safe division, without it we will replace illegal values with a constant
             EPS = 0
 
             for i, mod_array in enumerate(mod_list):
-                # # Calculate percentage of nan/inf values in data_seg
-                # perc_nan = np.sum(~np.isfinite(mod_array)) / (mod_array.shape[0] * mod_array.shape[1])
-                # if perc_nan == 1:
-                #     num_all_nan += 1
-                # elif perc_nan > 0:
-                #     num_some_nan += 1
-
                 # z-normalization along the feature column
                 with np.errstate(invalid="ignore"):  # ignore errors which creates nan/infs, will be dealt right after
                     mod_array = (mod_array - mean_col) / (EPS + std_col)
 
-                # # After normalization, compute number of NaN/inf
-                # perc_nan = np.sum(~np.isfinite(mod_array)) / (mod_array.shape[0] * mod_array.shape[1])
-                # if perc_nan > 0:
-                #     num_some_nan_after_norm += 1
-
                 # After normalization, non-finite value processing for image and audio
                 new_mod_array = process_not_finite_values(mod_array, replace_nan)
                 new_mod_list += [new_mod_array]
-
-                # # After imputation, compute number of NaN/inf
-                # perc_nan = np.sum(~np.isfinite(new_mod_array)) / (new_mod_array.shape[0] * new_mod_array.shape[1])
-                # if perc_nan > 0:
-                #     num_some_nan_after_imput += 1
-
-            # print("[Before normalization, {}]".format(mod_type))
-            # print("Number of data with all NaN or inf: {}".format(num_all_nan))
-            # print("Number of data with some NaN or inf: {}".format(num_some_nan))
-            # print("\n[After normalization, {}]".format(mod_type))
-            # print("Number of data with some NaN or inf: {}".format(num_some_nan_after_norm))
-            # print("[After normalization and imputation, {}]".format(mod_type))
-            # print("Number of data with some NaN or inf: {}\n".format(num_some_nan_after_imput))
 
             return new_mod_list
 
@@ -496,8 +468,8 @@ def data_normalization(train_list, valid_list, test_list, param_task, with_cross
                     img_list = [X_img_seg for _, X_img_seg, _ in split_list[0]]
                     aud_list = [X_aud_seg for _, _, X_aud_seg in split_list[0]]
 
-                img_norm = normalization_modality(img_list, i_mean_col, i_std_col, mod_type="image")
-                aud_norm = normalization_modality(aud_list, a_mean_col, a_std_col, mod_type="audio")
+                img_norm = normalization_modality(img_list, i_mean_col, i_std_col)
+                aud_norm = normalization_modality(aud_list, a_mean_col, a_std_col)
                 if split_type != 'test':
                     new_x_split_list += [[[split_list[fold_id][0][sample_id][0], X_img_i, X_aud_i]
                                          for sample_id, (X_img_i, X_aud_i) in enumerate(zip(img_norm, aud_norm))]]
@@ -518,8 +490,8 @@ def data_normalization(train_list, valid_list, test_list, param_task, with_cross
             # print("----------------------------------------------------")
             # print("Normalization split {}".format(split_type))
             # print("----------------------------------------------------")
-            img_norm = normalization_modality(img_list, img_mean_col_train, img_std_col_train, mod_type="image")
-            aud_norm = normalization_modality(aud_list, aud_mean_col_train, aud_std_col_train, mod_type="audio")
+            img_norm = normalization_modality(img_list, img_mean_col_train, img_std_col_train)
+            aud_norm = normalization_modality(aud_list, aud_mean_col_train, aud_std_col_train)
             new_x_split_list = [[split_list[0][sample_id][0], X_img_i, X_aud_i] for sample_id, (X_img_i, X_aud_i) in
                                 enumerate(zip(img_norm, aud_norm))]
             return [new_x_split_list, split_list[1], split_list[2]]
