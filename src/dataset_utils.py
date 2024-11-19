@@ -377,7 +377,12 @@ def split_for_cross_validation(train_list, valid_list, param_training):
     def create_split_for_one_fold(index):
         l_res = []
         x_new_fold = [X_for_training[i] for i in index]
-        y_new_fold = [y_for_training[i] for i in index]
+        if type(y_for_training) == dict:
+            y_new_fold = {}
+            for task_i in ['coarse_task', 'fine_task']:
+                y_new_fold[task_i] = [y_for_training[task_i][i] for i in index]
+        else:
+            y_new_fold = [y_for_training[i] for i in index]
         seg_new_fold = [seg_for_training[i] for i in index]
         l_res += [x_new_fold, y_new_fold, seg_new_fold]
         return l_res
@@ -385,14 +390,19 @@ def split_for_cross_validation(train_list, valid_list, param_training):
     num_folds = param_training['cross_val_folds']
     random_state = param_training['random_state']
 
+    # Merge training and validation data
     X_for_training = train_list[0] + valid_list[0]
-    y_for_training = train_list[1] + valid_list[1]
+    if type(train_list[1]) == dict:
+        y_for_training = {}
+        for task_i in ['coarse_task', 'fine_task']:
+            y_for_training[task_i] = train_list[1][task_i] + valid_list[1][task_i]
+    else:
+        y_for_training = train_list[1] + valid_list[1]
     seg_for_training = train_list[2] + valid_list[2]
 
+    # Perform split
     train_res, valid_res = [], []
-
     kf = KFold(n_splits=num_folds, shuffle=True, random_state=random_state)
-
     for train_index, valid_index in kf.split(X_for_training):
         train_res += [create_split_for_one_fold(train_index)]
         valid_res += [create_split_for_one_fold(valid_index)]
