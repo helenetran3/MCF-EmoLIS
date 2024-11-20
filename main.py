@@ -45,7 +45,9 @@ def main():
 
     # Cross-validation
     if with_cross_validation:
-        train_list_task, valid_list_task = split_for_cross_validation(train_list_task, valid_list_task, param_training)
+        train_list_task, valid_list_task, test_list_task = split_for_cross_validation(train_list_task, valid_list_task,
+                                                                                      test_list_task, param_training,
+                                                                                      param_task)
 
     # Data normalization
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,
