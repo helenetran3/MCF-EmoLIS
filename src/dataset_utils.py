@@ -426,8 +426,10 @@ def split_for_cross_validation(train_list, valid_list, test_list, param_training
     cv_filename = "cv_" + str(num_folds) + "_true_" + label_type_str + "_" + data_ext_name
     cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
-    if pickle_file_exists(cv_filename, "processed_folds", "cmu_mosei"):
-        train_res, valid_res, test_res = load_from_pickle(cv_filename, 'processed_folds', "cmu_mosei")
+    if pickle_file_exists("train_" + cv_filename, "processed_folds", "cmu_mosei"):
+        train_res = load_from_pickle("train_" + cv_filename, 'processed_folds', "cmu_mosei")
+        valid_res = load_from_pickle("valid_" + cv_filename, 'processed_folds', "cmu_mosei")
+        test_res = load_from_pickle("test_" + cv_filename, 'processed_folds', "cmu_mosei")
 
     else:
         random_state = param_training['random_state']
@@ -446,6 +448,7 @@ def split_for_cross_validation(train_list, valid_list, test_list, param_training
         y_strat_dataset = [int("".join(str(y_char) for y_char in y), 2) for y in y_strat_dataset]
         y_strat_dataset = deal_with_single_class_strat(y_strat_dataset)
         train_res, valid_res, test_res = [], [], []
+        training_index_l, train_index_l, valid_index_l, test_index_l = [], [], [], []
 
         skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
         for training_index, test_index in skf.split(X_dataset, y_strat_dataset):
@@ -459,6 +462,15 @@ def split_for_cross_validation(train_list, valid_list, test_list, param_training
             valid_res += [create_split_for_one_fold(valid_index)]
             # Test split
             test_res += [create_split_for_one_fold(test_index)]
+            training_index_l += [training_index]
+            train_index_l += [train_index]
+            valid_index_l += [valid_index]
+            test_index_l += [test_index]
+        save_with_pickle(train_res, "train_" + cv_filename, pickle_folder="raw_folds", root_folder="cmu_mosei")
+        save_with_pickle(valid_res, "valid_" + cv_filename, pickle_folder="raw_folds", root_folder="cmu_mosei")
+        save_with_pickle(test_res, "test_" + cv_filename, pickle_folder="raw_folds", root_folder="cmu_mosei")
+        save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], "ind_" + cv_filename,
+                         pickle_folder="raw_folds", root_folder="cmu_mosei")
 
     return train_res, valid_res, test_res
 
