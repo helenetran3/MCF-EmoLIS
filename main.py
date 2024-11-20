@@ -17,15 +17,14 @@ def main():
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     pickle_name_fold = param_log['pickle_name_fold']
-    replace_nan = param_task['replace_nan']
-    thres_nan = param_task['thres_nan']
-    nan_str = replace_nan + "_tnan_" + str(thres_nan)
+    nan_str = param_task['replace_nan'] + "_tnan_" + str(param_task['thres_nan'])
     length_seq = param_task['set_length']
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
+    data_ext_name = nan_str + length_str
     if pickle_file_exists(pickle_name_fold + "_train_" + nan_str + length_str, "raw_folds", "cmu_mosei"):
-        train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + nan_str + length_str, "raw_folds", "cmu_mosei")
-        valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + nan_str + length_str, "raw_folds", "cmu_mosei")
-        test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + nan_str + length_str,  "raw_folds", "cmu_mosei")
+        train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + data_ext_name, "raw_folds", "cmu_mosei")
+        valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + data_ext_name, "raw_folds", "cmu_mosei")
+        test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + data_ext_name,  "raw_folds", "cmu_mosei")
     else:
         # Load CMU-MOSEI dataset
         dataset = get_dataset_from_sdk(param_log, param_task)
@@ -45,9 +44,9 @@ def main():
 
     # Cross-validation
     if with_cross_validation:
-        train_list_task, valid_list_task, test_list_task = split_for_cross_validation(train_list_task, valid_list_task,
-                                                                                      test_list_task, param_training,
-                                                                                      param_task)
+        train_list_task, valid_list_task, test_list_task = \
+            split_for_cross_validation(train_list_task, valid_list_task, test_list_task, param_training, param_task,
+                                       data_ext_name)
 
     # Data normalization
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,

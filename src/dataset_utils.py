@@ -374,7 +374,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     return train_res, valid_res, test_res
 
 
-def split_for_cross_validation(train_list, valid_list, test_list, param_training, param_task):
+def split_for_cross_validation(train_list, valid_list, test_list, param_training, param_task, data_ext_name):
 
     def create_split_for_one_fold(index):
         l_res = []
@@ -420,37 +420,45 @@ def split_for_cross_validation(train_list, valid_list, test_list, param_training
         return y_strat
 
     num_folds = param_training['cross_val_folds']
-    random_state = param_training['random_state']
     label_type = param_task['label_type']
+    label_type_str = label_type[:4] if label_type == 'present' else label_type[:3]
+    predict_neutral_class = param_task['predict_neutral_class']
+    cv_filename = "cv_" + str(num_folds) + "_true_" + label_type_str + "_" + data_ext_name
+    cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
-    X_dataset = train_list[0] + valid_list[0] + test_list[0]
-    y_dataset = train_list[1] + valid_list[1] + test_list[1]
-    seg_dataset = train_list[2] + valid_list[2] + test_list[2]
+    if pickle_file_exists(cv_filename, "processed_folds", "cmu_mosei"):
+        train_res, valid_res, test_res = load_from_pickle(cv_filename, 'processed_folds', "cmu_mosei")
 
-    # Use one-hot encoding labels (e.g. [0, 1, 0, 1, 1, 1] for stratification)
-    if label_type in ['present', 'dominant']:
-        y_strat_dataset = [list(y.flatten()) for y in y_dataset]
     else:
-        thres_score_pres = param_task['thres_score_pres']
-        y_strat_dataset = [list((y.flatten() > thres_score_pres).astype(int)) for y in y_dataset]
+        random_state = param_training['random_state']
+        X_dataset = train_list[0] + valid_list[0] + test_list[0]
+        y_dataset = train_list[1] + valid_list[1] + test_list[1]
+        seg_dataset = train_list[2] + valid_list[2] + test_list[2]
 
-    # From one-hot labels (equivalent as number in base 2), generate class numbers in base 10
-    y_strat_dataset = [int("".join(str(y_char) for y_char in y), 2) for y in y_strat_dataset]
-    y_strat_dataset = deal_with_single_class_strat(y_strat_dataset)
-    train_res, valid_res, test_res = [], [], []
+        # Use one-hot encoding labels (e.g. [0, 1, 0, 1, 1, 1] for stratification)
+        if label_type in ['present', 'dominant']:
+            y_strat_dataset = [list(y.flatten()) for y in y_dataset]
+        else:
+            thres_score_pres = param_task['thres_score_pres']
+            y_strat_dataset = [list((y.flatten() > thres_score_pres).astype(int)) for y in y_dataset]
 
-    skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
-    for training_index, test_index in skf.split(X_dataset, y_strat_dataset):
-        # Train and valid split, take 10% of training set for validation
-        X_training = [X_dataset[i] for i in training_index]
-        y_training_strat = [y_strat_dataset[i] for i in training_index]
-        y_training_strat = deal_with_single_class_strat(y_training_strat)
-        sss = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=random_state)
-        train_index, valid_index = next(sss.split(X_training, y_training_strat))
-        train_res += [create_split_for_one_fold(train_index)]
-        valid_res += [create_split_for_one_fold(valid_index)]
-        # Test split
-        test_res += [create_split_for_one_fold(test_index)]
+        # From one-hot labels (equivalent as number in base 2), generate class numbers in base 10
+        y_strat_dataset = [int("".join(str(y_char) for y_char in y), 2) for y in y_strat_dataset]
+        y_strat_dataset = deal_with_single_class_strat(y_strat_dataset)
+        train_res, valid_res, test_res = [], [], []
+
+        skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
+        for training_index, test_index in skf.split(X_dataset, y_strat_dataset):
+            # Train and valid split, take 10% of training set for validation
+            X_training = [X_dataset[i] for i in training_index]
+            y_training_strat = [y_strat_dataset[i] for i in training_index]
+            y_training_strat = deal_with_single_class_strat(y_training_strat)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=random_state)
+            train_index, valid_index = next(sss.split(X_training, y_training_strat))
+            train_res += [create_split_for_one_fold(train_index)]
+            valid_res += [create_split_for_one_fold(valid_index)]
+            # Test split
+            test_res += [create_split_for_one_fold(test_index)]
 
     return train_res, valid_res, test_res
 
