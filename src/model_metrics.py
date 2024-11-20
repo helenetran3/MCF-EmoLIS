@@ -579,14 +579,14 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     return met_reg, met_fin, met_coa, met_pres, met_dom
 
 
-def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_output,
+def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_output,
                                    pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                    neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
                                    loss_function, val_metrics_str, all_scores):
     """
     Compute and save model metrics, based on loss function value and prediction scores.
 
-    :param test_list_orig: [x_test, y_test, seg_test] from original dataset
+    :param test_list_task: [x_test, y_test, seg_test] from original dataset
     :param with_cross_val: boolean (cross_validation or not)
     :param model_eval_output: List of [loss function, validation metric] obtained by the model
     :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
@@ -624,13 +624,13 @@ def compute_and_save_model_metrics(test_list_orig, with_cross_val, model_eval_ou
     model_folder = os.path.join('results', model_name)
 
     # Extract x, y and seg_ids for test set
-    y_test = test_list_orig[1]  # each element of shape (1, 6 or 7)
+    y_test = test_list_task[1]  # each element of shape (1, 6 or 7)
     num_classes = y_test[0].shape[1] if not ('oh' in label_type) else y_test[0].shape[0]
 
     # True labels
     true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
         compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, param_task,
-                            num_classes, label_type, return_all_tasks=True)
+                            num_classes, label_type, for_test=True)
 
     if not predict_neutral_class:
         true_scores_all = remove_neutral_test(true_scores_all)

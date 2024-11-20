@@ -98,7 +98,7 @@ def main():
                                      loss_function, val_metrics, with_cross_validation)
 
         # Compute and save metrics
-        compute_and_save_model_metrics(test_list_orig, with_cross_validation, model_eval_output,
+        compute_and_save_model_metrics(test_list_task, with_cross_validation, model_eval_output,
                                        pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
                                        neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
                                        loss_function, val_metrics, all_scores)

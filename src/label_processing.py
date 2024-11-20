@@ -193,7 +193,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, thres_score_p
 
 
 def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, thres_score_pres, param_task, num_classes,
-                        label_type, return_all_tasks=False):
+                        label_type, for_test=False):
     """
     Compute the true labels from a list of 2D arrays of shape (1, num_classes) (y_list)
     The results are all 3D arrays, true_classes_pres is a list of arrays of this type)
@@ -203,7 +203,8 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     Shape: (number of y elements, num_classes)
     true_classes_dom: Emotions truly dominant (highest presence score). Shape: (number of y elements, num_classes)
 
-    :param y_list: List of arrays of shape (1, num_classes)
+    :param y_list: List of arrays of shape (1, num_classes): contains original scores (for_test False) or the labels
+                     computed from the targeted task (for_test True)
     :param root_name: Name to append to pickle file (ex: 'train', 'valid', 'test')
     :param all_scores: list of available presence scores
     :param predict_neutral_class: Whether we predict the neutral class
@@ -214,88 +215,73 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
                          scores provided by the dataset), coarse (presence score for each emotion among [0, 1, 2, 3]),
                          coarse_prob (presence score for each emotion among [0, 1/3, 2/3, 1]),
                          present (multi-label classification), dominant (multi-label classification)
-    :param return_all_tasks: Whether we return the true vectors of the four tasks (True) or return the vector
-                               corresponding to the label type (False)
+    :param for_test: Whether we return the true vectors of all applicable tasks based on label type (True) or return
+                       only the vector corresponding to the label type (False)
     :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on return_all_tasks
     """
 
-    true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
+    # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
+    true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = None, None, None, None
+    # Used to compute derived and applicable tasks
+    compute_coa, compute_pres, compute_dom = False, False, False
+    y_array = np.reshape(np.array(y_list), (-1, 6))
 
-    # Filenames
-    thres_nan = param_task['thres_nan']
-    length_seq = param_task['set_length']
-    length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
-    ext_name = "_tnan_" + str(thres_nan) + length_str
-    ext_name += "_pred-neu" if predict_neutral_class else "_rm-neu"
-    ext_name_coa_train = '_prob' if ('prob' in label_type) else '_oh' if ('oh' in label_type) else ''
-    filename_all = root_name + "_true_scores_all" + ext_name
-    filename_coa_train = root_name + "_true_scores_coa" + ext_name_coa_train + '_train' + ext_name
-    filename_coa_met = root_name + "_true_scores_coa" + '_met' + ext_name
-    filename_pres = [root_name + "_true_classes_pres_t_" + str(thres) + ext_name for thres in thres_score_pres]
-    filename_dom = root_name + "_true_classes_dom" + ext_name
-
-    # Create array of original scores: 2D array from list of 2D true presence score arrays of shape (1, 6)
-    if not pickle_file_exists(filename_all, 'processed_folds', 'cmu_mosei'):
-        true_scores_all = np.reshape(np.array(y_list), (-1, 6))
-        save_with_pickle(true_scores_all, filename_all, 'processed_folds', 'cmu_mosei')
+    # In the case of test (for metric calculation), assign the 2D y_array to its corresponding targeted task
+    if for_test:
+        if label_type == 'all':
+            true_scores_all = y_array
+            compute_coa, compute_pres, compute_dom = True, True, True
+        elif 'coarse' in label_type:
+            true_scores_coa = y_array
+            compute_pres, compute_dom = True, True
+        elif label_type == 'present':
+            true_classes_pres = [y_array]
+        else:  # dominant
+            true_classes_dom = y_array
+    # Else, assign the 2D y_array to true_scores_all (used at the beginning to infer the targeted task)
     else:
-        true_scores_all = load_from_pickle(filename_all, 'processed_folds', 'cmu_mosei')
+        true_scores_all = y_array
 
     # Compute true presence scores: arrays of shape (4654, 6)
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     # Coarse-grained values: [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
-    #### For training
-    if not return_all_tasks and 'coarse' in label_type:
-        if not pickle_file_exists(filename_coa_train, 'processed_folds', 'cmu_mosei'):
-            true_scores_coa = get_coa_presence_score_for_training(true_scores_all, num_classes,
-                                                                  prob=('prob' in label_type),
-                                                                  one_hot=('oh' in label_type))
-            save_with_pickle(true_scores_coa, filename_coa_train, 'processed_folds', 'cmu_mosei')
-        else:
-            true_scores_coa = load_from_pickle(filename_coa_train, 'processed_folds', 'cmu_mosei')
-    #### For metric calculation
-    if return_all_tasks:
-        if not pickle_file_exists(filename_coa_met, 'processed_folds', 'cmu_mosei'):
-            true_scores_coa = get_presence_score_for_metrics(true_scores_all, all_scores, num_classes, coarse=True)
-            save_with_pickle(true_scores_coa, filename_coa_met, 'processed_folds', 'cmu_mosei')
-        else:
-            true_scores_coa = load_from_pickle(filename_coa_met, 'processed_folds', 'cmu_mosei')
+    if 'coarse' in label_type and not for_test:
+        # For training
+        true_scores_coa = get_coa_presence_score_for_training(y_array, num_classes,
+                                                              prob=('prob' in label_type),
+                                                              one_hot=('oh' in label_type))
+    if compute_coa and for_test:
+        # For metric calculation
+        true_scores_coa = get_presence_score_for_metrics(y_array, all_scores, num_classes, coarse=True)
 
     # Compute true present classes: binary arrays of shape (num_test, 6 or 7)
-    if return_all_tasks or label_type == 'present':
+    if (label_type == 'present' and not for_test) or (compute_pres and for_test):
         true_classes_pres = []
         for id, thres in enumerate(thres_score_pres):
-            if not pickle_file_exists(filename_pres[id], 'processed_folds', 'cmu_mosei'):
-                true_classes_pres_i = get_class_from_presence_score(true_scores_all, predict_neutral_class, [thres],
-                                                                    None, num_classes, is_dominant=False,
-                                                                    is_true_labels=True, label_type=label_type)
-                true_classes_pres += true_classes_pres_i
-                save_with_pickle(true_classes_pres_i, filename_pres[id], 'processed_folds', 'cmu_mosei')
-            else:
-                true_classes_pres += load_from_pickle(filename_pres[id], 'processed_folds', 'cmu_mosei')
+            true_classes_pres_i = get_class_from_presence_score(y_array, predict_neutral_class, [thres],
+                                                                None, num_classes, is_dominant=False,
+                                                                is_true_labels=True, label_type=label_type)
+            true_classes_pres += true_classes_pres_i
 
     # Compute true dominant classes: binary arrays of shape (num_test, 6 or 7)
-    if return_all_tasks or label_type == 'dominant':
-        if not pickle_file_exists(filename_dom, 'processed_folds', 'cmu_mosei'):
-            true_classes_dom = get_class_from_presence_score(true_scores_all, predict_neutral_class, None, None,
-                                                             num_classes, is_dominant=True, is_true_labels=True,
-                                                             label_type=label_type)
-            save_with_pickle(true_classes_dom, filename_dom, 'processed_folds', 'cmu_mosei')
-        else:
-            true_classes_dom = load_from_pickle(filename_dom, 'processed_folds', 'cmu_mosei')
+    if (label_type == 'dominant' and not for_test) or (compute_dom and for_test):
+        true_classes_dom = get_class_from_presence_score(y_array, predict_neutral_class, None, None,
+                                                         num_classes, is_dominant=True, is_true_labels=True,
+                                                         label_type=label_type)
 
-    if return_all_tasks:
+    if for_test:
         return true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom
-    elif label_type == 'all':
-        return true_scores_all
-    elif 'coarse' in label_type:
-        return true_scores_coa
-    elif label_type == 'present':
-        return true_classes_pres
-    elif label_type == 'dominant':
-        return true_classes_dom
     else:
-        return ValueError("Value label_type invalid.")
+        if label_type == 'all':
+            return true_scores_all
+        elif 'coarse' in label_type:
+            return true_scores_coa
+        elif label_type == 'present':
+            return true_classes_pres
+        elif label_type == 'dominant':
+            return true_classes_dom
+        else:
+            return ValueError("Value label_type invalid.")
 
 
 def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score_pres, thres_multilabel,
