@@ -422,7 +422,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
         task_name = "pres_t_{}".format(thres) if thres is not None else task_name_cv
 
         for fold_id in range(num_folds):
-            tc = true_classes[thres_id] if thres_id is not None else true_classes
+            tc = true_classes[fold_id][thres_id] if thres_id is not None else true_classes[fold_id]
             pc = pred_classes[fold_id][thres_id] if thres_id is not None else pred_classes[fold_id]
             if task_name_cv == 'coa' or task_name_cv == 'all':
                 conf_matrix = []
@@ -514,10 +514,10 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     # Some metrics do not make sense for the targeted task (label_type): we do not print them
     label_type_for_reg = 'coarse' if 'coarse' in label_type else label_type
 
-    def compute_metrics_one_model(pred_raw_i, pred_all_i, pred_scores_coa_i, pred_classes_pres_i, pred_classes_dom_i,
+    def compute_metrics_one_model(true_all_i, true_coa_i, true_pres_i, true_dom_i,
+                                  pred_raw_i, pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i,
                                   fold_id=None):
-        true_label_for_reg = {'all': true_scores_all, 'coarse': true_scores_coa,
-                              'present': true_classes_pres, 'dominant': true_classes_dom}
+        true_label_for_reg = {'all': true_all_i, 'coarse': true_coa_i, 'present': true_pres_i, 'dominant': true_dom_i}
         metrics_regression, metrics_score_fine, metrics_score_coa, metrics_presence, metrics_dominant = \
             None, None, None, None, None
 
@@ -532,37 +532,36 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
         if pred_all_i is not None:
             print(f"\n------- Presence score classification: fine-grained (all available scores) -------\n")
-            metrics_score_fine = get_classification_metrics_score(true_scores_all, pred_all_i, num_classes,
+            metrics_score_fine = get_classification_metrics_score(true_all_i, pred_all_i, num_classes,
                                                                   all_scores, round_decimals, coarse=False)
 
         # Classification metrics of presence scores
-        if pred_scores_coa_i is not None:
+        if pred_coa_i is not None:
             print("\n------- Presence score classification: coarse-grained [0,1,2,3] -------\n")
-            metrics_score_coa = get_classification_metrics_score(true_scores_coa, pred_scores_coa_i, num_classes,
+            metrics_score_coa = get_classification_metrics_score(true_coa_i, pred_coa_i, num_classes,
                                                                  all_scores, round_decimals, coarse=True)
 
         # Classification metrics of emotion present
-        if pred_classes_pres_i is not None:
+        if pred_pres_i is not None:
             print("\n------- Detecting the presence of emotions ------------")
-            metrics_presence = [get_classification_metrics(true_classes_pres[j], pred_classes_pres_i[j], num_classes,
-                                                           round_decimals, model_id, model_folder, with_cross_val,
-                                                           fold_id, thres)
+            metrics_presence = [get_classification_metrics(true_pres_i[j], pred_pres_i[j], num_classes, round_decimals,
+                                                           model_id, model_folder, with_cross_val, fold_id, thres)
                                 for j, thres in enumerate(thres_score_pres)]
 
         # Classification metrics of dominant emotions
-        if pred_classes_dom_i is not None:
+        if pred_dom_i is not None:
             print("\n------- Predicting dominant emotions ------------------\n")
-            metrics_dominant = get_classification_metrics(true_classes_dom, pred_classes_dom_i, num_classes,
-                                                          round_decimals, model_id, model_folder, with_cross_val,
-                                                          fold_id)
+            metrics_dominant = get_classification_metrics(true_dom_i, pred_dom_i, num_classes, round_decimals,
+                                                          model_id, model_folder, with_cross_val, fold_id)
 
         return metrics_regression, metrics_score_fine, metrics_score_coa, metrics_presence, metrics_dominant
 
     if with_cross_val:
         met_reg, met_fin, met_coa, met_pres, met_dom = [], [], [], [], []
-        for fold_id, (pr_i, pf_i, pc_i, pp_i, pd_i) in enumerate(zip(pred_raw, pred_scores_all, pred_scores_coa,
-                                                                     pred_classes_pres, pred_classes_dom)):
-            mr, mf, mc, mp, md = compute_metrics_one_model(pr_i, pf_i, pc_i, pp_i, pd_i, fold_id)
+        for fold_id, (tf_i, tc_i, tp_i, td_i, pr_i, pf_i, pc_i, pp_i, pd_i) in \
+                enumerate(zip(true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
+                              pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom)):
+            mr, mf, mc, mp, md = compute_metrics_one_model(tf_i, tc_i, tp_i, td_i, pr_i, pf_i, pc_i, pp_i, pd_i, fold_id)
             met_reg += [mr]
             met_fin += [mf]
             met_coa += [mc]
@@ -573,7 +572,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         print_mean_std_cross_validation(met_reg, met_fin, met_coa, met_pres, met_dom, num_classes, round_decimals)
 
     else:
-        met_reg, met_fin, met_coa, met_pres, met_dom = compute_metrics_one_model(pred_raw, pred_scores_all,
+        met_reg, met_fin, met_coa, met_pres, met_dom = compute_metrics_one_model(true_scores_all, true_scores_coa,
+                                                                                 true_classes_pres, true_classes_dom,
+                                                                                 pred_raw, pred_scores_all,
                                                                                  pred_scores_coa, pred_classes_pres,
                                                                                  pred_classes_dom)
     return met_reg, met_fin, met_coa, met_pres, met_dom
@@ -623,20 +624,29 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
 
     model_folder = os.path.join('results', model_name)
 
-    # Extract x, y and seg_ids for test set
-    y_test = test_list_task[1]  # each element of shape (1, 6 or 7)
-    num_classes = y_test[0].shape[1] if not ('oh' in label_type) else y_test[0].shape[0]
+    # Compute true labels for calculation metrics on test set
+    def compute_true_label_for_metrics(y_test):
+        true_all, true_coa, true_pres, true_dom = compute_true_labels(y_test, "test", all_scores, predict_neutral_class,
+                                                                      thres_score_pres, param_task, num_classes,
+                                                                      label_type, for_test=True)
 
-    # True labels
-    true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
-        compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, param_task,
-                            num_classes, label_type, for_test=True)
+        return true_all, true_coa, true_pres, true_dom
 
-    if not predict_neutral_class:
-        true_scores_all = remove_neutral_test(true_scores_all)
-        true_scores_coa = remove_neutral_test(true_scores_coa)
-        true_classes_pres = [remove_neutral_test(tcp) for tcp in true_classes_pres]
-        true_classes_dom = remove_neutral_test(true_classes_dom)
+    if with_cross_val:
+        y_test_cv_fold_0 = test_list_task[0][1]
+        num_classes = y_test_cv_fold_0[0].shape[1] if not ('oh' in label_type) else y_test_cv_fold_0[0].shape[0]
+        true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = [], [], [], []
+        for fold_i in range(num_folds):
+            ts_all, ts_coa, tc_pres, tc_dom = compute_true_label_for_metrics(test_list_task[fold_i][1])
+            true_scores_all += [ts_all]
+            true_scores_coa += [ts_coa]
+            true_classes_pres += [tc_pres]
+            true_classes_dom += [tc_dom]
+    else:
+        y_test_hold_out = test_list_task[1]
+        num_classes = y_test_hold_out[0].shape[1] if not ('oh' in label_type) else y_test_hold_out[0].shape[0]
+        true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
+            compute_true_label_for_metrics(test_list_task[1])
 
     # Confusion matrices
     if label_type == 'all':

@@ -411,7 +411,7 @@ def split_for_cross_validation(train_list, valid_list, test_list, param_training
                         for i in indexes_to_change:
                             cl_i_bin_new = cl_i_bin_new[:i] + str(abs(1 - int(cl_i_bin_new[i]))) + cl_i_bin_new[i + 1:]
                         cl_i_new = int(cl_i_bin_new, 2)
-                        if y_strat.count(cl_i_new) > 0:
+                        if y_strat.count(cl_i_new) > 1:
                             index_old_cl_i = y_strat.index(cl_i)
                             y_strat[index_old_cl_i] = cl_i_new
                             treated = True
