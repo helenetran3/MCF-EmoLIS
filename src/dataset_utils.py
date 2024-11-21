@@ -430,7 +430,7 @@ def split_for_cross_validation(train_list, valid_list, test_list, param_training
         train_res = load_from_pickle("train_" + cv_filename, 'processed_folds', "cmu_mosei")
         valid_res = load_from_pickle("valid_" + cv_filename, 'processed_folds', "cmu_mosei")
         test_res = load_from_pickle("test_" + cv_filename, 'processed_folds', "cmu_mosei")
-
+        print("Folds for cross-validation with filename '{}' loaded from folder 'processed_folds'.".format(cv_filename))
     else:
         random_state = param_training['random_state']
         X_dataset = train_list[0] + valid_list[0] + test_list[0]
@@ -466,11 +466,11 @@ def split_for_cross_validation(train_list, valid_list, test_list, param_training
             train_index_l += [train_index]
             valid_index_l += [valid_index]
             test_index_l += [test_index]
-        save_with_pickle(train_res, "train_" + cv_filename, pickle_folder="raw_folds", root_folder="cmu_mosei")
-        save_with_pickle(valid_res, "valid_" + cv_filename, pickle_folder="raw_folds", root_folder="cmu_mosei")
-        save_with_pickle(test_res, "test_" + cv_filename, pickle_folder="raw_folds", root_folder="cmu_mosei")
+        save_with_pickle(train_res, "train_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
+        save_with_pickle(valid_res, "valid_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
+        save_with_pickle(test_res, "test_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
         save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], "ind_" + cv_filename,
-                         pickle_folder="raw_folds", root_folder="cmu_mosei")
+                         pickle_folder="processed_folds", root_folder="cmu_mosei")
 
     return train_res, valid_res, test_res
 
