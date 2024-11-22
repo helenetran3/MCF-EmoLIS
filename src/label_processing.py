@@ -420,23 +420,25 @@ def update_labels(train_list, valid_list, test_list, no_split_list, param_task, 
         if no_split_l is not None:
             new_no_split_l, num_neutral_no_split = remove_neutral_class_split(no_split_l)
             num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test + num_neutral_no_split
-            num_neutral_no_split_str = ', no_split: {}.'.format(num_neutral_no_split)
+            num_neutral_no_split_str = ', no_split: {}).'.format(num_neutral_no_split)
         else:
             num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
-            num_neutral_no_split_str = '.'
+            num_neutral_no_split_str = ').'
 
         print(f'\nRemoved {num_neutral_samples} samples with no emotions (train: {num_neutral_train}, '
-              f'valid: {num_neutral_valid}, test: {num_neutral_test})' + num_neutral_no_split_str)
-        num_train, num_valid, num_test = len(new_train_l), len(new_valid_l), len(new_test_l)
-        num_no_split = len(new_no_split_l) if no_split_l is not None else 0
+              f'valid: {num_neutral_valid}, test: {num_neutral_test}' + num_neutral_no_split_str)
+        num_train, num_valid, num_test = len(new_train_l[0]), len(new_valid_l[0]), len(new_test_l[0])
+        num_no_split = len(new_no_split_l[0]) if no_split_l is not None else 0
         total_data = num_train + num_valid + num_test + num_no_split
         print("----------------------------------------------------")
         print("Total number samples after removing neutral class: {}".format(total_data))
         print("----------------------------------------------------")
-        if no_split_l is None:  # Hold-out
-            print("Number of training datapoints: {} ({:.2f}%)".format(num_train, 100 * (num_train / total_data)))
-            print("Number of validation datapoints: {} ({:.2f}%)".format(num_valid, 100 * (num_valid / total_data)))
-            print("Number of test datapoints: {} ({:.2f}%)".format(num_test, 100 * (num_test / total_data)))
+        print("Number of training datapoints: {} ({:.2f}%)".format(num_train, 100 * (num_train / total_data)))
+        print("Number of validation datapoints: {} ({:.2f}%)".format(num_valid, 100 * (num_valid / total_data)))
+        print("Number of test datapoints: {} ({:.2f}%)".format(num_test, 100 * (num_test / total_data)))
+        if no_split_l is not None:  # cross-validation
+            print("Number of datapoints that do not belong to any split: {} ({:.2f}%)\n"
+                  .format(num_no_split, 100 * (num_no_split / total_data)))
 
         return new_train_l, new_valid_l, new_test_l, new_no_split_l
 

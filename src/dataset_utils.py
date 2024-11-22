@@ -343,10 +343,12 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     print("----------------------------------------------------")
     print("Total number samples after checking step: {}".format(total_data_split))
     print("----------------------------------------------------")
-    if not with_cross_val:
-        print("Number of training datapoints: {} ({:.2f}%)".format(train_size, 100 * (train_size / total_data_split)))
-        print("Number of validation datapoints: {} ({:.2f}%)".format(valid_size, 100 * (valid_size / total_data_split)))
-        print("Number of test datapoints: {} ({:.2f}%)".format(test_size, 100 * (test_size / total_data_split)))
+    print("Number of training datapoints: {} ({:.2f}%)".format(train_size, 100 * (train_size / total_data_split)))
+    print("Number of validation datapoints: {} ({:.2f}%)".format(valid_size, 100 * (valid_size / total_data_split)))
+    print("Number of test datapoints: {} ({:.2f}%)".format(test_size, 100 * (test_size / total_data_split)))
+    if with_cross_val:
+        print("Number of datapoints that do not belong to any split: {} ({:.2f}%)"
+              .format(no_split_size, 100 * (no_split_size / total_data_split)))
 
     # Remove sentiment labels + truncate to 2 decimals to obtain a non-continuous value
     y_train_emo = [trunc(y[:, 1:], decimals=2) for y in y_train]
