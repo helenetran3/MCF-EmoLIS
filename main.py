@@ -25,28 +25,29 @@ def main():
         train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + data_ext_name, "raw_folds", "cmu_mosei")
         valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + data_ext_name, "raw_folds", "cmu_mosei")
         test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + data_ext_name,  "raw_folds", "cmu_mosei")
+        no_split_list_orig = load_from_pickle(pickle_name_fold + "_no_split_" + data_ext_name,  "raw_folds", "cmu_mosei")
     else:
         # Load CMU-MOSEI dataset
         dataset = get_dataset_from_sdk(param_log, param_task)
 
         # Get data for training, validation and test sets (split provided by the SDK)
         train_ids, valid_ids, test_ids = get_fold_ids(param_task)
-        train_list_orig, valid_list_orig, test_list_orig = process_and_split_dataset(dataset, train_ids, valid_ids,
-                                                                                     test_ids, param_task, param_log)
+        train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig = \
+            process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log,
+                                      with_cross_validation)
 
     all_scores = get_available_presence_scores_arr(train_list_orig, valid_list_orig, test_list_orig)
 
     # Update labels so that it matches with the targeted task given by label_type (all, coarse, coarse_prob, coarse_oh,
     # present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
-    train_list_task, valid_list_task, test_list_task, neutral_test_ind = update_labels(train_list_orig, valid_list_orig,
-                                                                                       test_list_orig,
-                                                                                       param_task, all_scores)
+    train_list_task, valid_list_task, test_list_task, no_split_list_task = \
+        update_labels(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, param_task, all_scores)
 
     # Cross-validation
     if with_cross_validation:
         train_list_task, valid_list_task, test_list_task = \
-            split_for_cross_validation(train_list_task, valid_list_task, test_list_task, param_training, param_task,
-                                       data_ext_name)
+            split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
+                                       param_training, param_task, data_ext_name)
 
     # Data normalization
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,
@@ -100,7 +101,7 @@ def main():
         # Compute and save metrics
         compute_and_save_model_metrics(test_list_task, with_cross_validation, model_eval_output,
                                        pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                       neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
+                                       param_task, param_training, param_log, model_name, model_id,
                                        loss_function, val_metrics, all_scores)
 
     # Loop over the list of models, loss functions and validation metrics

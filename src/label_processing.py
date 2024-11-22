@@ -369,7 +369,7 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score
     return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
 
 
-def update_labels(train_list, valid_list, test_list, param_task, all_scores):
+def update_labels(train_list, valid_list, test_list, no_split_list, param_task, all_scores):
     """
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
@@ -383,22 +383,24 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param test_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+    :param no_split_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param all_scores: list of available presence scores
     :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input, + neutral_test_ind
     """
 
-    def remove_neutral_class(train_l, valid_l, test_l):
+    def remove_neutral_class(train_l, valid_l, test_l, no_split_l):
         """
         Remove samples assigned to neutral class + return the list of their indexes for test split
 
         :param train_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
         :param valid_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
         :param test_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-        :return: new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
+        :param no_split_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :return: new_train_l, new_valid_l, new_test_l, new_no_split_l
         """
 
-        def remove_neutral_class_split(split_list, test=False):
+        def remove_neutral_class_split(split_list):
             y_arr = np.vstack(split_list[1])
             num_emo = np.sum(y_arr, axis=1)
             non_neutral_ind = (num_emo != 0)  # Boolean array of shape (split_size,)
@@ -408,19 +410,35 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
             X_list = [elt for (elt, ind) in zip(split_list[0], non_neutral_ind) if ind]
             y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
             seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
-            neutral_test_index = [i for i, ind in enumerate(non_neutral_ind) if not ind] if test else None
 
-            return [X_list, y_list, seg_list], num_neutral, neutral_test_index
+            return [X_list, y_list, seg_list], num_neutral
 
-        new_train_l, num_neutral_train, _ = remove_neutral_class_split(train_l)
-        new_valid_l, num_neutral_valid, _ = remove_neutral_class_split(valid_l)
-        new_test_l, num_neutral_test, neutral_test_ind_list = remove_neutral_class_split(test_l, test=True)
+        new_no_split_l = None
+        new_train_l, num_neutral_train = remove_neutral_class_split(train_l)
+        new_valid_l, num_neutral_valid = remove_neutral_class_split(valid_l)
+        new_test_l, num_neutral_test = remove_neutral_class_split(test_l)
+        if no_split_l is not None:
+            new_no_split_l, num_neutral_no_split = remove_neutral_class_split(no_split_l)
+            num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test + num_neutral_no_split
+            num_neutral_no_split_str = ', no_split: {}.'.format(num_neutral_no_split)
+        else:
+            num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
+            num_neutral_no_split_str = '.'
 
-        num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
-        print(f'Removed {num_neutral_samples} samples with no emotions '
-              f'(train: {num_neutral_train}, valid: {num_neutral_valid}, test: {num_neutral_test}).')
+        print(f'\nRemoved {num_neutral_samples} samples with no emotions (train: {num_neutral_train}, '
+              f'valid: {num_neutral_valid}, test: {num_neutral_test})' + num_neutral_no_split_str)
+        num_train, num_valid, num_test = len(new_train_l), len(new_valid_l), len(new_test_l)
+        num_no_split = len(new_no_split_l) if no_split_l is not None else 0
+        total_data = num_train + num_valid + num_test + num_no_split
+        print("----------------------------------------------------")
+        print("Total number samples after removing neutral class: {}".format(total_data))
+        print("----------------------------------------------------")
+        if no_split_l is None:  # Hold-out
+            print("Number of training datapoints: {} ({:.2f}%)".format(num_train, 100 * (num_train / total_data)))
+            print("Number of validation datapoints: {} ({:.2f}%)".format(num_valid, 100 * (num_valid / total_data)))
+            print("Number of test datapoints: {} ({:.2f}%)".format(num_test, 100 * (num_test / total_data)))
 
-        return new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
+        return new_train_l, new_valid_l, new_test_l, new_no_split_l
 
     def change_type_and_shape_for_training(y_array):
         """
@@ -441,6 +459,7 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
     y_train = train_list[1]
     y_valid = valid_list[1]
     y_test = test_list[1]
+    y_no_split = no_split_list[1] if no_split_list is not None else None
 
     new_y_train = compute_true_labels(y_train, "train", all_scores, predict_neutral_class, thres_score_pres,
                                       param_task, num_classes, label_type)
@@ -448,30 +467,36 @@ def update_labels(train_list, valid_list, test_list, param_task, all_scores):
                                       param_task, num_classes, label_type)
     new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres,
                                      param_task, num_classes, label_type)
+    if y_no_split is not None:
+        new_y_no_split = compute_true_labels(y_no_split, "no_split", all_scores, predict_neutral_class,
+                                             thres_score_pres, param_task, num_classes, label_type)
 
     if label_type == 'present':  # TODO We only take the first threshold for the moment
         new_y_train = new_y_train[0]
         new_y_valid = new_y_valid[0]
         new_y_test = new_y_test[0]
+        new_y_no_split = new_y_no_split[0] if y_no_split is not None else None
 
     # Adapt to model training and evaluation
     new_y_train = change_type_and_shape_for_training(new_y_train)
     new_y_valid = change_type_and_shape_for_training(new_y_valid)
     new_y_test = change_type_and_shape_for_training(new_y_test)
+    new_y_no_split = change_type_and_shape_for_training(new_y_no_split) if y_no_split is not None else None
 
     new_train_list = [train_list[0], new_y_train, train_list[2]]
     new_valid_list = [valid_list[0], new_y_valid, valid_list[2]]
     new_test_list = [test_list[0], new_y_test, test_list[2]]
+    new_no_split_list = [no_split_list[0], new_y_no_split, no_split_list[2]] if y_no_split is not None else None
 
     # When predict_neutral_class is False (no class created for Neutral),
     # samples with neutral class belong to any of available classes
-    neutral_test_ind = None  # when predict_neutral_class is True
     if not predict_neutral_class:
-        new_train_list, new_valid_list, new_test_list, neutral_test_ind = remove_neutral_class(new_train_list,
-                                                                                               new_valid_list,
-                                                                                               new_test_list)
+        new_train_list, new_valid_list, new_test_list, new_no_split_list = remove_neutral_class(new_train_list,
+                                                                                                new_valid_list,
+                                                                                                new_test_list,
+                                                                                                new_no_split_list)
 
-    return new_train_list, new_valid_list, new_test_list, neutral_test_ind
+    return new_train_list, new_valid_list, new_test_list, new_no_split_list
 
 
 def balance_dataset(train_list, valid_list, test_list, param_task, all_scores):

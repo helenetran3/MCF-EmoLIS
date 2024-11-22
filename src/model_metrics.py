@@ -582,7 +582,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
 def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_output,
                                    pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
-                                   neutral_test_ind, param_task, param_training, param_log, model_name, model_id,
+                                   param_task, param_training, param_log, model_name, model_id,
                                    loss_function, val_metrics_str, all_scores):
     """
     Compute and save model metrics, based on loss function value and prediction scores.
@@ -597,7 +597,6 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by thres_score_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
-    :param neutral_test_ind: list of indexes of the neutral samples in test set
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
     :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
@@ -608,10 +607,10 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     :param all_scores: list of available presence scores [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     """
 
-    def remove_neutral_test(true_array):
-        true_list = list(true_array)
-        new_true_list = [ai for i, ai in enumerate(true_list) if i not in neutral_test_ind]
-        return np.array(new_true_list)
+    # def remove_neutral_test(true_array):
+    #     true_list = list(true_array)
+    #     new_true_list = [ai for i, ai in enumerate(true_list) if i not in neutral_test_ind]
+    #     return np.array(new_true_list)
 
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
