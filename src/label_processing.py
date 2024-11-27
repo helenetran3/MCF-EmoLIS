@@ -37,22 +37,15 @@ def get_available_presence_scores(true_scores_all):
     return le.classes_
 
 
-def get_available_presence_scores_arr(train_list, valid_list, test_list):
+def get_available_presence_scores_arr(y_list):
     """
-    Get the list of all unique values of presence scores, based on three lists of [x, y, seg] (training, validation, test)
+    Get the list of all unique values of presence scores, given a list of y arrays of shape (1, 6)
 
-    :param train_list: a list [x_train, y_train, seg_train]
-    :param valid_list: a list [x_valid, y_valid, seg_valid]
-    :param test_list: a list [x_test, y_test, seg_test]
+    :param y_list: a list of y arrays of shape (1, 6)
     :return: a list of unique values of presence scores
     """
-    train_y = np.reshape(np.array(train_list[1]), (-1, 6))
-    valid_y = np.reshape(np.array(valid_list[1]), (-1, 6))
-    test_y = np.reshape(np.array(test_list[1]), (-1, 6))
-    all_y = np.concatenate([train_y, valid_y, test_y], axis=0)
-
+    all_y = np.reshape(np.array(y_list), (-1, 6))
     all_y_uniq = np.unique(all_y)
-
     return list(all_y_uniq)
 
 
@@ -499,41 +492,3 @@ def update_labels(train_list, valid_list, test_list, no_split_list, param_task, 
                                                                                                 new_no_split_list)
 
     return new_train_list, new_valid_list, new_test_list, new_no_split_list
-
-
-def balance_dataset(train_list, valid_list, test_list, param_task, all_scores):
-    """
-
-    :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    :param test_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
-    :param all_scores: list of available presence scores
-    :return:
-    """
-
-    label_type = param_task['label_type']
-    predict_neutral_class = param_task['predict_neutral_class']
-    thres_score_pres = [param_task['thres_score_pres']]
-    ext_name = "_n" if predict_neutral_class else ""
-    num_classes = 7 if predict_neutral_class else 6
-
-    y_train = train_list[1]
-    y_valid = valid_list[1]
-    y_test = test_list[1]
-
-    # TODO Find a way to balance emotional profiles
-
-    # new_y_train = compute_true_labels(y_train, "train", all_scores, predict_neutral_class, thres_score_pres,
-    #                                   num_classes, ext_name, "dominant")
-    # new_y_valid = compute_true_labels(y_valid, "valid", all_scores, predict_neutral_class, thres_score_pres,
-    #                                   num_classes, ext_name, "dominant")
-    # new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres, num_classes,
-    #                                  ext_name, "dominant")
-
-    # print("new_y_train dominant:", np.sum(new_y_train, axis=0))
-    # print("new_y_valid dominant:", np.sum(new_y_valid, axis=0))
-    # print("new_y_test dominant:", np.sum(new_y_test, axis=0))
-    # print("new_y_train", np.unique(np.sum(new_y_train, axis=1), return_counts=True))
-    # print("new_y_valid", np.unique(np.sum(new_y_valid, axis=1), return_counts=True))
-    # print("new_y_test", np.unique(np.sum(new_y_test, axis=1), return_counts=True))

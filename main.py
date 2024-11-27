@@ -3,7 +3,7 @@ from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_sp
     split_for_cross_validation, data_normalization
 from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
-from src.label_processing import get_available_presence_scores_arr, update_labels, balance_dataset
+from src.label_processing import update_labels
 from src.model_metrics import compute_and_save_model_metrics
 from src.hyperparam_processing import possible_val_metrics
 import itertools
@@ -17,45 +17,63 @@ def main():
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     pickle_name_fold = param_log['pickle_name_fold']
-    nan_str = param_task['replace_nan'] + "_tnan_" + str(param_task['thres_nan'])
+    tnan = param_task['thres_nan']
+    nan_str = param_task['replace_nan'] + "_tnan_" + str(tnan)
     length_seq = param_task['set_length']
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
     data_ext_name = nan_str + length_str
-    if pickle_file_exists(pickle_name_fold + "_train_" + nan_str + length_str, "raw_folds", "cmu_mosei"):
-        train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + data_ext_name, "raw_folds", "cmu_mosei")
-        valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + data_ext_name, "raw_folds", "cmu_mosei")
-        test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + data_ext_name,  "raw_folds", "cmu_mosei")
-        no_split_list_orig = load_from_pickle(pickle_name_fold + "_no_split_" + data_ext_name,  "raw_folds", "cmu_mosei")
+
+    num_folds = param_training['cross_val_folds']
+    label_type = param_task['label_type']
+    label_type_str = label_type[:4] if label_type == 'present' else label_type[:3]
+    predict_neutral_class = param_task['predict_neutral_class']
+    cv_filename = "cv_" + str(num_folds) + "_true_" + label_type_str + "_" + data_ext_name
+    cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
+
+    if with_cross_validation and pickle_file_exists("train_" + cv_filename, "processed_folds", "cmu_mosei"):
+        train_list_task = load_from_pickle("train_" + cv_filename, 'processed_folds', "cmu_mosei")
+        valid_list_task = load_from_pickle("valid_" + cv_filename, 'processed_folds', "cmu_mosei")
+        test_list_task = load_from_pickle("test_" + cv_filename, 'processed_folds', "cmu_mosei")
+        all_scores = load_from_pickle(pickle_name_fold + "_all_scores_with_no_split_" + data_ext_name,
+                                      "raw_folds", "cmu_mosei")
+        print("\nLoaded {} folds for cross-validation, for task {}, max NaN of {}%, max length of {} and predict "
+              "neutral class is {}, from folder 'processed_folds'.".format(num_folds, label_type, tnan, length_seq,
+                                                                           (predict_neutral_class == 1)))
+
     else:
-        # Load CMU-MOSEI dataset
-        dataset = get_dataset_from_sdk(param_log, param_task)
+        if pickle_file_exists(pickle_name_fold + "_train_" + nan_str + length_str, "raw_folds", "cmu_mosei"):
+            train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + data_ext_name, "raw_folds", "cmu_mosei")
+            valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + data_ext_name, "raw_folds", "cmu_mosei")
+            test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + data_ext_name,  "raw_folds", "cmu_mosei")
+            no_split_list_orig = load_from_pickle(pickle_name_fold + "_no_split_" + data_ext_name,  "raw_folds", "cmu_mosei")
+            split_str = "with_no_split_" if with_cross_validation else "split_only_"
+            all_scores = load_from_pickle(pickle_name_fold + "_all_scores_split_" + split_str + data_ext_name,
+                                          "raw_folds", "cmu_mosei")
+        else:
+            # Load CMU-MOSEI dataset
+            dataset = get_dataset_from_sdk(param_log, param_task)
 
-        # Get data for training, validation and test sets (split provided by the SDK)
-        train_ids, valid_ids, test_ids = get_fold_ids(param_task)
-        train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig = \
-            process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log,
-                                      with_cross_validation)
+            # Get data for training, validation and test sets (split provided by the SDK)
+            train_ids, valid_ids, test_ids = get_fold_ids(param_task)
+            train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, all_scores = \
+                process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log,
+                                          with_cross_validation)
 
-    all_scores = get_available_presence_scores_arr(train_list_orig, valid_list_orig, test_list_orig)
+        # Update labels so that it matches with the targeted task given by label_type (all, coarse, coarse_prob,
+        # coarse_oh, present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
+        train_list_task, valid_list_task, test_list_task, no_split_list_task = \
+            update_labels(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, param_task, all_scores)
 
-    # Update labels so that it matches with the targeted task given by label_type (all, coarse, coarse_prob, coarse_oh,
-    # present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
-    train_list_task, valid_list_task, test_list_task, no_split_list_task = \
-        update_labels(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, param_task, all_scores)
-
-    # Cross-validation
-    if with_cross_validation:
-        train_list_task, valid_list_task, test_list_task = \
-            split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
-                                       param_training, param_task, data_ext_name)
+        # Cross-validation
+        if with_cross_validation:
+            train_list_task, valid_list_task, test_list_task = \
+                split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
+                                           param_training, param_task, data_ext_name)
 
     # Data normalization
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,
                                                                           test_list_task, param_task,
                                                                           with_cross_validation)
-
-    # Balance dataset  #TODO
-    balance_dataset(train_list_task, valid_list_task, test_list_task, param_task, all_scores)
 
     def run_one_experiment(model_name, loss_function, val_metrics, param_model_j):
         model_id = get_current_model_id(model_name)

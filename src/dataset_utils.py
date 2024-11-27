@@ -1,9 +1,10 @@
 import re
 import numpy as np
 import random
+import warnings
 from mmsdk import mmdatasdk
 from src.pickle_functions import *
-from src.label_processing import trunc
+from src.label_processing import trunc, get_available_presence_scores_arr
 from statistics import mean
 from itertools import combinations
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
@@ -205,8 +206,8 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     features in this order
     - one for labels (y): arrays of shape (1, 6), for the 6 emotions
     - one for segment ids (seg): id of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
-    (Followed tutorial https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb)
-    Note that this function performs **early fusion** (concatenation of low level text, image and audio features).
+    (Inspired from tutorial:
+     https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb)
 
     :param dataset: CMU-MOSEI mmdataset
     :param train_ids: list of training ids
@@ -354,12 +355,18 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     y_train_emo = [trunc(y[:, 1:], decimals=2) for y in y_train]
     y_valid_emo = [trunc(y[:, 1:], decimals=2) for y in y_valid]
     y_test_emo = [trunc(y[:, 1:], decimals=2) for y in y_test]
-    y_no_split_emo = [trunc(y[:, 1:], decimals=2) for y in y_no_split] if with_cross_val else None
+    y_no_split_emo = [trunc(y[:, 1:], decimals=2) for y in y_no_split] if with_cross_val else []
 
     train_res = [x_train, y_train_emo, seg_train]
     valid_res = [x_valid, y_valid_emo, seg_valid]
     test_res = [x_test, y_test_emo, seg_test]
     no_split_res = [x_no_split, y_no_split_emo, seg_no_split] if with_cross_val else None
+
+    # compute all scores
+    all_scores = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
+    split_str = "with_no_split_" if with_cross_val else "split_only_"
+    save_with_pickle(all_scores, pickle_name_fold + "_all_scores_" + split_str + nan_str + length_str,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
 
     # Save lists with pickle
     save_with_pickle(train_res, pickle_name_fold + "_train_" + nan_str + length_str,
@@ -372,7 +379,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
         save_with_pickle(no_split_res, pickle_name_fold + "_no_split_" + nan_str + length_str,
                          pickle_folder="raw_folds", root_folder="cmu_mosei")
 
-    return train_res, valid_res, test_res, no_split_res
+    return train_res, valid_res, test_res, no_split_res, all_scores
 
 
 def split_for_cross_validation(train_list, valid_list, test_list, no_split_list, param_training, param_task,
@@ -428,30 +435,28 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
     cv_filename = "cv_" + str(num_folds) + "_true_" + label_type_str + "_" + data_ext_name
     cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
-    if pickle_file_exists("train_" + cv_filename, "processed_folds", "cmu_mosei"):
-        train_res = load_from_pickle("train_" + cv_filename, 'processed_folds', "cmu_mosei")
-        valid_res = load_from_pickle("valid_" + cv_filename, 'processed_folds', "cmu_mosei")
-        test_res = load_from_pickle("test_" + cv_filename, 'processed_folds', "cmu_mosei")
-        print("Folds for cross-validation with filename '{}' loaded from folder 'processed_folds'.".format(cv_filename))
+    print("Compute folds for stratified cross-validation...")
+    random_state = param_training['random_state']
+    X_dataset = train_list[0] + valid_list[0] + test_list[0] + no_split_list[0]
+    y_dataset = train_list[1] + valid_list[1] + test_list[1] + no_split_list[1]
+    seg_dataset = train_list[2] + valid_list[2] + test_list[2] + no_split_list[2]
+
+    # Use one-hot encoding labels (e.g. [0, 1, 0, 1, 1, 1] for stratification)
+    if label_type in ['present', 'dominant']:
+        y_strat_dataset = [list(y.flatten()) for y in y_dataset]
     else:
-        random_state = param_training['random_state']
-        X_dataset = train_list[0] + valid_list[0] + test_list[0] + no_split_list[0]
-        y_dataset = train_list[1] + valid_list[1] + test_list[1] + no_split_list[1]
-        seg_dataset = train_list[2] + valid_list[2] + test_list[2] + no_split_list[2]
+        thres_score_pres = param_task['thres_score_pres']
+        y_strat_dataset = [list((y.flatten() > thres_score_pres).astype(int)) for y in y_dataset]
 
-        # Use one-hot encoding labels (e.g. [0, 1, 0, 1, 1, 1] for stratification)
-        if label_type in ['present', 'dominant']:
-            y_strat_dataset = [list(y.flatten()) for y in y_dataset]
-        else:
-            thres_score_pres = param_task['thres_score_pres']
-            y_strat_dataset = [list((y.flatten() > thres_score_pres).astype(int)) for y in y_dataset]
+    # From one-hot labels (equivalent as number in base 2), generate class numbers in base 10
+    y_strat_dataset = [int("".join(str(y_char) for y_char in y), 2) for y in y_strat_dataset]
+    y_strat_dataset = deal_with_single_class_strat(y_strat_dataset)
+    train_res, valid_res, test_res = [], [], []
+    training_index_l, train_index_l, valid_index_l, test_index_l = [], [], [], []
 
-        # From one-hot labels (equivalent as number in base 2), generate class numbers in base 10
-        y_strat_dataset = [int("".join(str(y_char) for y_char in y), 2) for y in y_strat_dataset]
-        y_strat_dataset = deal_with_single_class_strat(y_strat_dataset)
-        train_res, valid_res, test_res = [], [], []
-        training_index_l, train_index_l, valid_index_l, test_index_l = [], [], [], []
-
+    with warnings.catch_warnings():
+        # Ignore warnings where the least populated class is smaller than number of splits
+        warnings.simplefilter("ignore", category=UserWarning)
         skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
         for training_index, test_index in skf.split(X_dataset, y_strat_dataset):
             # Train and valid split, take 10% of training set for validation
@@ -468,11 +473,13 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
             train_index_l += [train_index]
             valid_index_l += [valid_index]
             test_index_l += [test_index]
-        save_with_pickle(train_res, "train_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
-        save_with_pickle(valid_res, "valid_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
-        save_with_pickle(test_res, "test_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
-        save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], "ind_" + cv_filename,
-                         pickle_folder="processed_folds", root_folder="cmu_mosei")
+
+    save_with_pickle(train_res, "train_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
+    save_with_pickle(valid_res, "valid_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
+    save_with_pickle(test_res, "test_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
+    save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], "ind_" + cv_filename,
+                     pickle_folder="processed_folds", root_folder="cmu_mosei")
+    print("Complete cross-validation.")
 
     return train_res, valid_res, test_res
 
