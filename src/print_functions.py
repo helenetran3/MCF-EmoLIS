@@ -79,7 +79,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
 
-def print_mean_std_cross_validation(met_reg, met_fin, met_coa, met_pres, met_dom, num_classes, decimals):
+def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_scores, label_type, num_classes, decimals):
     print("\n======================== Mean and std of folds ========================\n")
     print("Number of folds:", len(met_reg))
 
@@ -163,12 +163,12 @@ def print_mean_std_cross_validation(met_reg, met_fin, met_coa, met_pres, met_dom
     if not (None in met_reg):
         print("\n------- Presence score estimation (regression) --------\n")
         print_mean_std_regression(met_reg)
-    if not (None in met_fin):
-        print(f"\n------- Presence score classification: fine-grained (all available scores) -------\n")
-        print_mean_std_classification_score(met_fin)
-    if not (None in met_coa):
-        print("\n------- Presence score classification: coarse-grained [0,1,2,3] -------\n")
-        print_mean_std_classification_score(met_coa)
+    if not (None in met_score):
+        scores = all_scores if label_type == 'all' else [0, 1, 2, 3]
+        print(f"\n------- Presence score classification -------\n")
+        for i, sc_i in enumerate(scores):
+            print(">>> Score threshold:", sc_i)
+            print_mean_std_classification_score(met_score[i])
     if not (None in met_pres):
         print("\n------- Detecting the presence of emotions ------------\n")
         print_mean_std_binary_classification(met_pres[0])
