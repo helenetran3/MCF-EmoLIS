@@ -233,8 +233,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     x_train, y_train, seg_train = [], [], []
     x_valid, y_valid, seg_valid = [], [], []
     x_test, y_test, seg_test = [], [], []
-    if with_cross_val:
-        x_no_split, y_no_split, seg_no_split = [], [], []
+    x_no_split, y_no_split, seg_no_split = [], [], []
 
     image_feature_id = 'FACET 4.2' if image_feature == 'facet' else 'OpenFace_2'
     image_dataset = dataset[image_feature_id]
@@ -307,19 +306,17 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             y_test.append(label_seg)
             seg_test.append(seg_id)
         else:
-            if with_cross_val:
-                x_no_split.append([text_seg, image_seg, audio_seg])
-                y_no_split.append(label_seg)
-                seg_no_split.append(seg_id)
-            else:
+            x_no_split.append([text_seg, image_seg, audio_seg])
+            y_no_split.append(label_seg)
+            seg_no_split.append(seg_id)
+            if not with_cross_val:
                 # print("Encountered video {} that does not belong to any split.".format(vid))
                 num_no_split += 1
 
     train_size = len(y_train)
     valid_size = len(y_valid)
     test_size = len(y_test)
-    if with_cross_val:
-        no_split_size = len(y_no_split)
+    no_split_size = len(y_no_split)
     # number of data points that doesn't go through the checking process
     num_drop = num_nan + num_missing_mod + num_not_same_length + num_too_long_seq
 
@@ -355,12 +352,12 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     y_train_emo = [trunc(y[:, 1:], decimals=2) for y in y_train]
     y_valid_emo = [trunc(y[:, 1:], decimals=2) for y in y_valid]
     y_test_emo = [trunc(y[:, 1:], decimals=2) for y in y_test]
-    y_no_split_emo = [trunc(y[:, 1:], decimals=2) for y in y_no_split] if with_cross_val else []
+    y_no_split_emo = [trunc(y[:, 1:], decimals=2) for y in y_no_split]
 
     train_res = [x_train, y_train_emo, seg_train]
     valid_res = [x_valid, y_valid_emo, seg_valid]
     test_res = [x_test, y_test_emo, seg_test]
-    no_split_res = [x_no_split, y_no_split_emo, seg_no_split] if with_cross_val else None
+    no_split_res = [x_no_split, y_no_split_emo, seg_no_split]
 
     # compute all scores
     all_scores = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
@@ -375,9 +372,8 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
                      pickle_folder="raw_folds", root_folder="cmu_mosei")
     save_with_pickle(test_res, pickle_name_fold + "_test_" + nan_str + length_str,
                      pickle_folder="raw_folds", root_folder="cmu_mosei")
-    if with_cross_val:
-        save_with_pickle(no_split_res, pickle_name_fold + "_no_split_" + nan_str + length_str,
-                         pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(no_split_res, pickle_name_fold + "_no_split_" + nan_str + length_str,
+                     pickle_folder="raw_folds", root_folder="cmu_mosei")
 
     return train_res, valid_res, test_res, no_split_res, all_scores
 

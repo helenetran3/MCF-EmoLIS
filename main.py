@@ -47,7 +47,7 @@ def main():
             test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + data_ext_name,  "raw_folds", "cmu_mosei")
             no_split_list_orig = load_from_pickle(pickle_name_fold + "_no_split_" + data_ext_name,  "raw_folds", "cmu_mosei")
             split_str = "with_no_split_" if with_cross_validation else "split_only_"
-            all_scores = load_from_pickle(pickle_name_fold + "_all_scores_split_" + split_str + data_ext_name,
+            all_scores = load_from_pickle(pickle_name_fold + "_all_scores_" + split_str + data_ext_name,
                                           "raw_folds", "cmu_mosei")
         else:
             # Load CMU-MOSEI dataset
@@ -118,7 +118,7 @@ def main():
 
         # Compute and save metrics
         compute_and_save_model_metrics(test_list_task, with_cross_validation, model_eval_output,
-                                       pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom,
+                                       pred_raw, pred_classes_pres, pred_classes_dom,
                                        param_task, param_training, param_log, model_name, model_id,
                                        loss_function, val_metrics, all_scores)
 
