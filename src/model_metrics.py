@@ -68,8 +68,8 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
     return best_thres_per_emo, f1_each_rounded
 
 
-def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_id, model_folder,
-                               true_scores=None, pred_scores=None, thres=None, fold_id=None):
+def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_id, model_folder, task,
+                               thres=None, fold_id=None, score_id=None):
     """
     Compute a list of accuracies per emotion.
 
@@ -82,32 +82,40 @@ def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_i
     :param fold_id: Cross-validation fold id (int)
     :return: a list of rounded accuracies
     """
-    acc_list = []
-    if true_scores is not None:
-        conf_matrix_i = multilabel_confusion_matrix(true_scores, pred_scores, labels=list(range(num_classes)))
-    else:
-        ext_name = "dom" if thres is None else "pres_t_{}".format(thres)
-        ext_name += "_cv" if with_cross_val else ""
-        conf_matrix = load_from_pickle('conf_matrix_{}_{}'.format(model_id, ext_name),
-                                       pickle_folder="confusion_matrix", root_folder=model_folder)
-        conf_matrix_i = conf_matrix[fold_id] if fold_id is not None else conf_matrix
 
-    for emo_i in range(num_classes):
-        tp = conf_matrix_i[emo_i, 0, 0]
-        fp = conf_matrix_i[emo_i, 0, 1]
-        fn = conf_matrix_i[emo_i, 1, 0]
-        tn = conf_matrix_i[emo_i, 1, 1]
-        total = tp + fp + fn + tn
-        pos = tp + fp
-        if is_weighted:
-            # Formula from Tong, E., Zadeh, A., Jones, C., & Morency, L. P. (2017, July). Combating Human
-            # Trafficking with Multimodal Deep Models. In Proceedings of the 55th Annual Meeting of the
-            # Association for Computational Linguistics (Volume 1: Long Papers) (pp. 1547-1556).
-            acc_emo = (tp * (total / pos) + tn) / (2 * total)
-        else:
-            acc_emo = (tp + tn) / (tp + fp + fn + tn)
-        acc_list.append(acc_emo)
-    return acc_list
+    def compute_acc_i(conf_mat_i):
+        acc_list_i = []
+        for emo_i in range(num_classes):
+            tp = conf_mat_i[emo_i, 1, 1]
+            fp = conf_mat_i[emo_i, 0, 1]
+            fn = conf_mat_i[emo_i, 1, 0]
+            tn = conf_mat_i[emo_i, 0, 0]
+            neg = tn + fp
+            pos = tp + fn
+            if is_weighted:
+                # print("tp:", tp, ", fp:", fp, ", fn:", fn, ", tn:", tn)
+                # Formula from Tong, E., Zadeh, A., Jones, C., & Morency, L. P. (2017, July). Combating Human
+                # Trafficking with Multimodal Deep Models. In Proceedings of the 55th Annual Meeting of the
+                # Association for Computational Linguistics (Volume 1: Long Papers) (pp. 1547-1556).
+                if pos == 0 or neg == 0:
+                    acc_emo = np.nan
+                else:
+                    acc_emo = (tp * (neg / pos) + tn) / (2 * neg)
+            else:
+                acc_emo = (tp + tn) / (tp + fp + fn + tn)
+            acc_list_i.append(acc_emo)
+        return acc_list_i
+
+    ext_name = task[:3] if thres is None else "pres_t_{}".format(thres)
+    ext_name += "_cv" if with_cross_val else ""
+    conf_matrix = load_from_pickle('conf_matrix_{}_{}'.format(model_id, ext_name),
+                                   pickle_folder="confusion_matrix", root_folder=model_folder)
+    conf_matrix_i = conf_matrix[fold_id] if fold_id is not None else conf_matrix
+    conf_matrix_i = conf_matrix_i[score_id] if score_id is not None else conf_matrix_i
+    acc_list = compute_acc_i(conf_matrix_i)
+    weight_classes_for_mean = conf_matrix_i[:, 1, 0] + conf_matrix_i[:, 1, 1]
+
+    return acc_list, weight_classes_for_mean
 
 
 def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
@@ -141,81 +149,39 @@ def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
     return [mae, mse, r2] + mae_emo + mse_emo + r2_emo
 
 
-def get_classification_metrics_score(true_scores, pred_scores, num_classes, all_scores, round_decimals, coarse):
+def get_classification_metrics_score(true_scores, pred_scores, num_classes, round_decimals,
+                                     model_id, model_folder, with_cross_val, coarse):
     """
     Return unweighted mean of all the classification metrics for the case of coarse scores.
 
     :param true_scores: Array of shape (test_size, 6) giving the true presence scores among [0, 1, 2, 3]
     :param pred_scores: Array of shape (test_size, 6) giving the predicted presence scores among [0, 1, 2, 3]
     :param num_classes: number of classes (7 with neutral class, else 6)
-    :param all_scores: list of available presence scores
     :param round_decimals: number of decimals to be rounded for metrics
+    :param model_id: model id (int)
+    :param model_folder: the folder where the results are saved (str)
+    :param with_cross_val: boolean (cross_validation or not)
     :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else all_scores
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
 
-    scores = [0, 1, 2, 3] if coarse else all_scores
-    # num_scores = len(scores_print)
-
-    # print(f"For each emotion, {num_scores} classes possibles corresponding to presence scores: {scores_print}.\n")
-
-    # if not coarse:  # Convert each element of the arrays to string (to avoid issue with continuous values)
-    #     true_scores_for_each_emo = [np.array([str(t) for t in list(ts_i)]) for ts_i in true_scores_for_each_emo]
-    #     pred_scores_for_each_emo = [np.array([str(t) for t in list(ts_i)]) for ts_i in pred_scores_for_each_emo]
+    scores = [0, 1, 2, 3] if coarse else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
+    task = "coa" if coarse else "all"
 
     res = []
-    for sc_i in scores:
-
-        print(">>> Score threshold:", sc_i)
-
-        true_scores_i = (true_scores >= sc_i).astype(int)
-        pred_scores_i = (pred_scores >= sc_i).astype(int)
-
-        get_classification_metrics(true_scores_i, pred_scores_i, num_classes, round_decimals)
-
-        # true_scores_for_each_emo = [(true_scores[:, i]) >= sc_i for i in range(num_classes)]
-        # pred_scores_for_each_emo = [(pred_scores[:, i]) >= sc_i for i in range(num_classes)]
-        #
-        # acc_each = [np.round(accuracy_score(ts, ps)*100, round_decimals)
-        #             for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-        # acc_macro = np.round(np.mean(acc_each)*100, round_decimals)
-        # print("Accuracy (for each, unweighted across scores):", acc_each)
-        # print("Accuracy (unweighted mean):", acc_macro)
-        #
-        # # Only macro because with weighted, the over_presence of class "0" will bias the result
-        # f1_each = [np.round(f1_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
-        #            for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-        # f1_macro = np.round(np.mean(f1_each)*100, round_decimals)
-        # print("F1 score (for each, unweighted across scores):", f1_each)
-        # print("F1 score (unweighted mean):", f1_macro)
-        #
-        # rec_each = [np.round(recall_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
-        #             for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-        # rec_macro = np.round(np.mean(rec_each)*100, round_decimals)
-        # print("Recall (for each, unweighted across scores):", rec_each)
-        # print("Recall (unweighted mean):", rec_macro)
-        #
-        # prec_each = [np.round(precision_score(ts, ps, average='macro', zero_division=1)*100, round_decimals)
-        #              for ts, ps in zip(true_scores_for_each_emo, pred_scores_for_each_emo)]
-        # prec_macro = np.round(np.mean(prec_each)*100, round_decimals)
-        # print("Precision (for each, unweighted across scores):", prec_each)
-        # print("Precision (unweighted mean):", prec_macro)
-
-        # roc_auc_each = [np.round(roc_auc_score(ts, ps, average='macro', multi_class='ovr'), round_decimals)
-        #                 for ts, ps in zip(true_scores_bin, pred_scores_bin)]
-        # roc_auc_macro = np.round(np.mean(roc_auc_each), round_decimals)
-        # print("ROC AUC (for each):", roc_auc_each)
-        # print("ROC AUC (unweighted mean):", roc_auc_macro)
-
-        # res_i = [acc_macro, f1_macro, rec_macro, prec_macro]  # , roc_auc_macro]
-        # res += [res_i + acc_each + f1_each + rec_each + prec_each]  # , roc_auc_each
+    for sc_id, sc_i in enumerate(scores):
+        print("\n>>> Score threshold:", sc_i)
+        true_classes_i = (true_scores >= sc_i).astype(int)
+        pred_classes_i = (pred_scores >= sc_i).astype(int)
+        res += [get_classification_metrics(true_classes_i, pred_classes_i, num_classes, round_decimals, task,
+                                           model_id, model_folder, with_cross_val, score_id=sc_id)]
 
     return res
 
 
-def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, model_id=None, model_folder=None,
-                               with_cross_val=None, fold_id=None, thres=None):
+def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, task,
+                               model_id, model_folder, with_cross_val, fold_id=None, thres=None, score_id=None):
     """
     Compute classification metrics.
      Accuracy
@@ -234,71 +200,75 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     :return: List of classification metrics
     """
 
+    def round_not_nan(macro_val):
+        return np.round(macro_val, round_decimals) if not np.isnan(macro_val) else np.nan
+
     if thres is not None:
         print('\n>>> Threshold:', thres)
 
     # Accuracy
-    bin_acc_per_class = compute_accuracy_per_class(False, num_classes, with_cross_val, model_id, model_folder,
-                                                   thres=thres, fold_id=fold_id)
-    wei_acc_per_class = compute_accuracy_per_class(True, num_classes, with_cross_val, model_id, model_folder,
-                                                   thres=thres, fold_id=fold_id)
-    bin_acc_per_class = [np.round(bin_acc_i*100, round_decimals) for bin_acc_i in bin_acc_per_class]
-    wei_acc_per_class = [np.round(wei_acc_i*100, round_decimals) for wei_acc_i in wei_acc_per_class]
-    multilabel_acc = np.round(accuracy_score(true_classes, pred_classes)*100,
-                              round_decimals)  # True and pred class vectors must exactly match
-    bin_acc_macro = np.round(np.mean(bin_acc_per_class), round_decimals)
-    wei_acc_macro = np.round(np.mean(wei_acc_per_class), round_decimals)
-    print("Multilabel accuracy:", multilabel_acc)
-    print("Binary accuracy (for each):", bin_acc_per_class)
-    print("Binary accuracy (unweighted mean):", bin_acc_macro)
-    print("Weighted accuracy (for each):", wei_acc_per_class)
-    print("Weighted accuracy (unweighted mean):", wei_acc_macro)
+    bin_acc_per_class, weight_classes_for_mean = \
+        compute_accuracy_per_class(False, num_classes, with_cross_val, model_id, model_folder,
+                                   task, thres=thres, fold_id=fold_id, score_id=score_id)
+    wei_acc_per_class, _ = compute_accuracy_per_class(True, num_classes, with_cross_val, model_id, model_folder,
+                                                      task, thres=thres, fold_id=fold_id, score_id=score_id)
+    bin_acc_per_class = [bin_acc_i*100 for bin_acc_i in bin_acc_per_class]
+    wei_acc_per_class = [wei_acc_i*100 if not np.isnan(wei_acc_i) else np.nan for wei_acc_i in wei_acc_per_class]
+    multilabel_acc = accuracy_score(true_classes, pred_classes)*100  # True and pred class vectors must exactly match
+    bin_acc_macro = np.mean(bin_acc_per_class)
+    wei_acc_macro = np.mean([w for w in wei_acc_per_class if not np.isnan(w)])
+    bin_acc_weighted = np.average(bin_acc_per_class, weights=weight_classes_for_mean)
+    index_not_nan = [i for i, w in enumerate(wei_acc_per_class) if not np.isnan(w)]
+    if len(index_not_nan) != 0:
+        wei_acc_weighted = np.average([wei_acc_per_class[i] for i in index_not_nan],
+                                      weights=[weight_classes_for_mean[i] for i in index_not_nan])
+    else:
+        wei_acc_weighted = np.nan
+    print("Multilabel accuracy:", round_not_nan(multilabel_acc))
+    print("Binary accuracy (for each):", [round_not_nan(bin_acc_i) for bin_acc_i in bin_acc_per_class])
+    print("Binary accuracy (unweighted mean):", round_not_nan(bin_acc_macro))
+    print("Binary accuracy (weighted mean):", round_not_nan(bin_acc_weighted))
+    print("Weighted accuracy (for each):", [round_not_nan(wei_acc_i) for wei_acc_i in wei_acc_per_class])
+    print("Weighted accuracy (unweighted mean):", round_not_nan(wei_acc_macro))
+    print("Weighted accuracy (weighted mean):", round_not_nan(wei_acc_weighted))
 
     # F1 score
-    f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
-    f1_each_rounded = [np.round(val*100, round_decimals) for val in f1_each]
-    f1_macro = np.round(f1_score(true_classes, pred_classes, average='macro', zero_division=1)*100, round_decimals)
-    # f1_weighted = np.round(f1_score(true_classes, pred_classes, average='weighted', zero_division=1), round_decimals)
-    print("F1 score (for each):", f1_each_rounded)
-    print("F1 score (unweighted mean):", f1_macro)
-    # print("F1 score (weighted mean):", f1_weighted)  # biased towards the over-presence of negative classes
+    f1_each = [val*100 for val in f1_score(true_classes, pred_classes, average=None, zero_division=1)]
+    f1_macro = f1_score(true_classes, pred_classes, average='macro', zero_division=1)*100
+    f1_weighted = f1_score(true_classes, pred_classes, average='weighted', zero_division=1)*100
+    print("F1 score (for each):", [round_not_nan(f1_i) for f1_i in f1_each])
+    print("F1 score (unweighted mean):", round_not_nan(f1_macro))
+    print("F1 score (weighted mean):", round_not_nan(f1_weighted))
 
     # Recall
-    rec_each = recall_score(true_classes, pred_classes, average=None, zero_division=1)
-    rec_each_rounded = [np.round(val*100, round_decimals) for val in rec_each]
-    rec_macro = np.round(recall_score(true_classes, pred_classes, average='macro', zero_division=1)*100, round_decimals)
-    # rec_weighted = np.round(recall_score(true_classes, pred_classes, average='weighted', zero_division=1),
-    #                         round_decimals)
-    print("Recall (for each):", rec_each_rounded)
-    print("Recall (unweighted mean):", rec_macro)
-    # print("Recall (weighted mean):", rec_weighted)  # biased towards the over-presence of negative classes
+    rec_each = [val*100 for val in recall_score(true_classes, pred_classes, average=None, zero_division=1)]
+    rec_macro = recall_score(true_classes, pred_classes, average='macro', zero_division=1)*100
+    rec_weighted = recall_score(true_classes, pred_classes, average='weighted', zero_division=1)*100
+    print("Recall (for each):", [round_not_nan(rec_i) for rec_i in rec_each])
+    print("Recall (unweighted mean):", round_not_nan(rec_macro))
+    print("Recall (weighted mean):", round_not_nan(rec_weighted))
 
     # Precision
-    prec_each = precision_score(true_classes, pred_classes, average=None, zero_division=1)
-    prec_each_rounded = [np.round(val*100, round_decimals) for val in prec_each]
-    prec_macro = np.round(precision_score(true_classes, pred_classes, average='macro', zero_division=1)*100,
-                          round_decimals)
-    # prec_weighted = np.round(precision_score(true_classes, pred_classes, average='weighted', zero_division=1)*100,
-    #                          round_decimals)
-    print("Precision (for each):", prec_each_rounded)
-    print("Precision (unweighted mean):", prec_macro)
-    # print("Precision (weighted mean):", prec_weighted)  # biased towards the over-presence of negative classes
+    prec_each = [val*100 for val in precision_score(true_classes, pred_classes, average=None, zero_division=1)]
+    prec_macro = precision_score(true_classes, pred_classes, average='macro', zero_division=1)*100
+    prec_weighted = precision_score(true_classes, pred_classes, average='weighted', zero_division=1)*100
+    print("Precision (for each):", [round_not_nan(prec_i) for prec_i in prec_each])
+    print("Precision (unweighted mean):", round_not_nan(prec_macro))
+    print("Precision (weighted mean):", round_not_nan(prec_weighted))
 
-    # ROC AUC score
-    true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
-    pred_classes_bin = label_binarize(pred_classes, classes=list(range(num_classes)))
-    roc_auc_each = roc_auc_score(true_classes_bin, pred_classes_bin, average=None)
-    roc_auc_each_rounded = [np.round(val*100, round_decimals) for val in roc_auc_each]
-    roc_auc_macro = np.round(roc_auc_score(true_classes_bin, pred_classes_bin, average='macro')*100, round_decimals)
-    # roc_auc_weighted = np.round(
-    #     roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr'), round_decimals)
-    print("ROC AUC (for each):", roc_auc_each_rounded)
-    print("ROC AUC (unweighted mean):", roc_auc_macro)
-    # print("ROC AUC (weighted mean):", roc_auc_weighted)
+    # # ROC AUC score
+    # true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
+    # pred_classes_bin = label_binarize(pred_classes, classes=list(range(num_classes)))
+    # roc_auc_each = [val*100 for val in roc_auc_score(true_classes_bin, pred_classes_bin, average=None)]
+    # roc_auc_macro = roc_auc_score(true_classes_bin, pred_classes_bin, average='macro')*100
+    # roc_auc_weighted = roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr')*100
+    # print("ROC AUC (for each):", [round_not_nan(roc_auc_i) for roc_auc_i in roc_auc_each])
+    # print("ROC AUC (unweighted mean):", round_not_nan(roc_auc_macro))
+    # print("ROC AUC (weighted mean):", round_not_nan(roc_auc_weighted))
 
-    res = [multilabel_acc, bin_acc_macro, wei_acc_macro, f1_macro, rec_macro, prec_macro, roc_auc_macro]
-    res = res + bin_acc_per_class + wei_acc_per_class + f1_each_rounded + rec_each_rounded + prec_each_rounded \
-          + roc_auc_each_rounded
+    res = [multilabel_acc, bin_acc_macro, bin_acc_weighted, wei_acc_macro, wei_acc_weighted, f1_macro, f1_weighted,
+           rec_macro, rec_weighted, prec_macro, prec_weighted]  # , roc_auc_macro, roc_aux_weighted]
+    res = res + bin_acc_per_class + wei_acc_per_class + f1_each + rec_each + prec_each  # + roc_auc_each
 
     return res
 
@@ -444,7 +414,9 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
             if scores is not None:
                 conf_mat = []
                 for sc_i in scores:
-                    tc_i, pc_i = (tc >= sc_i), (pc >= sc_i)
+                    tc_i, pc_i = (tc >= sc_i).astype(int), (pc >= sc_i).astype(int)
+                    # print("[conf matrix] sc_i:", sc_i)
+                    # print("[conf matrix] tc_i unique:", np.unique(tc_i, return_counts=True))
                     conf_mat += [multilabel_confusion_matrix(tc_i, pc_i, labels=list(range(num_classes)))]
             else:
                 conf_mat = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
@@ -526,30 +498,23 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, round_decimals)
 
         print(f"\n------- Presence score classification -------\n")
-        if label_type == 'all':
-            metrics_score = get_classification_metrics_score(true_all_i, pred_raw_i, num_classes, all_scores,
-                                                             round_decimals, coarse=False)
-        elif 'coarse' in label_type:
-            metrics_score = get_classification_metrics_score(true_coa_i, pred_raw_i, num_classes, all_scores,
-                                                             round_decimals, coarse=True)
-
-        # # Classification metrics of presence scores
-        # if pred_coa_i is not None:
-        #     print("\n------- Presence score classification: coarse-grained [0,1,2,3] -------\n")
-        #     metrics_score_coa = get_classification_metrics_score(true_coa_i, pred_coa_i, num_classes,
-        #                                                          all_scores, round_decimals, coarse=True)
+        if 'coarse' in label_type or label_type == 'all':
+            coarse = ('coarse' in label_type)
+            metrics_score = get_classification_metrics_score(true_all_i, pred_raw_i, num_classes, round_decimals,
+                                                             model_id, model_folder, with_cross_val, coarse=coarse)
 
         # Classification metrics of emotion present
         if pred_pres_i is not None:
             print("\n------- Detecting the presence of emotions ------------")
             metrics_presence = [get_classification_metrics(true_pres_i[j], pred_pres_i[j], num_classes, round_decimals,
-                                                           model_id, model_folder, with_cross_val, fold_id, thres)
+                                                           "pres", model_id, model_folder, with_cross_val,
+                                                           fold_id, thres)
                                 for j, thres in enumerate(thres_score_pres)]
 
         # Classification metrics of dominant emotions
         if pred_dom_i is not None:
             print("\n------- Predicting dominant emotions ------------------\n")
-            metrics_dominant = get_classification_metrics(true_dom_i, pred_dom_i, num_classes, round_decimals,
+            metrics_dominant = get_classification_metrics(true_dom_i, pred_dom_i, num_classes, round_decimals, "dom",
                                                           model_id, model_folder, with_cross_val, fold_id)
 
         return metrics_regression, metrics_score, metrics_presence, metrics_dominant
@@ -602,11 +567,6 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     :param val_metrics_str: Name of the validation metric used for monitoring (str)
     :param all_scores: list of available presence scores [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     """
-
-    # def remove_neutral_test(true_array):
-    #     true_list = list(true_array)
-    #     new_true_list = [ai for i, ai in enumerate(true_list) if i not in neutral_test_ind]
-    #     return np.array(new_true_list)
 
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
