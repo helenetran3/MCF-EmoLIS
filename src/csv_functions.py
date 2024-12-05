@@ -105,9 +105,10 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         data = data_param + metrics
 
     else:
-        header_overall = ['mae', 'mse', 'r2', 'kl_div']
+        header_overall = ['mae', 'mse', 'r2', 'kl_div', 'c_index']
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
+        data_param = ['N/A' if d is None else d for d in data_param]
         data = data_param + metrics
 
     return header, data
@@ -163,18 +164,18 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
         # Presence score metrics
         if met_score is not None:
             scores = all_scores if label_type == 'all' else [0, 1, 2, 3]
-            for sc_i in scores:
+            for i, sc_i in enumerate(scores):
                 data_id_score = [str(model_id) + "_sc_" + str(sc_i)] + data_id[1:]
-                header_score_sco, data_score_sco = get_header_and_data_metrics(met_score, header_id, data_id_score,
+                header_score_sco, data_score_sco = get_header_and_data_metrics(met_score[i], header_id, data_id_score,
                                                                                predict_neutral_class,
                                                                                is_classification=True)
                 write_csv(csv_path_score, header_score_sco, data_score_sco)
 
         # Present emotion metrics
         if met_pres is not None:
-            for thres in thres_score_pres:
+            for i, thres in enumerate(thres_score_pres):
                 data_id_pres = [str(model_id) + "_t_" + str(thres)] + data_id[1:]
-                header_presence, data_presence = get_header_and_data_metrics(met_pres, header_id, data_id_pres,
+                header_presence, data_presence = get_header_and_data_metrics(met_pres[i], header_id, data_id_pres,
                                                                              predict_neutral_class,
                                                                              is_classification=True)
                 write_csv(csv_path_presence, header_presence, data_presence)

@@ -122,15 +122,47 @@ def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_i
     return acc_list, weight_classes_for_mean
 
 
-def get_regression_metrics(true_scores, pred_scores, round_decimals):
+def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, round_decimals):
     """
-    Compute regression metrics: mean absolute error and mean squared error
+    Compute regression metrics: mean absolute error, mean squared error, r2 score and KL divergence + concordance index
+    (if applicable)
 
     :param true_scores: array of shape (test size, 6) giving the true scores for the 6 emotions (given by the database)
     :param pred_scores: array of shape (test_size, 6) predicting the presence score of the 6 emotions
     :param round_decimals: number of decimals to be rounded for metrics
     :return: List of classification metrics
     """
+
+    def concordance_index(t, p):
+        scores = all_scores if label_type == 'all' else [0, 1, 2, 3]
+        # Create list of boolean values where
+        index_scores = [list(np.where(t == sc_i)[0]) for sc_i in scores]
+        num_values = t.shape[0] * t.shape[1] if t.ndim == 2 else t.shape[0]
+        assert(np.sum([len(ind) for ind in index_scores]) == num_values)
+
+        res, total_values = 0., 0
+        # i and j are indexes in scores
+        for i in range(len(scores)-1):
+            for j in range(1, len(scores)):
+                if i < j:
+                    index_inf, index_sup = index_scores[i], index_scores[j]
+                    card_inf_times_card_sup = len(index_inf) * len(index_sup)
+                    if card_inf_times_card_sup != 0:
+                        total_values += card_inf_times_card_sup
+                        for i_sup_sample in index_sup:
+                            for i_inf_sample in index_inf:
+                                if t.ndim == 2:
+                                    i_sup_row, i_sup_col = i_sup_sample
+                                    i_inf_row, i_inf_col = i_inf_sample
+                                    p_val_sup, p_val_inf = p[i_sup_row, i_sup_col], p[i_inf_row, i_inf_col]
+                                else:  # dimension of t is 1
+                                    p_val_sup, p_val_inf = p[i_sup_sample], p[i_inf_sample]
+                                if p_val_sup > p_val_inf:
+                                    res += 1.
+                                if p_val_sup == p_val_inf:
+                                    res += 0.5
+
+        return res / total_values
 
     def KL(t, p):
         return np.sum(np.where(t != 0, t * np.log(t / p), 0))
@@ -139,6 +171,7 @@ def get_regression_metrics(true_scores, pred_scores, round_decimals):
     true_scores_emo = [true_scores[:, i] for i in range(num_emotions)]
     pred_scores_emo = [pred_scores[:, i] for i in range(num_emotions)]
 
+    c_index_emo, c_index = [None for _ in range(6)], None
     mae_emo = [mean_absolute_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     mse_emo = [mean_squared_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     r2_emo = [r2_score(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
@@ -147,17 +180,24 @@ def get_regression_metrics(true_scores, pred_scores, round_decimals):
     mse = mean_squared_error(true_scores, pred_scores)
     r2 = r2_score(true_scores, pred_scores)
     kl_div = KL(true_scores, pred_scores)
+    if label_type == 'all' or 'coarse' in label_type:
+        c_index_emo = [concordance_index(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
+        c_index = np.mean(c_index_emo)
 
     print("Mean absolute error (for each emotion):", [round_not_nan(val, round_decimals) for val in mae_emo])
     print("Mean squared error (for each emotion):", [round_not_nan(val, round_decimals) for val in mse_emo])
     print("R2 score (for each emotion):", [round_not_nan(val, round_decimals) for val in r2_emo])
     print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals) for val in kl_div_emo])
+    if label_type == 'all' or 'coarse' in label_type:
+        print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
     print("Mean absolute error (overall):", round_not_nan(mae, round_decimals))
     print("Mean squared error (overall):", round_not_nan(mse, round_decimals))
     print("R2 score (overall):", round_not_nan(r2, round_decimals))
-    print("KL divergence (unweighted mean):", round_not_nan(kl_div, round_decimals))
+    print("KL divergence (overall):", round_not_nan(kl_div, round_decimals))
+    if label_type == 'all' or 'coarse' in label_type:
+        print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
 
-    return [mae, mse, r2, kl_div] + mae_emo + mse_emo + r2_emo + kl_div_emo
+    return [mae, mse, r2, kl_div, c_index] + mae_emo + mse_emo + r2_emo + kl_div_emo + c_index_emo
 
 
 def get_classification_metrics_score(true_scores, pred_scores, num_classes, round_decimals,
@@ -511,10 +551,10 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         print("\n------- Presence score estimation (regression) --------\n")
         tl_for_reg = true_label_for_reg[label_type_for_reg]
         tl_for_reg = tl_for_reg[0] if label_type == 'present' else tl_for_reg
-        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, round_decimals)
+        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, label_type, all_scores, round_decimals)
 
-        print(f"\n------- Presence score classification -------\n")
         if 'coarse' in label_type or label_type == 'all':
+            print(f"\n------- Presence score classification -------\n")
             coarse = ('coarse' in label_type)
             metrics_score = get_classification_metrics_score(true_all_i, pred_raw_i, num_classes, round_decimals,
                                                              model_id, model_folder, with_cross_val, coarse=coarse)

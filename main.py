@@ -91,7 +91,7 @@ def main():
                                               param_model_j, param_training, param_log, num_steps, model_name, model_id,
                                               loss_function, val_metrics, label_type, with_cross_validation)
 
-            model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+            model_eval_output, pred_raw, pred_classes_pres, pred_classes_dom = \
                 evaluate_tf_model(test_list_task, param_task, param_training, param_log, num_steps, model_name, model_id,
                                   loss_function, val_metrics, thres_multilabel, with_cross_validation)
 
@@ -108,7 +108,7 @@ def main():
                                                  num_steps, model_name, model_id, loss_function, val_metrics,
                                                  label_type, device, with_cross_validation)
 
-            model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+            model_eval_output, pred_raw, pred_classes_pres, pred_classes_dom = \
                 evaluate_torch_model(test_list_task, param_task, param_model_j, param_training,
                                      param_log, num_steps, model_name, model_id, loss_function, val_metrics,
                                      thres_multilabel, device, with_cross_validation)
