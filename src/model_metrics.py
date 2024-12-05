@@ -9,9 +9,13 @@ from src.label_processing import compute_true_labels
 from src.print_functions import print_mean_std_cross_validation
 
 from sklearn.preprocessing import label_binarize, LabelBinarizer
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, jaccard_score, roc_auc_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, mutual_info_score
+from sklearn.metrics import multilabel_confusion_matrix, ConfusionMatrixDisplay
+
+
+def round_not_nan(macro_val, round_decimals):
+    return np.round(macro_val, round_decimals) if not np.isnan(macro_val) else np.nan
 
 
 def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals, best_thres_per_emo=None):
@@ -118,35 +122,42 @@ def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_i
     return acc_list, weight_classes_for_mean
 
 
-def get_regression_metrics(true_scores_all, pred_scores_all, round_decimals):
+def get_regression_metrics(true_scores, pred_scores, round_decimals):
     """
     Compute regression metrics: mean absolute error and mean squared error
 
-    :param true_scores_all: array of shape (test size, 6) giving the true scores for the 6 emotions (given by the database)
-    :param pred_scores_all: array of shape (test_size, 6) predicting the presence score of the 6 emotions
+    :param true_scores: array of shape (test size, 6) giving the true scores for the 6 emotions (given by the database)
+    :param pred_scores: array of shape (test_size, 6) predicting the presence score of the 6 emotions
     :param round_decimals: number of decimals to be rounded for metrics
     :return: List of classification metrics
     """
 
-    num_emotions = true_scores_all.shape[1]
-    true_scores_emo = [true_scores_all[:, i] for i in range(num_emotions)]
-    pred_scores_emo = [pred_scores_all[:, i] for i in range(num_emotions)]
+    def KL(t, p):
+        return np.sum(np.where(t != 0, t * np.log(t / p), 0))
 
-    mae_emo = [np.round(mean_absolute_error(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    mse_emo = [np.round(mean_squared_error(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    r2_emo = [np.round(r2_score(t, p), round_decimals) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    mae = np.round(mean_absolute_error(true_scores_all, pred_scores_all), round_decimals)
-    mse = np.round(mean_squared_error(true_scores_all, pred_scores_all), round_decimals)
-    r2 = np.round(r2_score(true_scores_all, pred_scores_all), round_decimals)
+    num_emotions = true_scores.shape[1]
+    true_scores_emo = [true_scores[:, i] for i in range(num_emotions)]
+    pred_scores_emo = [pred_scores[:, i] for i in range(num_emotions)]
 
-    print("Mean absolute error (for each emotion):", mae_emo)
-    print("Mean squared error (for each emotion):", mse_emo)
-    print("R2 score (for each emotion):", r2_emo)
-    print("Mean absolute error (overall):", mae)
-    print("Mean squared error (overall):", mse)
-    print("R2 score (overall):", r2)
+    mae_emo = [mean_absolute_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    mse_emo = [mean_squared_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    r2_emo = [r2_score(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    kl_div_emo = [KL(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    mae = mean_absolute_error(true_scores, pred_scores)
+    mse = mean_squared_error(true_scores, pred_scores)
+    r2 = r2_score(true_scores, pred_scores)
+    kl_div = KL(true_scores, pred_scores)
 
-    return [mae, mse, r2] + mae_emo + mse_emo + r2_emo
+    print("Mean absolute error (for each emotion):", [round_not_nan(val, round_decimals) for val in mae_emo])
+    print("Mean squared error (for each emotion):", [round_not_nan(val, round_decimals) for val in mse_emo])
+    print("R2 score (for each emotion):", [round_not_nan(val, round_decimals) for val in r2_emo])
+    print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals) for val in kl_div_emo])
+    print("Mean absolute error (overall):", round_not_nan(mae, round_decimals))
+    print("Mean squared error (overall):", round_not_nan(mse, round_decimals))
+    print("R2 score (overall):", round_not_nan(r2, round_decimals))
+    print("KL divergence (unweighted mean):", round_not_nan(kl_div, round_decimals))
+
+    return [mae, mse, r2, kl_div] + mae_emo + mse_emo + r2_emo + kl_div_emo
 
 
 def get_classification_metrics_score(true_scores, pred_scores, num_classes, round_decimals,
@@ -200,9 +211,6 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     :return: List of classification metrics
     """
 
-    def round_not_nan(macro_val):
-        return np.round(macro_val, round_decimals) if not np.isnan(macro_val) else np.nan
-
     if thres is not None:
         print('\n>>> Threshold:', thres)
 
@@ -224,37 +232,45 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
                                       weights=[weight_classes_for_mean[i] for i in index_not_nan])
     else:
         wei_acc_weighted = np.nan
-    print("Multilabel accuracy:", round_not_nan(multilabel_acc))
-    print("Binary accuracy (for each):", [round_not_nan(bin_acc_i) for bin_acc_i in bin_acc_per_class])
-    print("Binary accuracy (unweighted mean):", round_not_nan(bin_acc_macro))
-    print("Binary accuracy (weighted mean):", round_not_nan(bin_acc_weighted))
-    print("Weighted accuracy (for each):", [round_not_nan(wei_acc_i) for wei_acc_i in wei_acc_per_class])
-    print("Weighted accuracy (unweighted mean):", round_not_nan(wei_acc_macro))
-    print("Weighted accuracy (weighted mean):", round_not_nan(wei_acc_weighted))
+    print("Multilabel accuracy:", round_not_nan(multilabel_acc, round_decimals))
+    print("Binary accuracy (for each):", [round_not_nan(bin_acc_i, round_decimals) for bin_acc_i in bin_acc_per_class])
+    print("Binary accuracy (unweighted mean):", round_not_nan(bin_acc_macro, round_decimals))
+    print("Binary accuracy (weighted mean):", round_not_nan(bin_acc_weighted, round_decimals))
+    print("Weighted accuracy (for each):", [round_not_nan(wei_acc_i, round_decimals) for wei_acc_i in wei_acc_per_class])
+    print("Weighted accuracy (unweighted mean):", round_not_nan(wei_acc_macro, round_decimals))
+    print("Weighted accuracy (weighted mean):", round_not_nan(wei_acc_weighted, round_decimals))
 
     # F1 score
     f1_each = [val*100 for val in f1_score(true_classes, pred_classes, average=None, zero_division=1)]
     f1_macro = f1_score(true_classes, pred_classes, average='macro', zero_division=1)*100
     f1_weighted = f1_score(true_classes, pred_classes, average='weighted', zero_division=1)*100
-    print("F1 score (for each):", [round_not_nan(f1_i) for f1_i in f1_each])
-    print("F1 score (unweighted mean):", round_not_nan(f1_macro))
-    print("F1 score (weighted mean):", round_not_nan(f1_weighted))
+    print("F1 score (for each):", [round_not_nan(f1_i, round_decimals) for f1_i in f1_each])
+    print("F1 score (unweighted mean):", round_not_nan(f1_macro, round_decimals))
+    print("F1 score (weighted mean):", round_not_nan(f1_weighted, round_decimals))
 
     # Recall
     rec_each = [val*100 for val in recall_score(true_classes, pred_classes, average=None, zero_division=1)]
     rec_macro = recall_score(true_classes, pred_classes, average='macro', zero_division=1)*100
     rec_weighted = recall_score(true_classes, pred_classes, average='weighted', zero_division=1)*100
-    print("Recall (for each):", [round_not_nan(rec_i) for rec_i in rec_each])
-    print("Recall (unweighted mean):", round_not_nan(rec_macro))
-    print("Recall (weighted mean):", round_not_nan(rec_weighted))
+    print("Recall (for each):", [round_not_nan(rec_i, round_decimals) for rec_i in rec_each])
+    print("Recall (unweighted mean):", round_not_nan(rec_macro, round_decimals))
+    print("Recall (weighted mean):", round_not_nan(rec_weighted, round_decimals))
 
     # Precision
     prec_each = [val*100 for val in precision_score(true_classes, pred_classes, average=None, zero_division=1)]
     prec_macro = precision_score(true_classes, pred_classes, average='macro', zero_division=1)*100
     prec_weighted = precision_score(true_classes, pred_classes, average='weighted', zero_division=1)*100
-    print("Precision (for each):", [round_not_nan(prec_i) for prec_i in prec_each])
-    print("Precision (unweighted mean):", round_not_nan(prec_macro))
-    print("Precision (weighted mean):", round_not_nan(prec_weighted))
+    print("Precision (for each):", [round_not_nan(prec_i, round_decimals) for prec_i in prec_each])
+    print("Precision (unweighted mean):", round_not_nan(prec_macro, round_decimals))
+    print("Precision (weighted mean):", round_not_nan(prec_weighted, round_decimals))
+
+    # Jaccard score
+    jacc_each = [val*100 for val in jaccard_score(true_classes, pred_classes, average=None, zero_division=1)]
+    jacc_macro = jaccard_score(true_classes, pred_classes, average='macro', zero_division=1)*100
+    jacc_weighted = jaccard_score(true_classes, pred_classes, average='weighted', zero_division=1)*100
+    print("Jaccard score (for each):", [round_not_nan(jacc_i, round_decimals) for jacc_i in jacc_each])
+    print("Jaccard score (unweighted mean):", round_not_nan(jacc_macro, round_decimals))
+    print("Jaccard score (weighted mean):", round_not_nan(jacc_weighted, round_decimals))
 
     # # ROC AUC score
     # true_classes_bin = label_binarize(true_classes, classes=list(range(num_classes)))
@@ -262,13 +278,13 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     # roc_auc_each = [val*100 for val in roc_auc_score(true_classes_bin, pred_classes_bin, average=None)]
     # roc_auc_macro = roc_auc_score(true_classes_bin, pred_classes_bin, average='macro')*100
     # roc_auc_weighted = roc_auc_score(true_classes_bin, pred_classes_bin, average='weighted', multi_class='ovr')*100
-    # print("ROC AUC (for each):", [round_not_nan(roc_auc_i) for roc_auc_i in roc_auc_each])
-    # print("ROC AUC (unweighted mean):", round_not_nan(roc_auc_macro))
-    # print("ROC AUC (weighted mean):", round_not_nan(roc_auc_weighted))
+    # print("ROC AUC (for each):", [round_not_nan(roc_auc_i, round_decimals) for roc_auc_i in roc_auc_each])
+    # print("ROC AUC (unweighted mean):", round_not_nan(roc_auc_macro, round_decimals))
+    # print("ROC AUC (weighted mean):", round_not_nan(roc_auc_weighted, round_decimals))
 
     res = [multilabel_acc, bin_acc_macro, bin_acc_weighted, wei_acc_macro, wei_acc_weighted, f1_macro, f1_weighted,
-           rec_macro, rec_weighted, prec_macro, prec_weighted]  # , roc_auc_macro, roc_aux_weighted]
-    res = res + bin_acc_per_class + wei_acc_per_class + f1_each + rec_each + prec_each  # + roc_auc_each
+           rec_macro, rec_weighted, prec_macro, prec_weighted, jacc_macro, jacc_weighted]  # , roc_auc_macro, roc_aux_weighted]
+    res = res + bin_acc_per_class + wei_acc_per_class + f1_each + rec_each + prec_each + jacc_each  # + roc_auc_each
 
     return res
 

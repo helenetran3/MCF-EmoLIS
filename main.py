@@ -87,12 +87,13 @@ def main():
             from src.tensorflow_utils.model_training import train_tf_model
             from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
-            train_tf_model(train_list_task, valid_list_task, test_list_task, param_task, param_model_j, param_training,
-                           param_log, num_steps, model_name, model_id, loss_function, val_metrics, with_cross_validation)
+            thres_multilabel = train_tf_model(train_list_task, valid_list_task, test_list_task, param_task,
+                                              param_model_j, param_training, param_log, num_steps, model_name, model_id,
+                                              loss_function, val_metrics, label_type, with_cross_validation)
 
             model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_tf_model(test_list_task, param_task, param_training, param_log, num_steps, model_name, model_id,
-                                  loss_function, val_metrics, all_scores, with_cross_validation)
+                                  loss_function, val_metrics, thres_multilabel, with_cross_validation)
 
         else:
             import torch
@@ -110,7 +111,7 @@ def main():
             model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
                 evaluate_torch_model(test_list_task, param_task, param_model_j, param_training,
                                      param_log, num_steps, model_name, model_id, loss_function, val_metrics,
-                                     thres_multilabel, all_scores, device, with_cross_validation)
+                                     thres_multilabel, device, with_cross_validation)
 
         # Save model parameters in csv file
         save_model_param_in_csv_file(model_id, param_task, param_model_j, param_training, model_name,

@@ -96,16 +96,16 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         emotions.append('neutral')
 
     if is_classification:
-        metrics_emo = ['bin_acc', 'wei_acc', 'f1', 'rec', 'prec']  # , 'roc_auc']
+        metrics_emo = ['bin_acc', 'wei_acc', 'f1', 'rec', 'prec', 'jacc']  # , 'roc_auc']
         header_per_emo = ['{}_{}'.format(m, e) for m in metrics_emo for e in emotions]
         header_overall = ['multilabel_acc', 'bin_acc_macro', 'bin_acc_weighted', 'wei_acc_macro', 'wei_acc_weighted',
-                          'f1_macro', 'f1_weighted', 'rec_macro', 'rec_weighted', 'prec_macro', 'prec_weighted']
-                          # , 'roc_auc_macro', 'roc_auc_weighted']
+                          'f1_macro', 'f1_weighted', 'rec_macro', 'rec_weighted', 'prec_macro', 'prec_weighted',
+                          'jacc_macro', 'jacc_weighted']  # , 'roc_auc_macro', 'roc_auc_weighted']
         header = header_param + header_overall + header_per_emo
         data = data_param + metrics
 
     else:
-        header_overall = ['mae', 'mse', 'r2']
+        header_overall = ['mae', 'mse', 'r2', 'kl_div']
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
         data = data_param + metrics
@@ -140,14 +140,10 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     ext_name = "_n" if predict_neutral_class else ""
 
     # Create filenames
-    csv_path_regression = create_csv_path(model_name, filename="regression", ext_name=ext_name,
-                                          with_cross_val=with_cross_val)
-    csv_path_score = create_csv_path(model_name, filename="classif_score", ext_name=ext_name,
-                                     with_cross_val=with_cross_val)
-    csv_path_presence = create_csv_path(model_name, filename="classif_pres", ext_name=ext_name,
-                                         with_cross_val=with_cross_val)
-    csv_path_dominant = create_csv_path(model_name, filename="classif_dom", ext_name=ext_name,
-                                        with_cross_val=with_cross_val)
+    csv_path_regression = create_csv_path(model_name, "regression", ext_name, with_cross_val)
+    csv_path_score = create_csv_path(model_name, "classif_score", ext_name, with_cross_val)
+    csv_path_presence = create_csv_path(model_name, "classif_pres", ext_name, with_cross_val)
+    csv_path_dominant = create_csv_path(model_name, "classif_dom", ext_name, with_cross_val)
     
     def write_csv_one_model(eval_out, met_reg, met_score, met_pres, met_dom, fold_id=None):
         

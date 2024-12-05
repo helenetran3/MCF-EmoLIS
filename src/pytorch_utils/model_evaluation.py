@@ -11,7 +11,7 @@ from alive_progress import alive_bar
 
 
 def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_model, param_log, num_steps,
-                       model_name, model_id, loss_fn_str, val_met_str, thres_multilabel, all_scores, device):
+                       model_name, model_id, loss_fn_str, val_met_str, thres_multilabel, device):
 
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
@@ -121,36 +121,31 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     else:
         print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
 
-    pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-        compute_pred_labels(pred_raw_array, all_scores, predict_neutral_class, thres_score_pres, thres_multilabel,
+    pred_classes_pres, pred_classes_dom = \
+        compute_pred_labels(pred_raw_array, predict_neutral_class, thres_score_pres, thres_multilabel,
                             save_pred, model_id, num_classes, model_folder, label_type)
 
-    return [loss_fn_value, val_met_value], pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, \
-        pred_classes_dom
+    return [loss_fn_value, val_met_value], pred_raw_array, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
-                         loss_function, val_metrics, thres_multilabel, all_scores, device, with_cross_valid):
+                         loss_function, val_metrics, thres_multilabel, device, with_cross_valid):
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']
-        model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            [], [], [], [], [], []
+        model_eval_output, pred_raw_array, pred_classes_pres, pred_classes_dom = [], [], [], []
         for fold_i in range(num_folds):
-            loss_vals_i, pred_raw_i, pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i = \
-                run_one_evaluation(test_list[fold_i], with_cross_valid, fold_i,
-                                   param_task, param_model, param_log, num_steps, model_name, model_id,
-                                   loss_function, val_metrics, thres_multilabel[fold_i], all_scores, device)
+            loss_vals_i, pred_raw_i, pred_pres_i, pred_dom_i = \
+                run_one_evaluation(test_list[fold_i], with_cross_valid, fold_i, param_task, param_model, param_log,
+                                   num_steps, model_name, model_id, loss_function, val_metrics,
+                                   thres_multilabel[fold_i], device)
             model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw_array += [pred_raw_i]
-            pred_scores_all += [pred_all_i]
-            pred_scores_coa += [pred_coa_i]
             pred_classes_pres += [pred_pres_i]
             pred_classes_dom += [pred_dom_i]
     else:
-        model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            run_one_evaluation(test_list, with_cross_valid, None,
-                               param_task, param_model, param_log, num_steps, model_name, model_id,
-                               loss_function, val_metrics, thres_multilabel, all_scores, device)
+        model_eval_output, pred_raw_array, pred_classes_pres, pred_classes_dom = \
+            run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_log, num_steps,
+                               model_name, model_id, loss_function, val_metrics, thres_multilabel, device)
 
-    return model_eval_output, pred_raw_array, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return model_eval_output, pred_raw_array, pred_classes_pres, pred_classes_dom
