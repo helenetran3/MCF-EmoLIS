@@ -174,30 +174,31 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     true_scores_emo = [true_scores[:, i] for i in range(num_emotions)]
     pred_scores_emo = [pred_scores[:, i] for i in range(num_emotions)]
 
-    c_index_emo, c_index = [None for _ in range(6)], None
     mae_emo = [mean_absolute_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    mse_emo = [mean_squared_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    r2_emo = [r2_score(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
-    kl_div_emo = [KL(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     mae = mean_absolute_error(true_scores, pred_scores)
+    print("Mean absolute error (for each emotion):", [round_not_nan(val, round_decimals) for val in mae_emo])
+    print("Mean absolute error (overall):", round_not_nan(mae, round_decimals))
+
+    mse_emo = [mean_squared_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     mse = mean_squared_error(true_scores, pred_scores)
+    print("Mean squared error (for each emotion):", [round_not_nan(val, round_decimals) for val in mse_emo])
+    print("Mean squared error (overall):", round_not_nan(mse, round_decimals))
+
+    r2_emo = [r2_score(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     r2 = r2_score(true_scores, pred_scores)
+    print("R2 score (for each emotion):", [round_not_nan(val, round_decimals) for val in r2_emo])
+    print("R2 score (overall):", round_not_nan(r2, round_decimals))
+
+    kl_div_emo = [KL(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     kl_div = KL(true_scores, pred_scores)
+    print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals) for val in kl_div_emo])
+    print("KL divergence (overall):", round_not_nan(kl_div, round_decimals))
+
+    c_index_emo, c_index = [None for _ in range(6)], None
     if label_type == 'all' or 'coarse' in label_type:
         c_index_emo = [concordance_index(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
         c_index = np.mean(c_index_emo)
-
-    print("Mean absolute error (for each emotion):", [round_not_nan(val, round_decimals) for val in mae_emo])
-    print("Mean squared error (for each emotion):", [round_not_nan(val, round_decimals) for val in mse_emo])
-    print("R2 score (for each emotion):", [round_not_nan(val, round_decimals) for val in r2_emo])
-    print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals) for val in kl_div_emo])
-    if label_type == 'all' or 'coarse' in label_type:
         print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
-    print("Mean absolute error (overall):", round_not_nan(mae, round_decimals))
-    print("Mean squared error (overall):", round_not_nan(mse, round_decimals))
-    print("R2 score (overall):", round_not_nan(r2, round_decimals))
-    print("KL divergence (overall):", round_not_nan(kl_div, round_decimals))
-    if label_type == 'all' or 'coarse' in label_type:
         print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
 
     return [mae, mse, r2, kl_div, c_index] + mae_emo + mse_emo + r2_emo + kl_div_emo + c_index_emo
