@@ -84,6 +84,7 @@ def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_i
     :param model_folder: the folder where the results are saved (str)
     :param thres: threshold at which emotions are considered to be present. Must be between 0 and 3
     :param fold_id: Cross-validation fold id (int)
+    :param score_id: Index position of the presence score (int)
     :return: a list of rounded accuracies
     """
 
@@ -129,6 +130,8 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
 
     :param true_scores: array of shape (test size, 6) giving the true scores for the 6 emotions (given by the database)
     :param pred_scores: array of shape (test_size, 6) predicting the presence score of the 6 emotions
+    :param label_type: Type of labels used for model training and evaluation
+    :param all_scores: list of available presence scores
     :param round_decimals: number of decimals to be rounded for metrics
     :return: List of classification metrics
     """
@@ -201,7 +204,7 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
 
 
 def get_classification_metrics_score(true_scores, pred_scores, num_classes, round_decimals,
-                                     model_id, model_folder, with_cross_val, coarse):
+                                     model_id, model_folder, with_cross_val, fold_id, coarse):
     """
     Return unweighted mean of all the classification metrics for the case of coarse scores.
 
@@ -212,6 +215,7 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
     :param model_id: model id (int)
     :param model_folder: the folder where the results are saved (str)
     :param with_cross_val: boolean (cross_validation or not)
+    :param fold_id: Cross-validation fold id (int)
     :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else all_scores
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
@@ -226,7 +230,7 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
         true_classes_i = (true_scores >= sc_i).astype(int)
         pred_classes_i = (pred_scores >= sc_i).astype(int)
         res += [get_classification_metrics(true_classes_i, pred_classes_i, num_classes, round_decimals, task,
-                                           model_id, model_folder, with_cross_val, score_id=sc_id)]
+                                           model_id, model_folder, with_cross_val, fold_id=fold_id, score_id=sc_id)]
 
     return res
 
@@ -244,10 +248,13 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     :param pred_classes: binary array of predictions, shape (test_size, num_classes) (num_classes = 7 if with neutral class, else 6)
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
+    :param task: Name of the task, among 'all', 'coa', 'pres' and 'dom'
     :param model_id: Model id (int)
     :param model_folder: The folder where the result will be saved
     :param with_cross_val: boolean (cross_validation or not)
     :param fold_id: Cross-validation fold id (int)
+    :param thres: threshold at which emotions are considered to be present. Must be between 0 and 3 (int)
+    :param score_id: Index position of the presence score (int)
     :return: List of classification metrics
     """
 
@@ -557,21 +564,21 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
             print(f"\n------- Presence score classification -------\n")
             coarse = ('coarse' in label_type)
             metrics_score = get_classification_metrics_score(true_all_i, pred_raw_i, num_classes, round_decimals,
-                                                             model_id, model_folder, with_cross_val, coarse=coarse)
+                                                             model_id, model_folder, with_cross_val, fold_id, coarse)
 
         # Classification metrics of emotion present
         if pred_pres_i is not None:
             print("\n------- Detecting the presence of emotions ------------")
             metrics_presence = [get_classification_metrics(true_pres_i[j], pred_pres_i[j], num_classes, round_decimals,
                                                            "pres", model_id, model_folder, with_cross_val,
-                                                           fold_id, thres)
+                                                           fold_id=fold_id, thres=thres)
                                 for j, thres in enumerate(thres_score_pres)]
 
         # Classification metrics of dominant emotions
         if pred_dom_i is not None:
             print("\n------- Predicting dominant emotions ------------------\n")
             metrics_dominant = get_classification_metrics(true_dom_i, pred_dom_i, num_classes, round_decimals, "dom",
-                                                          model_id, model_folder, with_cross_val, fold_id)
+                                                          model_id, model_folder, with_cross_val, fold_id=fold_id)
 
         return metrics_regression, metrics_score, metrics_presence, metrics_dominant
 
@@ -608,9 +615,6 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     :param with_cross_val: boolean (cross_validation or not)
     :param model_eval_output: List of [loss function, validation metric] obtained by the model
     :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions
-    :param pred_scores_all: array of shape (test_size, num_classes) predicting the presence score among available
-    presence scores (all_scores)
-    :param pred_scores_coa: array of shape (test_size, num_classes) predicting the presence score among [0, 1, 2, 3]
     :param pred_classes_pres: list of binary arrays of shape (test_size, num_classes) giving the predicted presence of
     an emotion (> threshold defined by thres_score_pres)
     :param pred_classes_dom: binary array of shape (test_size, num_classes) giving the predicted dominant emotions
