@@ -79,21 +79,23 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
 
-def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_scores, label_type, num_classes, decimals):
+def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_scores, label_type, num_classes,
+                                    thres_score_pres, decimals):
     print("\n======================== Mean and std of folds ========================\n")
     print("Number of folds:", len(met_reg))
 
     def str_overall(val_macro_list):
-        val_mean = np.round(np.mean(val_macro_list), decimals=decimals)
-        val_std = np.round(np.std(val_macro_list), decimals=decimals)
-        return "{} ({})".format(np.mean(val_mean), np.std(val_std))
+        val_mean = np.mean(val_macro_list)
+        val_std = np.std(val_macro_list)
+        return "{} ({})".format(np.round(val_mean, decimals=decimals), np.round(val_std, decimals=decimals))
 
     def str_emo(met_per_fold):
         met_per_emo = [[met_fold_i[k] for met_fold_i in met_per_fold] for k in range(num_classes)]
         res_str = "["
         for emo_i, met_per_emo_k in enumerate(met_per_emo):
-            res_str += "{} ({})".format(np.round(np.mean(met_per_emo_k), decimals=decimals),
-                                        np.round(np.std(met_per_emo_k), decimals=decimals))
+            val_mean_i = np.mean(met_per_emo_k)
+            val_std_i = np.std(met_per_emo_k)
+            res_str += "{} ({})".format(np.round(val_mean_i, decimals=decimals), np.round(val_std_i, decimals=decimals))
             if emo_i != num_classes - 1:
                 res_str += ", "
             else:
@@ -204,13 +206,14 @@ def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_s
     if not (None in met_score):
         scores = all_scores if label_type == 'all' else [0, 1, 2, 3]
         print(f"\n------- Presence score classification -------\n")
-        met_transpose_fold_and_scores = list(np.transpose(np.array(met_score), (1, 0, 2)))  # num_scores, num_folds, val
         for i, sc_i in enumerate(scores):
             print("\n>>> Score threshold:", sc_i)
-            print_mean_std_binary_classification(met_transpose_fold_and_scores[i])
+            print_mean_std_binary_classification([met_score_fold[i] for met_score_fold in met_score])
     if not (None in met_pres):
         print("\n------- Detecting the presence of emotions ------------\n")
-        print_mean_std_binary_classification(met_pres[0])
+        for j, thres in enumerate(thres_score_pres):
+            print('\n>>> Threshold:', thres)
+            print_mean_std_binary_classification([met_pres_fold[j] for met_pres_fold in met_pres])
     if not (None in met_dom):
         print("\n------- Predicting dominant emotions ------------------\n")
         print_mean_std_binary_classification(met_dom)

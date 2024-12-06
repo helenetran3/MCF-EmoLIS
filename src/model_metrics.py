@@ -176,27 +176,27 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
 
     mae_emo = [mean_absolute_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     mae = mean_absolute_error(true_scores, pred_scores)
-    print("Mean absolute error (for each emotion):", [round_not_nan(val, round_decimals) for val in mae_emo])
+    print("Mean absolute error (for each emotion):", [round_not_nan(val, round_decimals+2) for val in mae_emo])
     print("Mean absolute error (overall):", round_not_nan(mae, round_decimals))
 
     mse_emo = [mean_squared_error(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     mse = mean_squared_error(true_scores, pred_scores)
-    print("Mean squared error (for each emotion):", [round_not_nan(val, round_decimals) for val in mse_emo])
+    print("Mean squared error (for each emotion):", [round_not_nan(val, round_decimals+2) for val in mse_emo])
     print("Mean squared error (overall):", round_not_nan(mse, round_decimals))
 
-    r2_emo = [r2_score(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    r2_emo = [r2_score(t, p)*100 for t, p in zip(true_scores_emo, pred_scores_emo)]
     r2 = r2_score(true_scores, pred_scores)
     print("R2 score (for each emotion):", [round_not_nan(val, round_decimals) for val in r2_emo])
     print("R2 score (overall):", round_not_nan(r2, round_decimals))
 
     kl_div_emo = [KL(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
     kl_div = KL(true_scores, pred_scores)
-    print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals) for val in kl_div_emo])
+    print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals+2) for val in kl_div_emo])
     print("KL divergence (overall):", round_not_nan(kl_div, round_decimals))
 
     c_index_emo, c_index = [None for _ in range(6)], None
     if label_type == 'all' or 'coarse' in label_type:
-        c_index_emo = [concordance_index(t, p) for t, p in zip(true_scores_emo, pred_scores_emo)]
+        c_index_emo = [concordance_index(t, p)*100 for t, p in zip(true_scores_emo, pred_scores_emo)]
         c_index = np.mean(c_index_emo)
         print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
         print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
@@ -349,7 +349,6 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
     :param model_folder: the folder where the results are saved (str)
     :param label_type: type of labels used for model training and evaluation ('all', 'coarse', 'coarse_prob',
     'coarse_oh', 'present', 'dominant')
-    :param all_scores: list of available presence scores
     :param display_fig: whether we display the figures (bool)
     :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
     """
@@ -596,7 +595,7 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
         # Print Mean and Std of values
         print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_scores, label_type,
-                                        num_classes, round_decimals)
+                                        num_classes, thres_score_pres, round_decimals)
 
     else:
         met_reg, met_score, met_pres, met_dom = compute_metrics_one_model(true_scores_all, true_scores_coa,
