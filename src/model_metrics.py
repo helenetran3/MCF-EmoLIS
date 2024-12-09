@@ -217,7 +217,7 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
     :param model_folder: the folder where the results are saved (str)
     :param with_cross_val: boolean (cross_validation or not)
     :param fold_id: Cross-validation fold id (int)
-    :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else all_scores
+    :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
@@ -594,8 +594,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
             met_dom += [md]
 
         # Print Mean and Std of values
-        print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_scores, label_type,
-                                        num_classes, thres_score_pres, round_decimals)
+        print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label_type, num_classes,
+                                        thres_score_pres, round_decimals)
 
     else:
         met_reg, met_score, met_pres, met_dom = compute_metrics_one_model(true_scores_all, true_scores_coa,

@@ -79,7 +79,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
 
-def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_scores, label_type, num_classes,
+def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label_type, num_classes,
                                     thres_score_pres, decimals):
     print("\n======================== Mean and std of folds ========================\n")
     print("Number of folds:", len(met_reg))
@@ -204,7 +204,7 @@ def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, all_s
         print("\n------- Presence score estimation (regression) --------\n")
         print_mean_std_regression(met_reg)
     if not (None in met_score):
-        scores = all_scores if label_type == 'all' else [0, 1, 2, 3]
+        scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3] if label_type == 'all' else [0, 1, 2, 3]
         print(f"\n------- Presence score classification -------\n")
         for i, sc_i in enumerate(scores):
             print("\n>>> Score threshold:", sc_i)
