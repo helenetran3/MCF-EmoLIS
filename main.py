@@ -16,7 +16,7 @@ def main():
     with_cross_validation = (param_training['cross_val_folds'] != -1)
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
-    pickle_name_fold = param_log['pickle_name_fold']
+    root_data_folder = param_log['root_data_folder']
     tnan = param_task['thres_nan']
     nan_str = param_task['replace_nan'] + "_tnan_" + str(tnan)
     length_seq = param_task['set_length']
@@ -30,25 +30,24 @@ def main():
     cv_filename = "cv_" + str(num_folds) + "_true_" + label_type_str + "_" + data_ext_name
     cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
-    if with_cross_validation and pickle_file_exists("train_" + cv_filename, "processed_folds", "cmu_mosei"):
-        train_list_task = load_from_pickle("train_" + cv_filename, 'processed_folds', "cmu_mosei")
-        valid_list_task = load_from_pickle("valid_" + cv_filename, 'processed_folds', "cmu_mosei")
-        test_list_task = load_from_pickle("test_" + cv_filename, 'processed_folds', "cmu_mosei")
-        all_scores = load_from_pickle(pickle_name_fold + "_all_scores_with_no_split_" + data_ext_name,
-                                      "raw_folds", "cmu_mosei")
+    if with_cross_validation and pickle_file_exists("train_" + cv_filename, "processed_folds", root_data_folder):
+        train_list_task = load_from_pickle("train_" + cv_filename, 'processed_folds', root_data_folder)
+        valid_list_task = load_from_pickle("valid_" + cv_filename, 'processed_folds', root_data_folder)
+        test_list_task = load_from_pickle("test_" + cv_filename, 'processed_folds', root_data_folder)
+        all_scores = load_from_pickle("all_scores_with_no_split_" + data_ext_name, "raw_folds", root_data_folder)
         print("\nLoaded {} folds for cross-validation, for task {}, max NaN of {}%, max length of {} and predict "
-              "neutral class is {}, from folder 'processed_folds'.".format(num_folds, label_type, tnan, length_seq,
-                                                                           (predict_neutral_class == 1)))
+              "neutral class is {}, from folder '{}/processed_folds'.".format(num_folds, label_type, tnan, length_seq,
+                                                                              (predict_neutral_class == 1),
+                                                                              root_data_folder))
 
     else:
-        if pickle_file_exists(pickle_name_fold + "_train_" + nan_str + length_str, "raw_folds", "cmu_mosei"):
-            train_list_orig = load_from_pickle(pickle_name_fold + "_train_" + data_ext_name, "raw_folds", "cmu_mosei")
-            valid_list_orig = load_from_pickle(pickle_name_fold + "_valid_" + data_ext_name, "raw_folds", "cmu_mosei")
-            test_list_orig = load_from_pickle(pickle_name_fold + "_test_" + data_ext_name,  "raw_folds", "cmu_mosei")
-            no_split_list_orig = load_from_pickle(pickle_name_fold + "_no_split_" + data_ext_name,  "raw_folds", "cmu_mosei")
+        if pickle_file_exists("train_" + nan_str + length_str, "raw_folds", root_data_folder):
+            train_list_orig = load_from_pickle("train_" + data_ext_name, "raw_folds", root_data_folder)
+            valid_list_orig = load_from_pickle("valid_" + data_ext_name, "raw_folds", root_data_folder)
+            test_list_orig = load_from_pickle("test_" + data_ext_name,  "raw_folds", root_data_folder)
+            no_split_list_orig = load_from_pickle("no_split_" + data_ext_name,  "raw_folds", root_data_folder)
             split_str = "with_no_split_" if with_cross_validation else "split_only_"
-            all_scores = load_from_pickle(pickle_name_fold + "_all_scores_" + split_str + data_ext_name,
-                                          "raw_folds", "cmu_mosei")
+            all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name, "raw_folds", root_data_folder)
         else:
             # Load CMU-MOSEI dataset
             dataset = get_dataset_from_sdk(param_log, param_task)
@@ -68,7 +67,7 @@ def main():
         if with_cross_validation:
             train_list_task, valid_list_task, test_list_task = \
                 split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
-                                           param_training, param_task, data_ext_name)
+                                           param_training, param_task, param_log, data_ext_name)
 
     # Data normalization
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,

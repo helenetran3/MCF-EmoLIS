@@ -417,7 +417,7 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
 
     if json_name == 'param_logistics':
         hyperparam_log = hyperparam_dict['logistics']
-        required_keys = ['pickle_name_dataset', 'pickle_name_fold', 'round_decimals', 'plot_confusion_matrix',
+        required_keys = ['pickle_name_dataset', 'root_data_folder', 'round_decimals', 'plot_confusion_matrix',
                          'save_predictions', 'display_fig']
         check_if_key_is_in_list_actual_keys(required_keys, hyperparam_log, json_name)
         check_value_is_int_superior_to_min_value('round_decimals', hyperparam_log['round_decimals'], min_value=0)
