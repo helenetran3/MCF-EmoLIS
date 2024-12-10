@@ -2,8 +2,8 @@
   "logistics":
   {
     "pickle_name_dataset": "cmu_mosei_aligned_text_no_averaged",
-    "pickle_name_fold": "cmu_mosei",
-    "round_decimals": 1,
+    "root_data_folder": "cmu_mosei",
+    "round_decimals": 2,
     "plot_confusion_matrix": 1,
     "save_predictions": 1,
     "display_fig": 0,

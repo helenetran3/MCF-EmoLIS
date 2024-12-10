@@ -60,8 +60,8 @@ def save_and_plot_history(history, ext_name, history_folder, root_folder, displa
         plt.show()
 
 
-def run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                     num_steps, model_name, model_id, loss_function_str, val_metrics_str, with_cross_val, fold_id=None):
+def run_one_training(train_list, valid_list, param_model, param_training, param_log, num_steps, model_name, model_id,
+                     loss_function_str, val_metrics_str, label_type, with_cross_val, fold_id=None):
 
     batch_size = param_training['batch_size']
     optimizer_name = param_training['optimizer']
@@ -140,9 +140,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     save_and_plot_history(history, ext_model_name, history_folder="history", root_folder=model_folder,
                           display_fig=display_fig)
 
+    # if label_type in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
+    valid_thres_ml_best = [0.5 for _ in range(num_classes)]  # TODO Temporary
+
+    return valid_thres_ml_best
+
 
 def train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
-                   model_name, model_id, loss_function, val_metrics, with_cross_valid):
+                   model_name, model_id, loss_function, val_metrics, label_type, with_cross_valid):
     """
     Train the model using TensorFlow.
     Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
@@ -161,6 +166,7 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
     :param model_id: Model id (int)
     :param loss_function: Name of the loss function (str)
     :param val_metrics: Name of the validation metric used for monitoring (str)
+    :param label_type: Type of labels used for model training and evaluation
     :param with_cross_valid: boolean (cross_validation or not)
     """
 
@@ -169,11 +175,15 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
                               loss_function, val_metrics, is_tf=True)
 
     if with_cross_valid:
+        thres_multilabel = []
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
-            run_one_training(train_list_i, valid_list_i, param_model, param_training, param_log,
-                             num_steps, model_name, model_id, loss_function, val_metrics, with_cross_valid, fold_id)
+            thres_multilabel += [run_one_training(train_list_i, valid_list_i, param_model, param_training, param_log,
+                                                  num_steps, model_name, model_id, loss_function, val_metrics,
+                                                  label_type, with_cross_valid, fold_id)]
 
     else:
-        run_one_training(train_list, valid_list, param_model, param_training, param_log,
-                         num_steps, model_name, model_id, loss_function, val_metrics, with_cross_valid)
+        thres_multilabel = run_one_training(train_list, valid_list, param_model, param_training, param_log, num_steps,
+                                            label_type, model_name, model_id, loss_function, val_metrics,
+                                            with_cross_valid)
 
+    return thres_multilabel

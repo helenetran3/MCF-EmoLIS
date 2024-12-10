@@ -24,7 +24,7 @@
     "coef_coa": 0.2,
     "thres_ml_from_best_metric": 1,
     "learning_rate": 5e-4,
-    "cross_val_folds": -1,
+    "cross_val_folds": 5,
     "random_state": 42,
     "clip": 2,
     "when": -1

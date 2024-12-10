@@ -55,22 +55,15 @@ def get_available_presence_scores(true_scores_all):
     return le.classes_
 
 
-def get_available_presence_scores_arr(train_list, valid_list, test_list):
+def get_available_presence_scores_arr(y_list):
     """
-    Get the list of all unique values of presence scores, based on three lists of [x, y, seg] (training, validation, test)
+    Get the list of all unique values of presence scores, given a list of y arrays of shape (1, 6)
 
-    :param train_list: a list [x_train, y_train, seg_train]
-    :param valid_list: a list [x_valid, y_valid, seg_valid]
-    :param test_list: a list [x_test, y_test, seg_test]
+    :param y_list: a list of y arrays of shape (1, 6)
     :return: a list of unique values of presence scores
     """
-    train_y = np.reshape(np.array(train_list[1]), (-1, 6))
-    valid_y = np.reshape(np.array(valid_list[1]), (-1, 6))
-    test_y = np.reshape(np.array(test_list[1]), (-1, 6))
-    all_y = np.concatenate([train_y, valid_y, test_y], axis=0)
-
+    all_y = np.reshape(np.array(y_list), (-1, 6))
     all_y_uniq = np.unique(all_y)
-
     return list(all_y_uniq)
 
 
@@ -211,7 +204,7 @@ def get_class_from_presence_score(score_array, with_neutral_class, thres_score_p
 
 
 def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, thres_score_pres, param_task, num_classes,
-                        label_type, return_all_tasks=False):
+                        label_type, for_test=False):
     """
     Compute the true labels from a list of 2D arrays of shape (1, num_classes) (y_list)
     The results are all 3D arrays, true_classes_pres is a list of arrays of this type)
@@ -221,7 +214,8 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
     Shape: (number of y elements, num_classes)
     true_classes_dom: Emotions truly dominant (highest presence score). Shape: (number of y elements, num_classes)
 
-    :param y_list: List of arrays of shape (1, num_classes)
+    :param y_list: List of arrays of shape (1, num_classes): contains original scores (for_test False) or the labels
+                     computed from the targeted task (for_test True)
     :param root_name: Name to append to pickle file (ex: 'train', 'valid', 'test')
     :param all_scores: list of available presence scores
     :param predict_neutral_class: Whether we predict the neutral class
@@ -232,102 +226,89 @@ def compute_true_labels(y_list, root_name, all_scores, predict_neutral_class, th
                          scores provided by the dataset), coarse (presence score for each emotion among [0, 1, 2, 3]),
                          coarse_prob (presence score for each emotion among [0, 1/3, 2/3, 1]),
                          present (multi-label classification), dominant (multi-label classification)
-    :param return_all_tasks: Whether we return the true vectors of the four tasks (True) or return the vector
-                               corresponding to the label type (False)
+    :param for_test: Whether we return the true vectors of all applicable tasks based on label type (True) or return
+                       only the vector corresponding to the label type (False)
     :return: true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom depending on return_all_tasks
     """
 
-    true_scores_coa, true_classes_pres, true_classes_dom = None, None, None
+    # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
+    true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = None, None, None, None
+    # Used to compute derived and applicable tasks
+    compute_coa, compute_pres, compute_dom = False, False, False
+    y_array = np.reshape(np.array(y_list), (-1, 6))
 
-    # Filenames
-    thres_nan = param_task['thres_nan']
-    length_seq = param_task['set_length']
-    length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
-    ext_name = "_tnan_" + str(thres_nan) + length_str
-    ext_name += "_pred-neu" if predict_neutral_class else "_rm-neu"
-    ext_name_coa_train = '_prob' if ('prob' in label_type) else '_oh' if ('oh' in label_type) else ''
-    filename_all = root_name + "_true_scores_all" + ext_name
-    filename_coa_train = root_name + "_true_scores_coa" + ext_name_coa_train + '_train' + ext_name
-    filename_coa_met = root_name + "_true_scores_coa" + '_met' + ext_name
-    filename_pres = [root_name + "_true_classes_pres_t_" + str(thres) + ext_name for thres in thres_score_pres]
-    filename_dom = root_name + "_true_classes_dom" + ext_name
-
-    # Create array of original scores: 2D array from list of 2D true presence score arrays of shape (1, 6)
-    if not pickle_file_exists(filename_all, 'processed_folds', 'cmu_mosei'):
-        true_scores_all = np.reshape(np.array(y_list), (-1, 6))
-        save_with_pickle(true_scores_all, filename_all, 'processed_folds', 'cmu_mosei')
+    # In the case of test (for metric calculation), assign the 2D y_array to its corresponding targeted task
+    if for_test:
+        if label_type == 'all':
+            true_scores_all = y_array
+            compute_coa, compute_pres, compute_dom = True, True, True
+        elif 'coarse' in label_type:
+            true_scores_coa = y_array
+            compute_pres, compute_dom = True, True
+        elif label_type == 'present':
+            true_classes_pres = [y_array]
+        else:  # dominant
+            true_classes_dom = y_array
+    # Else, assign the 2D y_array to true_scores_all (used at the beginning to infer the targeted task)
     else:
-        true_scores_all = load_from_pickle(filename_all, 'processed_folds', 'cmu_mosei')
+        true_scores_all = y_array
 
     # Compute true presence scores: arrays of shape (4654, 6)
     # Possible values: [0, 0.16, 0.33, 0.5, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     # Coarse-grained values: [0, 1, 2, 3] if not prob else [0, 1/3, 2/3, 1]
-    #### For training
-    if not return_all_tasks and 'coarse' in label_type:
-        if not pickle_file_exists(filename_coa_train, 'processed_folds', 'cmu_mosei'):
-            true_scores_coa = get_coa_presence_score_for_training(true_scores_all, num_classes,
-                                                                  prob=('prob' in label_type),
-                                                                  one_hot=('oh' in label_type))
-            save_with_pickle(true_scores_coa, filename_coa_train, 'processed_folds', 'cmu_mosei')
-        else:
-            true_scores_coa = load_from_pickle(filename_coa_train, 'processed_folds', 'cmu_mosei')
-    #### For metric calculation
-    if return_all_tasks:
-        if not pickle_file_exists(filename_coa_met, 'processed_folds', 'cmu_mosei'):
-            true_scores_coa = get_presence_score_for_metrics(true_scores_all, all_scores, num_classes, coarse=True)
-            save_with_pickle(true_scores_coa, filename_coa_met, 'processed_folds', 'cmu_mosei')
-        else:
-            true_scores_coa = load_from_pickle(filename_coa_met, 'processed_folds', 'cmu_mosei')
+    if 'coarse' in label_type and not for_test:
+        # For training
+        true_scores_coa = get_coa_presence_score_for_training(y_array, num_classes,
+                                                              prob=('prob' in label_type),
+                                                              one_hot=('oh' in label_type))
+    if compute_coa and for_test:
+        # For metric calculation
+        true_scores_coa = get_presence_score_for_metrics(y_array, all_scores, num_classes, coarse=True)
 
     # Compute true present classes: binary arrays of shape (num_test, 6 or 7)
-    if return_all_tasks or label_type == 'present':
+    if (label_type == 'present' and not for_test) or (compute_pres and for_test):
         true_classes_pres = []
         for id, thres in enumerate(thres_score_pres):
-            if not pickle_file_exists(filename_pres[id], 'processed_folds', 'cmu_mosei'):
-                true_classes_pres_i = get_class_from_presence_score(true_scores_all, predict_neutral_class, [thres],
-                                                                    None, num_classes, is_dominant=False,
-                                                                    is_true_labels=True, label_type=label_type)
-                true_classes_pres += true_classes_pres_i
-                save_with_pickle(true_classes_pres_i, filename_pres[id], 'processed_folds', 'cmu_mosei')
-            else:
-                true_classes_pres += load_from_pickle(filename_pres[id], 'processed_folds', 'cmu_mosei')
+            true_classes_pres_i = get_class_from_presence_score(y_array, predict_neutral_class, [thres],
+                                                                None, num_classes, is_dominant=False,
+                                                                is_true_labels=True, label_type=label_type)
+            true_classes_pres += true_classes_pres_i
 
     # Compute true dominant classes: binary arrays of shape (num_test, 6 or 7)
-    if return_all_tasks or label_type == 'dominant':
-        if not pickle_file_exists(filename_dom, 'processed_folds', 'cmu_mosei'):
-            true_classes_dom = get_class_from_presence_score(true_scores_all, predict_neutral_class, None, None,
-                                                             num_classes, is_dominant=True, is_true_labels=True,
-                                                             label_type=label_type)
-            save_with_pickle(true_classes_dom, filename_dom, 'processed_folds', 'cmu_mosei')
-        else:
-            true_classes_dom = load_from_pickle(filename_dom, 'processed_folds', 'cmu_mosei')
+    if (label_type == 'dominant' and not for_test) or (compute_dom and for_test):
+        true_classes_dom = get_class_from_presence_score(y_array, predict_neutral_class, None, None,
+                                                         num_classes, is_dominant=True, is_true_labels=True,
+                                                         label_type=label_type)
 
-    if return_all_tasks:
+    if for_test:
         return true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom
-    elif label_type == 'all':
-        return true_scores_all
-    elif 'coarse' in label_type:
-        return true_scores_coa
-    elif label_type == 'present':
-        return true_classes_pres
-    elif label_type == 'dominant':
-        return true_classes_dom
     else:
-        return ValueError("Value label_type invalid.")
+        if label_type == 'all':
+            return true_scores_all
+        elif 'coarse' in label_type:
+            return true_scores_coa
+        elif label_type == 'present':
+            return true_classes_pres
+        elif label_type == 'dominant':
+            return true_classes_dom
+        else:
+            return ValueError("Value label_type invalid.")
 
 
-def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score_pres, thres_multilabel,
-                        save_pred, model_id, num_classes, model_folder, label_type):
+def compute_pred_labels(pred_raw, predict_neutral_class, thres_score_pres, thres_multilabel, save_pred, model_id,
+                        num_classes, model_folder, label_type):
     """
     Compute the prediction labels (all arrays of shape (test_size, 6), pred_classes_pres is a list of arrays of this type)
     pred_scores_coa: Closest predicted score among [0, 1, 2, 3]
     pred_classes_pres: Emotions present predicted by the model (varying thresholds for presence score given by thres_score_pres)
     pred_classes_dom: Dominant emotions predicted by the model (highest presence score)
-
     :param pred_raw: array of shape (test_size, num_classes) predicting the presence score of the emotions (in [0,3])
-    :param all_scores: list of available presence scores
     :param predict_neutral_class: Whether we predict the neutral class
     :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3
+    :param thres_multilabel: list of num_classes elements which give the emotion-wise thresholds above which the
+     emotion class is considered as positive, either the ones giving the highest F1 score from validation set
+     (thres_ml_from_best_metric=1) or 0.5 (thres_ml_from_best_metric=0). Set to None only when model training has not
+     been started yet (for true_label calculation)
     :param save_pred: Whether we save predictions with pickle
     :param model_id: Model id (int)
     :param num_classes: number of classes (7 with neutral class, else 6)
@@ -337,15 +318,13 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score
     """
 
     # In the following lines, some labels do not make sense for the targeted task (label_type): we set them as None
-    pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = None, None, None, None
-    if label_type == 'all':
-        compute_fine, compute_coa, compute_pres, compute_dom = True, True, True, True
-    elif 'coarse' in label_type:
-        compute_fine, compute_coa, compute_pres, compute_dom = False, True, True, True
+    pred_classes_pres, pred_classes_dom = None, None
+    if label_type == 'all' or 'coarse' in label_type:
+        compute_pres, compute_dom = True, True
     elif label_type == 'present':
-        compute_fine, compute_coa, compute_pres, compute_dom = False, False, True, False
+        compute_pres, compute_dom = True, False
     else:  # dominant
-        compute_fine, compute_coa, compute_pres, compute_dom = False, False, False, True
+        compute_pres, compute_dom = False, True
 
     # Save raw predictions
     if save_pred:
@@ -353,22 +332,6 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score
                          root_folder=model_folder)
 
     print("\n\nTargeted task:", label_type)
-
-    # Get fine-grained presence scores from raw predictions (the closest fine-grained presence score)
-    if compute_fine:
-        pred_scores_all = get_presence_score_for_metrics(pred_raw, all_scores, num_classes, coarse=False)
-        print("pred_scores_all computed: Closest presence score among those present in the original dataset.")
-        if save_pred:
-            save_with_pickle(pred_scores_all, "pred_scores_all_{}".format(model_id), pickle_folder="predictions",
-                             root_folder=model_folder)
-
-    # Get coarse presence scores from raw predictions (the closest coarse-grained presence score)
-    if compute_coa:
-        pred_scores_coa = get_presence_score_for_metrics(pred_raw, all_scores, num_classes, coarse=True)
-        print("pred_scores_coa computed: Closest presence score among 0, 1, 2, 3.")
-        if save_pred:
-            save_with_pickle(pred_scores_coa, "pred_scores_coa_{}".format(model_id), pickle_folder="predictions",
-                             root_folder=model_folder)
 
     # Get present emotion classes predicted by the model, based on thresholds
     if compute_pres:
@@ -398,10 +361,10 @@ def compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score
             save_with_pickle(pred_classes_dom, "pred_classes_dom_{}".format(model_id), pickle_folder="predictions",
                              root_folder=model_folder)
 
-    return pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return pred_classes_pres, pred_classes_dom
 
 
-def update_labels(train_list, valid_list, test_list, param_task, label_type, all_scores):
+def update_labels(train_list, valid_list, test_list, no_split_list, param_task, label_type, all_scores):
     """
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
@@ -415,14 +378,16 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
     :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param test_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+    :param no_split_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
     :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param all_scores: list of available presence scores
     :return: new_train_list, new_valid_list, new_test_list, with the same structure as the input, + neutral_test_ind
     """
 
-    def change_y(train_l, valid_l, test_l):
+    def change_y(train_l, valid_l, test_l, no_split_l):
 
         y1, y2, y3 = train_l[1], valid_l[1], test_l[1]
+        y4 = no_split_l[1] if no_split_l is not None else None
 
         def change_type_and_shape_for_training(y_array):
             """
@@ -442,47 +407,54 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
                                          param_task, num_classes, label_t)
             new_y3 = compute_true_labels(y3, "test", all_scores, predict_neutral_class, thres_score_pres,
                                          param_task, num_classes, label_t)
+            new_y4 = compute_true_labels(y4, "no_split", all_scores, predict_neutral_class, thres_score_pres,
+                                         param_task, num_classes, label_t) if y4 is not None else None
 
             if label_t == 'present':  # TODO We only take the first threshold for the moment
                 new_y1 = new_y1[0]
                 new_y2 = new_y2[0]
                 new_y3 = new_y3[0]
+                new_y4 = new_y4[0] if new_y4 is not None else None
 
             # Adapt to model training and evaluation
             new_y1 = change_type_and_shape_for_training(new_y1)
             new_y2 = change_type_and_shape_for_training(new_y2)
             new_y3 = change_type_and_shape_for_training(new_y3)
+            new_y4 = change_type_and_shape_for_training(new_y4) if new_y4 is not None else None
 
-            return new_y1, new_y2, new_y3
+            return new_y1, new_y2, new_y3, new_y4
 
         # Multitask case
         if type(label_type) == dict:
-            coa_y1, coa_y2, coa_y3 = change_y_single_task(label_type['coarse_task'])
-            fin_y1, fin_y2, fin_y3 = change_y_single_task(label_type['fine_task'])
+            coa_y1, coa_y2, coa_y3, coa_y4 = change_y_single_task(label_type['coarse_task'])
+            fin_y1, fin_y2, fin_y3, fin_y4 = change_y_single_task(label_type['fine_task'])
             new_y_train = {'coarse_task': coa_y1, 'fine_task': fin_y1}
             new_y_valid = {'coarse_task': coa_y2, 'fine_task': fin_y2}
             new_y_test = {'coarse_task': coa_y3, 'fine_task': fin_y3}
+            new_y_no_split = {'coarse_task': coa_y4, 'fine_task': fin_y4} if no_split_list is not None else None
 
         else:
-            new_y_train, new_y_valid, new_y_test = change_y_single_task(label_type)
+            new_y_train, new_y_valid, new_y_test, new_y_no_split = change_y_single_task(label_type)
 
         new_train_l = [train_list[0], new_y_train, train_list[2]]
         new_valid_l = [valid_list[0], new_y_valid, valid_list[2]]
         new_test_l = [test_list[0], new_y_test, test_list[2]]
+        new_no_split_l = [no_split_list[0], new_y_no_split, no_split_list[2]] if no_split_list is not None else None
 
-        return new_train_l, new_valid_l, new_test_l
+        return new_train_l, new_valid_l, new_test_l, new_no_split_l  # new_no_split_l is None if no_split_list is None
 
-    def remove_neutral_class(train_l, valid_l, test_l):
+    def remove_neutral_class(train_l, valid_l, test_l, no_split_l):
         """
         Remove samples assigned to neutral class + return the list of their indexes for test split
 
         :param train_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
         :param valid_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
         :param test_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-        :return: new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
+        :param no_split_l: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+        :return: new_train_l, new_valid_l, new_test_l, new_no_split_l
         """
 
-        def remove_neutral_class_split(split_list, test=False):
+        def remove_neutral_class_split(split_list):
             y = split_list[1]
             if type(y) == dict:
                 non_neutral_ind = []
@@ -508,72 +480,54 @@ def update_labels(train_list, valid_list, test_list, param_task, label_type, all
             else:
                 y_list = [elt for (elt, ind) in zip(split_list[1], non_neutral_ind) if ind]
             seg_list = [elt for (elt, ind) in zip(split_list[2], non_neutral_ind) if ind]
-            neutral_test_index = [i for i, ind in enumerate(non_neutral_ind) if not ind] if test else None
 
-            return [X_list, y_list, seg_list], num_neutral, neutral_test_index
+            return [X_list, y_list, seg_list], num_neutral
 
-        new_train_l, num_neutral_train, _ = remove_neutral_class_split(train_l)
-        new_valid_l, num_neutral_valid, _ = remove_neutral_class_split(valid_l)
-        new_test_l, num_neutral_test, neutral_test_ind_list = remove_neutral_class_split(test_l, test=True)
+        new_no_split_l = None
+        new_train_l, num_neutral_train = remove_neutral_class_split(train_l)
+        new_valid_l, num_neutral_valid = remove_neutral_class_split(valid_l)
+        new_test_l, num_neutral_test = remove_neutral_class_split(test_l)
+        if no_split_l is not None:
+            new_no_split_l, num_neutral_no_split = remove_neutral_class_split(no_split_l)
+            num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test + num_neutral_no_split
+            num_neutral_no_split_str = ', no_split: {}).'.format(num_neutral_no_split)
+        else:
+            num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
+            num_neutral_no_split_str = ').'
 
-        num_neutral_samples = num_neutral_train + num_neutral_valid + num_neutral_test
-        print(f'Removed {num_neutral_samples} samples with no emotions '
-              f'(train: {num_neutral_train}, valid: {num_neutral_valid}, test: {num_neutral_test}).')
+        print(f'\nRemoved {num_neutral_samples} samples with no emotions (train: {num_neutral_train}, '
+              f'valid: {num_neutral_valid}, test: {num_neutral_test}' + num_neutral_no_split_str)
+        num_train, num_valid, num_test = len(new_train_l[0]), len(new_valid_l[0]), len(new_test_l[0])
+        num_no_split = len(new_no_split_l[0]) if no_split_l is not None else 0
+        total_data = num_train + num_valid + num_test + num_no_split
+        print("----------------------------------------------------")
+        print("Total number samples after removing neutral class: {}".format(total_data))
+        print("----------------------------------------------------")
+        print("Number of training datapoints: {} ({:.2f}%)".format(num_train, 100 * (num_train / total_data)))
+        print("Number of validation datapoints: {} ({:.2f}%)".format(num_valid, 100 * (num_valid / total_data)))
+        print("Number of test datapoints: {} ({:.2f}%)".format(num_test, 100 * (num_test / total_data)))
+        if no_split_l is not None:  # cross-validation
+            print("Number of datapoints that do not belong to any split: {} ({:.2f}%)\n"
+                  .format(num_no_split, 100 * (num_no_split / total_data)))
 
-        return new_train_l, new_valid_l, new_test_l, neutral_test_ind_list
+        return new_train_l, new_valid_l, new_test_l, new_no_split_l
 
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
     num_classes = 7 if predict_neutral_class else 6
 
     # Update y
-    new_train_list, new_valid_list, new_test_list = change_y(train_list, valid_list, test_list)
+    new_train_list, new_valid_list, new_test_list, new_no_split_list = change_y(train_list, valid_list, test_list,
+                                                                                no_split_list)
 
     # When predict_neutral_class is False (no class created for Neutral),
     # samples with neutral class belong to any of available classes
-    neutral_test_ind = None  # when predict_neutral_class is True
     if not predict_neutral_class:
-        new_train_list, new_valid_list, new_test_list, neutral_test_ind = remove_neutral_class(new_train_list,
-                                                                                               new_valid_list,
-                                                                                               new_test_list)
+        new_train_list, new_valid_list, new_test_list, new_no_split_list = remove_neutral_class(new_train_list,
+                                                                                                new_valid_list,
+                                                                                                new_test_list,
+                                                                                                new_no_split_list)
 
-    return new_train_list, new_valid_list, new_test_list, neutral_test_ind
+    return new_train_list, new_valid_list, new_test_list, new_no_split_list
 
 
-def balance_dataset(train_list, valid_list, test_list, param_task, all_scores):
-    """
-
-    :param train_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    :param valid_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    :param test_list: [x, y, seg] with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
-    :param all_scores: list of available presence scores
-    :return:
-    """
-
-    label_type = param_task['label_type']
-    predict_neutral_class = param_task['predict_neutral_class']
-    thres_score_pres = [param_task['thres_score_pres']]
-    thres_nan = param_task['thres_nan']
-    ext_name = "_n" if predict_neutral_class else ""
-    num_classes = 7 if predict_neutral_class else 6
-
-    y_train = train_list[1]
-    y_valid = valid_list[1]
-    y_test = test_list[1]
-
-    # TODO Find a way to balance emotional profiles
-
-    # new_y_train = compute_true_labels(y_train, "train", all_scores, predict_neutral_class, thres_score_pres,
-    #                                   thres_nan, num_classes, label_type)
-    # new_y_valid = compute_true_labels(y_valid, "valid", all_scores, predict_neutral_class, thres_score_pres,
-    #                                   thres_nan, num_classes, label_type)
-    # new_y_test = compute_true_labels(y_test, "test", all_scores, predict_neutral_class, thres_score_pres,
-    #                                  thres_nan, num_classes, label_type)
-
-    # print("new_y_train dominant:", np.sum(new_y_train, axis=0))
-    # print("new_y_valid dominant:", np.sum(new_y_valid, axis=0))
-    # print("new_y_test dominant:", np.sum(new_y_test, axis=0))
-    # print("new_y_train", np.unique(np.sum(new_y_train, axis=1), return_counts=True))
-    # print("new_y_valid", np.unique(np.sum(new_y_valid, axis=1), return_counts=True))
-    # print("new_y_test", np.unique(np.sum(new_y_test, axis=1), return_counts=True))

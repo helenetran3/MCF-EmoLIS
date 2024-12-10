@@ -31,7 +31,7 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
 
     y_train, y_valid, y_test = (train_list[0][1], valid_list[0][1], test_list[0][1]) if with_cross_valid \
         else (train_list[1], valid_list[1], test_list[1])
-    
+
     # Compute num_classes, where predict neutral class is already inferred from label preprocessing
     one_hot = ("oh" in label_type) if type(label_type) != dict else \
         {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
@@ -87,21 +87,24 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     #     summary(model, [(26, 300), (26, 35), (26, 74)], device='cpu',
     #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
-def print_mean_std_cross_validation(met_reg, met_fin, met_coa, met_pres, met_dom, num_classes, decimals):
+
+def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label_type, num_classes,
+                                    thres_score_pres, decimals):
     print("\n======================== Mean and std of folds ========================\n")
     print("Number of folds:", len(met_reg))
 
     def str_overall(val_macro_list):
-        val_mean = np.round(np.mean(val_macro_list), decimals=decimals)
-        val_std = np.round(np.std(val_macro_list), decimals=decimals)
-        return "{} ({})".format(np.mean(val_mean), np.std(val_std))
+        val_mean = np.mean(val_macro_list)
+        val_std = np.std(val_macro_list)
+        return "{} ({})".format(np.round(val_mean, decimals=decimals), np.round(val_std, decimals=decimals))
 
     def str_emo(met_per_fold):
         met_per_emo = [[met_fold_i[k] for met_fold_i in met_per_fold] for k in range(num_classes)]
         res_str = "["
         for emo_i, met_per_emo_k in enumerate(met_per_emo):
-            res_str += "{} ({})".format(np.round(np.mean(met_per_emo_k), decimals=decimals),
-                                        np.round(np.std(met_per_emo_k), decimals=decimals))
+            val_mean_i = np.mean(met_per_emo_k)
+            val_std_i = np.std(met_per_emo_k)
+            res_str += "{} ({})".format(np.round(val_mean_i, decimals=decimals), np.round(val_std_i, decimals=decimals))
             if emo_i != num_classes - 1:
                 res_str += ", "
             else:
@@ -109,18 +112,31 @@ def print_mean_std_cross_validation(met_reg, met_fin, met_coa, met_pres, met_dom
         return res_str
 
     def print_mean_std_regression(met_regression):
+        length = len(met_regression[0])
+        assert(length in [5 + 5 * num_classes, 4 + 4 * num_classes])
         mae = [met_i[0] for met_i in met_regression]
         mse = [met_i[1] for met_i in met_regression]
         r2 = [met_i[2] for met_i in met_regression]
-        mae_per_fold = [met_i[3:3 + num_classes] for met_i in met_regression]
-        mse_per_fold = [met_i[3 + num_classes:3 + 2 * num_classes] for met_i in met_regression]
-        r2_per_fold = [met_i[3 + 2 * num_classes:3 + 3 * num_classes] for met_i in met_regression]
+        kl = [met_i[3] for met_i in met_regression]
+        start_ind = 5 if length == 5 + 5 * num_classes else 4
+        mae_per_fold = [met_i[start_ind:start_ind + num_classes] for met_i in met_regression]
+        mse_per_fold = [met_i[start_ind + num_classes:start_ind + 2 * num_classes] for met_i in met_regression]
+        r2_per_fold = [met_i[start_ind + 2 * num_classes:start_ind + 3 * num_classes] for met_i in met_regression]
+        kl_per_fold = [met_i[start_ind + 3 * num_classes:start_ind + 4 * num_classes] for met_i in met_regression]
         print("Mean absolute error (for each emotion):", str_emo(mae_per_fold))
-        print("Mean squared error (for each emotion):", str_emo(mse_per_fold))
-        print("R2 score (for each emotion):", str_emo(r2_per_fold))
         print("Mean absolute error (overall):", str_overall(mae))
+        print("Mean squared error (for each emotion):", str_emo(mse_per_fold))
         print("Mean squared error (overall):", str_overall(mse))
+        print("R2 score (for each emotion):", str_emo(r2_per_fold))
         print("R2 score (overall):", str_overall(r2))
+        print("KL divergence (for each emotion):", str_emo(kl_per_fold))
+        print("KL divergence (overall):", str_overall(kl))
+        if length == 5 + 5 * num_classes:
+            c_index = [met_i[4] for met_i in met_regression]
+            c_index_per_fold = [met_i[start_ind + 4 * num_classes:start_ind + 5 * num_classes] for met_i in
+                                met_regression]
+            print("C-index (for each emotion):", str_emo(c_index_per_fold))
+            print("C-index (unweighted mean):", str_overall(c_index))
 
     def print_mean_std_classification_score(met_class_score):
         acc_macro = [met_i[0] for met_i in met_class_score]
@@ -141,45 +157,72 @@ def print_mean_std_cross_validation(met_reg, met_fin, met_coa, met_pres, met_dom
         print("Precision (unweighted mean):", str_overall(prec_macro))
 
     def print_mean_std_binary_classification(met_class_bin):
+        """
+        Print mean and std of binary classifications.
+
+        :param met_class_bin: list of num_folds lists of metrics (for presence and dominant emotions), or
+          list of num_fold lists of num_scores lists of metrics (for score classification)
+        """
+        assert(len(met_class_bin[0]) == 13 + 6 * num_classes)
         multilabel_acc = [met_i[0] for met_i in met_class_bin]
         bin_acc_macro = [met_i[1] for met_i in met_class_bin]
-        wei_acc_macro = [met_i[2] for met_i in met_class_bin]
-        f1_macro = [met_i[3] for met_i in met_class_bin]
-        rec_macro = [met_i[4] for met_i in met_class_bin]
-        prec_macro = [met_i[5] for met_i in met_class_bin]
-        roc_auc_macro = [met_i[6] for met_i in met_class_bin]
-        bin_acc_per_class = [met_i[7:7 + num_classes] for met_i in met_class_bin]
-        wei_acc_per_class = [met_i[7 + num_classes:7 + 2 * num_classes] for met_i in met_class_bin]
-        f1_each_rounded = [met_i[7 + 2 * num_classes:7 + 3 * num_classes] for met_i in met_class_bin]
-        rec_each_rounded = [met_i[7 + 3 * num_classes:7 + 4 * num_classes] for met_i in met_class_bin]
-        prec_each_rounded = [met_i[7 + 4 * num_classes:7 + 5 * num_classes] for met_i in met_class_bin]
-        roc_auc_each_rounded = [met_i[7 + 5 * num_classes:7 + 6 * num_classes] for met_i in met_class_bin]
+        bin_acc_weighted = [met_i[2] for met_i in met_class_bin]
+        wei_acc_macro = [met_i[3] for met_i in met_class_bin]
+        wei_acc_weighted = [met_i[4] for met_i in met_class_bin]
+        f1_macro = [met_i[5] for met_i in met_class_bin]
+        f1_weighted = [met_i[6] for met_i in met_class_bin]
+        rec_macro = [met_i[7] for met_i in met_class_bin]
+        rec_weighted = [met_i[8] for met_i in met_class_bin]
+        prec_macro = [met_i[9] for met_i in met_class_bin]
+        prec_weighted = [met_i[10] for met_i in met_class_bin]
+        jacc_macro = [met_i[11] for met_i in met_class_bin]
+        jacc_weighted = [met_i[12] for met_i in met_class_bin]
+        # roc_auc_macro = [met_i[13] for met_i in met_class_bin]
+        # roc_auc_weighted = [met_i[14] for met_i in met_class_bin]
+        bin_acc_per_class = [met_i[13:13 + num_classes] for met_i in met_class_bin]
+        wei_acc_per_class = [met_i[13 + num_classes:13 + 2 * num_classes] for met_i in met_class_bin]
+        f1_each_rounded = [met_i[13 + 2 * num_classes:13 + 3 * num_classes] for met_i in met_class_bin]
+        rec_each_rounded = [met_i[13 + 3 * num_classes:13 + 4 * num_classes] for met_i in met_class_bin]
+        prec_each_rounded = [met_i[13 + 4 * num_classes:13 + 5 * num_classes] for met_i in met_class_bin]
+        jacc_each_rounded = [met_i[13 + 5 * num_classes:13 + 6 * num_classes] for met_i in met_class_bin]
+        # roc_auc_each_rounded = [met_i[15 + 6 * num_classes:15 + 7 * num_classes] for met_i in met_class_bin]
         print("Multilabel accuracy:", str_overall(multilabel_acc))
         print("Binary accuracy (for each):", str_emo(bin_acc_per_class))
         print("Binary accuracy (unweighted mean):", str_overall(bin_acc_macro))
+        print("Binary accuracy (weighted mean):", str_overall(bin_acc_weighted))
         print("Weighted accuracy (for each):", str_emo(wei_acc_per_class))
         print("Weighted accuracy (unweighted mean):", str_overall(wei_acc_macro))
+        print("Weighted accuracy (weighted mean):", str_overall(wei_acc_weighted))
         print("F1 score (for each):", str_emo(f1_each_rounded))
         print("F1 score (unweighted mean):", str_overall(f1_macro))
+        print("F1 score (weighted mean):", str_overall(f1_weighted))
         print("Recall (for each):", str_emo(rec_each_rounded))
         print("Recall (unweighted mean):", str_overall(rec_macro))
+        print("Recall (weighted mean):", str_overall(rec_weighted))
         print("Precision (for each):", str_emo(prec_each_rounded))
         print("Precision (unweighted mean):", str_overall(prec_macro))
-        print("ROC AUC (for each):", str_emo(roc_auc_each_rounded))
-        print("ROC AUC (unweighted mean):", str_overall(roc_auc_macro))
+        print("Precision (weighted mean):", str_overall(prec_weighted))
+        print("Jaccard score (for each):", str_emo(jacc_each_rounded))
+        print("Jaccard score (unweighted mean):", str_overall(jacc_macro))
+        print("Jaccard score (weighted mean):", str_overall(jacc_weighted))
+        # print("ROC AUC (for each):", str_emo(roc_auc_each_rounded))
+        # print("ROC AUC (unweighted mean):", str_overall(roc_auc_macro))
+        # print("ROC AUC (weighted mean):", str_overall(roc_auc_weighted))
 
     if not (None in met_reg):
         print("\n------- Presence score estimation (regression) --------\n")
         print_mean_std_regression(met_reg)
-    if not (None in met_fin):
-        print(f"\n------- Presence score classification: fine-grained (all available scores) -------\n")
-        print_mean_std_classification_score(met_fin)
-    if not (None in met_coa):
-        print("\n------- Presence score classification: coarse-grained [0,1,2,3] -------\n")
-        print_mean_std_classification_score(met_coa)
+    if not (None in met_score):
+        scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3] if label_type == 'all' else [0, 1, 2, 3]
+        print(f"\n------- Presence score classification -------\n")
+        for i, sc_i in enumerate(scores):
+            print("\n>>> Score threshold:", sc_i)
+            print_mean_std_binary_classification([met_score_fold[i] for met_score_fold in met_score])
     if not (None in met_pres):
         print("\n------- Detecting the presence of emotions ------------\n")
-        print_mean_std_binary_classification(met_pres[0])
+        for j, thres in enumerate(thres_score_pres):
+            print('\n>>> Threshold:', thres)
+            print_mean_std_binary_classification([met_pres_fold[j] for met_pres_fold in met_pres])
     if not (None in met_dom):
         print("\n------- Predicting dominant emotions ------------------\n")
         print_mean_std_binary_classification(met_dom)

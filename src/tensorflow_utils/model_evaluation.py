@@ -53,7 +53,7 @@ def model_prediction(model, test_dataset, num_test_samples, save_pred, ext_name,
 
 
 def run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                       loss_function_str, val_metrics_str, all_scores, fold_id=None):
+                       loss_function_str, val_metrics_str, thres_multilabel, fold_id=None):
 
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
@@ -88,26 +88,15 @@ def run_one_evaluation(test_list, param_task, param_training, param_log, num_ste
     if 'prob' in label_type:
         pred_raw = pred_raw*3
 
-    pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-        compute_pred_labels(pred_raw, all_scores, predict_neutral_class, thres_score_pres, save_pred, model_id,
-                            num_classes, model_folder, label_type)
+    pred_classes_pres, pred_classes_dom = compute_pred_labels(pred_raw, predict_neutral_class, thres_score_pres,
+                                                              thres_multilabel, save_pred, model_id, num_classes,
+                                                              model_folder, label_type)
 
-    # ## For debugging
-    # import numpy as np
-    # print("pred_raw[0]:", pred_raw[0])
-    # print("mean(pred_raw):", np.mean(np.array(pred_raw), axis=0))
-    # print("max(pred_raw):", np.max(np.array(pred_raw), axis=0))
-    # print("sum(pred_raw > 0.5):", np.sum((np.array(pred_raw) > 0.5), axis=0))
-    # if param_task['label_type'] == 'coarse':
-    #     print("pred_scores_coa[0]:", pred_scores_coa[0])
-    # print("pred_classes_pres[0][0]:", pred_classes_pres[0][0])
-    # print("pred_classes_dom[0]:", pred_classes_dom[0])
-
-    return loss_fn_value, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return loss_fn_value, pred_raw, pred_classes_pres, pred_classes_dom
 
 
 def evaluate_tf_model(test_list, param_task, param_training, param_log, num_steps, model_name, model_id, loss_function,
-                      val_metrics, all_scores, with_cross_valid):
+                      val_metrics, thres_multilabel, with_cross_valid):
     """
     Evaluate the performance of the best model.
     Returns 5 metrics. if cross-validation, each object is a list of num_folds elements.
@@ -121,7 +110,6 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
     :param model_id: Model id (int)
     :param loss_function: Name of the loss function (str)
     :param val_metrics: Name of the validation metric used for monitoring (str)
-    :param all_scores: list of available presence scores
     :param with_cross_valid: boolean (cross_validation or not)
 
     :returns model_eval_output, pred_raw, pred_scores_coa, pred_classes_pres, pred_classes_dom
@@ -129,21 +117,18 @@ def evaluate_tf_model(test_list, param_task, param_training, param_log, num_step
 
     if with_cross_valid:
         num_folds = param_training['cross_val_folds']
-        model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
-            [], [], [], [], [], []
+        model_eval_output, pred_raw, pred_classes_pres, pred_classes_dom = [], [], [], []
         for fold_i in range(num_folds):
-            loss_vals_i, pred_raw_i, pred_all_i, pred_coa_i, pred_pres_i, pred_dom_i = \
+            loss_vals_i, pred_raw_i, pred_pres_i, pred_dom_i = \
                 run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                                   loss_function, val_metrics, all_scores, fold_i)
+                                   loss_function, val_metrics, thres_multilabel, fold_i)
             model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw += [pred_raw_i]
-            pred_scores_all += [pred_all_i]
-            pred_scores_coa += [pred_coa_i]
             pred_classes_pres += [pred_pres_i]
             pred_classes_dom += [pred_dom_i]
     else:
-        model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom = \
+        model_eval_output, pred_raw, pred_classes_pres, pred_classes_dom = \
             run_one_evaluation(test_list, param_task, param_training, param_log, num_steps, model_name, model_id,
-                               loss_function, val_metrics, all_scores)
+                               loss_function, val_metrics, thres_multilabel)
 
-    return model_eval_output, pred_raw, pred_scores_all, pred_scores_coa, pred_classes_pres, pred_classes_dom
+    return model_eval_output, pred_raw, pred_classes_pres, pred_classes_dom

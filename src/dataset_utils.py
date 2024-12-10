@@ -1,10 +1,13 @@
 import re
 import numpy as np
+import random
+import warnings
 from mmsdk import mmdatasdk
 from src.pickle_functions import *
-from src.label_processing import trunc
+from src.label_processing import trunc, get_available_presence_scores_arr
 from statistics import mean
-from sklearn.model_selection import KFold
+from itertools import combinations
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 from scipy.interpolate import griddata
 
 
@@ -196,15 +199,15 @@ def process_not_finite_values(data_seg, method):
     return data_seg
 
 
-def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log):
+def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log, with_cross_val):
     """
-    For each training, validation and test sets, create a list of three sublists:
+    For each training, validation and test sets (and no split set if cross-validation), create a list of three sublists:
     - one for features (x): a list of 3 arrays of shape (number steps, number features) for text, image and audio
     features in this order
     - one for labels (y): arrays of shape (1, 6), for the 6 emotions
     - one for segment ids (seg): id of the segment described by (x, y). Example: 'zk2jTlAtvSU[1]'
-    (Followed tutorial https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb)
-    Note that this function performs **early fusion** (concatenation of low level text, image and audio features).
+    (Inspired from tutorial:
+     https://github.com/Justin1904/CMU-MultimodalSDK-Tutorials/blob/master/tutorial_interactive.ipynb)
 
     :param dataset: CMU-MOSEI mmdataset
     :param train_ids: list of training ids
@@ -212,8 +215,9 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     :param test_ids: list of test ids
     :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
-    :return: 3 lists train_list = [x_train, y_train, seg_train], valid_list = [x_valid, y_valid, seg_valid],
-     test_list = [x_test, y_test, seg_test]
+    :param with_cross_val: boolean (cross_validation or not)
+    :return:  lists train_list = [x_train, y_train, seg_train], valid_list = [x_valid, y_valid, seg_valid],
+     test_list = [x_test, y_test, seg_test], no_split_list = [x_no_split, y_no_split, seg_no_split]
     """
 
     image_feature = param_task['image_feature']
@@ -223,12 +227,13 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     nan_str = replace_nan + "_tnan_" + str(thres_nan)
     length_seq = param_task['set_length']
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
-    pickle_name_fold = param_log['pickle_name_fold']
+    root_data_folder = param_log['root_data_folder']
 
     # Placeholders for training, validation, and test sets
     x_train, y_train, seg_train = [], [], []
     x_valid, y_valid, seg_valid = [], [], []
     x_test, y_test, seg_test = [], [], []
+    x_no_split, y_no_split, seg_no_split = [], [], []
 
     image_feature_id = 'FACET 4.2' if image_feature == 'facet' else 'OpenFace_2'
     image_dataset = dataset[image_feature_id]
@@ -237,12 +242,8 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     label_dataset = dataset['All Labels']
 
     pattern = re.compile('(.*)\[.*\]')
-    num_drop = 0  # counter to get the number of data points that doesn't go through the checking process
     num_no_split = 0  # counter for those that doesn't belong to any split
-    num_nan = 0
-    num_too_long_seq = 0
-    # num_some_nan_bf_after_imput_img, num_some_nan_bf_after_imput_aud = 0, 0
-    num_nan_labels, num_nan_text = 0, 0
+    num_missing_mod, num_not_same_length, num_too_long_seq, num_nan = 0, 0, 0, 0
 
     for seg_id in dataset['All Labels'].keys():
 
@@ -251,7 +252,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
 
         if not (seg_id in image_dataset.keys() and seg_id in audio_dataset.keys() and seg_id in text_dataset.keys()):
             print("Encountered datapoint {} that does not appear in image, audio, or text dataset.".format(seg_id))
-            num_drop += 1
+            num_missing_mod += 1
             continue
 
         image_seg = image_dataset[seg_id]['features']
@@ -262,13 +263,12 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
         if not image_seg.shape[0] == audio_seg.shape[0] == text_seg.shape[0]:
             print("Encountered datapoint {} with image shape {}, audio shape {} and text shape {}."
                   .format(seg_id, image_seg.shape, audio_seg.shape, text_seg.shape))
-            num_drop += 1
+            num_not_same_length += 1
             continue
 
         if type(length_seq) == int:
             if image_seg.shape[0] > length_seq:
                 print("Encountered datapoint {} of length greater than {}.".format(seg_id, length_seq))
-                num_drop += 1
                 num_too_long_seq += 1
                 continue
 
@@ -281,30 +281,15 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             print("Encountered datapoint {} with image data with more than {}% of NaNs or infs "
                   "in the original dataset.".format(seg_id, thres_nan_100))
             num_nan += 1
-            num_drop += 1
             continue
-
-        # # Check whether there are some NaN/inf in text arrays and labels
-        # if np.sum(~np.isfinite(text_seg)) > 0:
-        #     num_nan_text += 1
-        # if np.sum(~np.isfinite(label_seg)) > 0:
-        #     num_nan_labels += 1
 
         # Non-finite value processing for image
         if perc_not_finite_img > 0:
             image_seg = process_not_finite_values(image_seg, replace_nan)
-            # # For checking
-            # perc_not_finite_img = np.sum(~np.isfinite(image_seg)) / shape_img
-            # if perc_not_finite_img > 0:
-            #     num_some_nan_bf_after_imput_img += 1
 
         # Non-finite value processing for audio
         if perc_not_finite_aud > 0:
             audio_seg = process_not_finite_values(audio_seg, replace_nan)
-            # # For checking
-            # perc_not_finite_aud = np.sum(~np.isfinite(audio_seg)) / shape_aud
-            # if perc_not_finite_aud > 0:
-            #     num_some_nan_bf_after_imput_aud += 1
 
         # data_seg = np.concatenate((text_seg, image_seg, audio_seg), axis=1)  # early fusion
 
@@ -321,104 +306,198 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
             y_test.append(label_seg)
             seg_test.append(seg_id)
         else:
-            # print("Encountered video {} that does not belong to any split.".format(vid))
-            num_no_split += 1
+            x_no_split.append([text_seg, image_seg, audio_seg])
+            y_no_split.append(label_seg)
+            seg_no_split.append(seg_id)
+            if not with_cross_val:
+                # print("Encountered video {} that does not belong to any split.".format(vid))
+                num_no_split += 1
 
     train_size = len(y_train)
     valid_size = len(y_valid)
     test_size = len(y_test)
+    no_split_size = len(y_no_split)
+    # number of data points that doesn't go through the checking process
+    num_drop = num_nan + num_missing_mod + num_not_same_length + num_too_long_seq
 
     print("----------------------------------------------------")
     print("Split dataset complete!")
-    total_data_split = train_size + valid_size + test_size
+    total_data_split = train_size + valid_size + test_size + no_split_size if with_cross_val else \
+        train_size + valid_size + test_size
     total_data = total_data_split + num_drop + num_no_split
     print("Total number of {} datapoints have been dropped ({:.2f}% of total data)."
           .format(num_drop, 100 * (num_drop / total_data)))
-    print("Total number of {} datapoints do not belong to any split ({:.2f}% of total data)."
-          .format(num_no_split, 100 * (num_no_split / total_data)))
+    print("Among dropped datapoints, {} with missing modality ({:.2f}% of total data)."
+          .format(num_missing_mod, 100 * (num_missing_mod / total_data)))
+    print("Among dropped datapoints, {} with modalities with different length ({:.2f}% of total data)."
+          .format(num_not_same_length, 100 * (num_not_same_length / total_data)))
     print("Among dropped datapoints, {} with at least {}% NaN or inf ({:.2f}% of total data)."
           .format(num_nan, thres_nan_100, 100 * (num_nan / total_data)))
     print("Among dropped datapoints, {} with sequence length > {} ({:.2f}% of total data)."
           .format(num_too_long_seq, length_seq, 100 * (num_too_long_seq / total_data)))
+    if not with_cross_val:
+        print("Total number of {} datapoints do not belong to any split ({:.2f}% of total data)."
+              .format(num_no_split, 100 * (num_no_split / total_data)))
     print("----------------------------------------------------")
-    print("Total number samples: {}".format(total_data))
-    # print("Number of text data with NaN/inf:", num_nan_text)
-    # print("Number of label data with NaN/inf:", num_nan_labels)
-    # print("----------------------------------------------------")
-    # print("[Image, after processing] Number of data with some NaN or inf: {}".format(num_some_nan_bf_after_imput_img))
-    # print("[Audio, after processing] Number of data with some NaN or inf: {}".format(num_some_nan_bf_after_imput_aud))
+    print("Total number samples after checking step: {}".format(total_data_split))
     print("----------------------------------------------------")
     print("Number of training datapoints: {} ({:.2f}%)".format(train_size, 100 * (train_size / total_data_split)))
     print("Number of validation datapoints: {} ({:.2f}%)".format(valid_size, 100 * (valid_size / total_data_split)))
     print("Number of test datapoints: {} ({:.2f}%)".format(test_size, 100 * (test_size / total_data_split)))
+    if with_cross_val:
+        print("Number of datapoints that do not belong to any split: {} ({:.2f}%)"
+              .format(no_split_size, 100 * (no_split_size / total_data_split)))
 
     # Remove sentiment labels + truncate to 2 decimals to obtain a non-continuous value
     y_train_emo = [trunc(y[:, 1:], decimals=2) for y in y_train]
     y_valid_emo = [trunc(y[:, 1:], decimals=2) for y in y_valid]
     y_test_emo = [trunc(y[:, 1:], decimals=2) for y in y_test]
+    y_no_split_emo = [trunc(y[:, 1:], decimals=2) for y in y_no_split]
 
     train_res = [x_train, y_train_emo, seg_train]
     valid_res = [x_valid, y_valid_emo, seg_valid]
     test_res = [x_test, y_test_emo, seg_test]
+    no_split_res = [x_no_split, y_no_split_emo, seg_no_split]
+
+    # compute all scores
+    all_scores = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
+    split_str = "with_no_split_" if with_cross_val else "split_only_"
+    save_with_pickle(all_scores, "all_scores_" + split_str + nan_str + length_str, "raw_folds", root_data_folder)
 
     # Save lists with pickle
-    save_with_pickle(train_res, pickle_name_fold + "_train_" + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(valid_res, pickle_name_fold + "_valid_" + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(test_res, pickle_name_fold + "_test_" + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(train_res, "train_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(valid_res, "valid_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(test_res, "test_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(no_split_res, "no_split_" + nan_str + length_str, "raw_folds", root_data_folder)
 
-    return train_res, valid_res, test_res
+    return train_res, valid_res, test_res, no_split_res, all_scores
 
 
-def split_for_cross_validation(train_list, valid_list, param_training):
+def split_for_cross_validation(train_list, valid_list, test_list, no_split_list, param_training, param_task, param_log,
+                               data_ext_name):
 
     def create_split_for_one_fold(index):
         l_res = []
-        x_new_fold = [X_for_training[i] for i in index]
+        x_new_fold = [X_dataset[i] for i in index]
         if type(y_for_training) == dict:
             y_new_fold = {}
             for task_i in ['coarse_task', 'fine_task']:
                 y_new_fold[task_i] = [y_for_training[task_i][i] for i in index]
         else:
-            y_new_fold = [y_for_training[i] for i in index]
-        seg_new_fold = [seg_for_training[i] for i in index]
+            y_new_fold = [y_dataset[i] for i in index]
+        seg_new_fold = [seg_dataset[i] for i in index]
         l_res += [x_new_fold, y_new_fold, seg_new_fold]
         return l_res
 
+    def deal_with_single_class_strat(y_strat):
+        """
+        For all single y values, modify their number in base 2 by changing randomly 1 bit then 2, 3, ..., num_classes)
+         and iteratively check if the new class in base 10 is present at least one time in y_strat (if so, assign the
+         sample to this new class, else continue to find an appropriate class that meets this condition).
+        :param y_strat: list of classes of type int (from 0 to 2^(num_classes)-1)
+        :return: y_strat with no class with a single sample
+        """
+        num_classes = 6 if not param_task['predict_neutral_class'] else 7
+
+        strat_cl, strat_nb = np.unique(y_strat, return_counts=True)
+        for cl_i, nb_i in zip(strat_cl, strat_nb):
+            if nb_i == 1:
+                treated = False
+                num_indexes_to_change = 0
+
+                # convert cl_i back to base 2, and pad the beginning with 0, to create a binary number of length num_classes
+                cl_i_bin = bin(cl_i)[2:].rjust(num_classes, '0')
+                while not treated and num_indexes_to_change < num_classes:
+                    num_indexes_to_change += 1
+                    comb_classes = list(combinations(range(num_classes), num_indexes_to_change))
+                    random.shuffle(comb_classes)
+                    for indexes_to_change in comb_classes:
+                        cl_i_bin_new = str(np.copy(cl_i_bin))
+                        for i in indexes_to_change:
+                            cl_i_bin_new = cl_i_bin_new[:i] + str(abs(1 - int(cl_i_bin_new[i]))) + cl_i_bin_new[i + 1:]
+                        cl_i_new = int(cl_i_bin_new, 2)
+                        if y_strat.count(cl_i_new) > 1:
+                            index_old_cl_i = y_strat.index(cl_i)
+                            y_strat[index_old_cl_i] = cl_i_new
+                            treated = True
+                            # print("{} ({}) became {} ({})".format(cl_i, cl_i_bin, cl_i_new, cl_i_bin_new))
+                            break
+        return y_strat
+
     num_folds = param_training['cross_val_folds']
+    label_type = param_task['label_type']
+    label_type_str = label_type[:4] if label_type == 'present' else label_type[:3]
+    predict_neutral_class = param_task['predict_neutral_class']
+    cv_filename = "cv_" + str(num_folds) if num_folds != -1 else "hold_out"
+    cv_filename += "_true_" + label_type_str + "_" + data_ext_name
+    cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
+
+    print("Compute folds for stratified cross-validation...")
     random_state = param_training['random_state']
-
-    # Merge training and validation data
-    X_for_training = train_list[0] + valid_list[0]
+    X_dataset = train_list[0] + valid_list[0] + test_list[0] + no_split_list[0]
     if type(train_list[1]) == dict:
-        y_for_training = {}
+        y_dataset = {}
         for task_i in ['coarse_task', 'fine_task']:
-            y_for_training[task_i] = train_list[1][task_i] + valid_list[1][task_i]
+            y_dataset[task_i] = train_list[1][task_i] + valid_list[1][task_i] + test_list[1][task_i] + \
+                                no_split_list[1][task_i]
     else:
-        y_for_training = train_list[1] + valid_list[1]
-    seg_for_training = train_list[2] + valid_list[2]
+        y_dataset = train_list[1] + valid_list[1] + test_list[1] + no_split_list[1]
+    seg_dataset = train_list[2] + valid_list[2] + test_list[2] + no_split_list[2]
 
-    # Perform split
-    train_res, valid_res = [], []
-    kf = KFold(n_splits=num_folds, shuffle=True, random_state=random_state)
-    for train_index, valid_index in kf.split(X_for_training):
-        train_res += [create_split_for_one_fold(train_index)]
-        valid_res += [create_split_for_one_fold(valid_index)]
+    # Use one-hot encoding labels (e.g. [0, 1, 0, 1, 1, 1] for stratification)
+    if label_type in ['present', 'dominant']:
+        y_strat_dataset = [list(y.flatten()) for y in y_dataset]
+    else:
+        thres_score_pres = param_task['thres_score_pres']
+        y_strat_dataset = [list((y.flatten() > thres_score_pres).astype(int)) for y in y_dataset]
 
-    return train_res, valid_res
+    # From one-hot labels (equivalent as number in base 2), generate class numbers in base 10
+    y_strat_dataset = [int("".join(str(y_char) for y_char in y), 2) for y in y_strat_dataset]
+    y_strat_dataset = deal_with_single_class_strat(y_strat_dataset)
+    train_res, valid_res, test_res = [], [], []
+    training_index_l, train_index_l, valid_index_l, test_index_l = [], [], [], []
+
+    with warnings.catch_warnings():
+        # Ignore warnings where the least populated class is smaller than number of splits
+        warnings.simplefilter("ignore", category=UserWarning)
+        skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
+        for training_index, test_index in skf.split(X_dataset, y_strat_dataset):
+            # Train and valid split, take 10% of training set for validation
+            X_training = [X_dataset[i] for i in training_index]
+            y_training_strat = [y_strat_dataset[i] for i in training_index]
+            y_training_strat = deal_with_single_class_strat(y_training_strat)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=random_state)
+            train_index, valid_index = next(sss.split(X_training, y_training_strat))
+            train_res += [create_split_for_one_fold(train_index)]
+            valid_res += [create_split_for_one_fold(valid_index)]
+            # Test split
+            test_res += [create_split_for_one_fold(test_index)]
+            training_index_l += [training_index]
+            train_index_l += [train_index]
+            valid_index_l += [valid_index]
+            test_index_l += [test_index]
+
+    root_data_folder = param_log['root_data_folder']
+    save_with_pickle(train_res, "train_" + cv_filename, "processed_folds", root_data_folder)
+    save_with_pickle(valid_res, "valid_" + cv_filename, "processed_folds", root_data_folder)
+    save_with_pickle(test_res, "test_" + cv_filename, "processed_folds", root_data_folder)
+    save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], "ind_" + cv_filename,
+                     "processed_folds", root_data_folder)
+    print("Complete cross-validation.")
+
+    return train_res, valid_res, test_res
 
 
 def data_normalization(train_list, valid_list, test_list, param_task, with_cross_val):
     """
+    Normalize image and audio data from train_list, valid_list and test_list based on mean and std of train split.
 
     :param train_list: [X_train, y_train, seg_train]
     :param valid_list: [X_valid, y_valid, seg_valid]
     :param test_list: [X_test, y_test, seg_test]
     :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param with_cross_val: boolean (cross_validation or not)
-    :return:
+    :return: new_train_list, new_valid_list, new_test_list
     """
 
     replace_nan = param_task['replace_nan']
@@ -439,104 +518,58 @@ def data_normalization(train_list, valid_list, test_list, param_task, with_cross
         img_std_col_train = np.std(np.concatenate(img_array_train), axis=0)
         aud_std_col_train = np.std(np.concatenate(aud_array_train), axis=0)
 
-    def normalization_one_split(split_list, split_type):
+    def normalization_one_split(split_list, is_train):
 
-        def normalization_modality(mod_list, mean_col, std_col, mod_type):
-
-            # num_all_nan, num_some_nan = 0, 0
-            num_some_nan_after_norm, num_some_nan_after_imput = 0, 0
+        def normalization_modality(mod_list, mean_col, std_col):
             new_mod_list = []
-
             # a sentinel epsilon for safe division, without it we will replace illegal values with a constant
             EPS = 0
 
             for i, mod_array in enumerate(mod_list):
-                # # Calculate percentage of nan/inf values in data_seg
-                # perc_nan = np.sum(~np.isfinite(mod_array)) / (mod_array.shape[0] * mod_array.shape[1])
-                # if perc_nan == 1:
-                #     num_all_nan += 1
-                # elif perc_nan > 0:
-                #     num_some_nan += 1
-
                 # z-normalization along the feature column
                 with np.errstate(invalid="ignore"):  # ignore errors which creates nan/infs, will be dealt right after
                     mod_array = (mod_array - mean_col) / (EPS + std_col)
-
-                # # After normalization, compute number of NaN/inf
-                # perc_nan = np.sum(~np.isfinite(mod_array)) / (mod_array.shape[0] * mod_array.shape[1])
-                # if perc_nan > 0:
-                #     num_some_nan_after_norm += 1
 
                 # After normalization, non-finite value processing for image and audio
                 new_mod_array = process_not_finite_values(mod_array, replace_nan)
                 new_mod_list += [new_mod_array]
 
-                # # After imputation, compute number of NaN/inf
-                # perc_nan = np.sum(~np.isfinite(new_mod_array)) / (new_mod_array.shape[0] * new_mod_array.shape[1])
-                # if perc_nan > 0:
-                #     num_some_nan_after_imput += 1
-
-            # print("[Before normalization, {}]".format(mod_type))
-            # print("Number of data with all NaN or inf: {}".format(num_all_nan))
-            # print("Number of data with some NaN or inf: {}".format(num_some_nan))
-            # print("\n[After normalization, {}]".format(mod_type))
-            # print("Number of data with some NaN or inf: {}".format(num_some_nan_after_norm))
-            # print("[After normalization and imputation, {}]".format(mod_type))
-            # print("Number of data with some NaN or inf: {}\n".format(num_some_nan_after_imput))
-
             return new_mod_list
 
-        if with_cross_val:  # train_list and valid_list contains num_fold elements
+        if with_cross_val:
             new_x_split_list = []
-            # print("----------------------------------------------------")
-            # print("Normalization split {}".format(split_type))
-            # print("----------------------------------------------------")
             for fold_id, (i_mean_col, i_std_col, a_mean_col, a_std_col) in enumerate(zip(img_mean_col_train,
                                                                                          img_std_col_train,
                                                                                          aud_mean_col_train,
                                                                                          aud_std_col_train)):
 
-                if split_type == 'valid':
-                    img_list = [X_img_seg for _, X_img_seg, _ in split_list[fold_id][0]]
-                    aud_list = [X_aud_seg for _, _, X_aud_seg in split_list[fold_id][0]]
-                elif split_type == 'train':  # 'train' already calculated earlier
+                if is_train:  # 'train' already calculated earlier
                     img_list = img_array_train[fold_id]
                     aud_list = aud_array_train[fold_id]
                 else:
-                    img_list = [X_img_seg for _, X_img_seg, _ in split_list[0]]
-                    aud_list = [X_aud_seg for _, _, X_aud_seg in split_list[0]]
+                    img_list = [X_img_seg for _, X_img_seg, _ in split_list[fold_id][0]]
+                    aud_list = [X_aud_seg for _, _, X_aud_seg in split_list[fold_id][0]]
 
-                img_norm = normalization_modality(img_list, i_mean_col, i_std_col, mod_type="image")
-                aud_norm = normalization_modality(aud_list, a_mean_col, a_std_col, mod_type="audio")
-                if split_type != 'test':
-                    new_x_split_list += [[[split_list[fold_id][0][sample_id][0], X_img_i, X_aud_i]
-                                         for sample_id, (X_img_i, X_aud_i) in enumerate(zip(img_norm, aud_norm))]]
-                else:
-                    new_x_split_list += [[[split_list[0][sample_id][0], X_img_i, X_aud_i]
-                                         for sample_id, (X_img_i, X_aud_i) in enumerate(zip(img_norm, aud_norm))]]
+                img_norm = normalization_modality(img_list, i_mean_col, i_std_col)
+                aud_norm = normalization_modality(aud_list, a_mean_col, a_std_col)
+                new_x_split_list += [[[split_list[fold_id][0][sample_id][0], X_img_i, X_aud_i]
+                                     for sample_id, (X_img_i, X_aud_i) in enumerate(zip(img_norm, aud_norm))]]
 
-            if split_type != 'test':
-                return [[new_x_split_list[fold_id], split_list[fold_id][1], split_list[fold_id][2]]
-                        for fold_id in range(len(img_mean_col_train))]
-            else:
-                return [[new_x_split_list[fold_id], split_list[1], split_list[2]]
-                        for fold_id in range(len(img_mean_col_train))]
+            return [[new_x_split_list[fold_id], split_list[fold_id][1], split_list[fold_id][2]]
+                    for fold_id in range(len(img_mean_col_train))]
 
         else:  # not with_cross_val
-            img_list = [X_img_seg for _, X_img_seg, _ in split_list[0]] if split_type != 'train' else img_array_train
-            aud_list = [X_aud_seg for _, _, X_aud_seg in split_list[0]] if split_type != 'train' else aud_array_train
-            # print("----------------------------------------------------")
-            # print("Normalization split {}".format(split_type))
-            # print("----------------------------------------------------")
-            img_norm = normalization_modality(img_list, img_mean_col_train, img_std_col_train, mod_type="image")
-            aud_norm = normalization_modality(aud_list, aud_mean_col_train, aud_std_col_train, mod_type="audio")
+            img_list = [X_img_seg for _, X_img_seg, _ in split_list[0]] if not is_train else img_array_train
+            aud_list = [X_aud_seg for _, _, X_aud_seg in split_list[0]] if not is_train else aud_array_train
+            img_norm = normalization_modality(img_list, img_mean_col_train, img_std_col_train)
+            aud_norm = normalization_modality(aud_list, aud_mean_col_train, aud_std_col_train)
             new_x_split_list = [[split_list[0][sample_id][0], X_img_i, X_aud_i] for sample_id, (X_img_i, X_aud_i) in
                                 enumerate(zip(img_norm, aud_norm))]
             return [new_x_split_list, split_list[1], split_list[2]]
 
-    new_train_list = normalization_one_split(train_list, split_type='train')
-    new_valid_list = normalization_one_split(valid_list, split_type='valid')
-    new_test_list = normalization_one_split(test_list, split_type='test')
+    new_train_list = normalization_one_split(train_list, is_train=True)
+    new_valid_list = normalization_one_split(valid_list, is_train=False)
+    new_test_list = normalization_one_split(test_list, is_train=False)
 
     return new_train_list, new_valid_list, new_test_list
 

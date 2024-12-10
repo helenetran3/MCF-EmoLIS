@@ -1,7 +1,7 @@
 {
     "logistics": {
         "pickle_name_dataset": "Name of the pickle object that will contain the CMU-MOSEI mmdataset",
-        "pickle_name_fold": "Name of the pickle object that will contain the training, validation and test folds",
+        "root_data_folder": "Name of the root folder where data processed by this repository is stored",
         "round_decimals": "Number of decimals to be rounded for metrics",
         "plot_confusion_matrix": "Whether we plot and save confusion matrices with pickle (0 or 1)",
         "save_predictions": "Whether we save predictions with pickle (0 or 1)",
