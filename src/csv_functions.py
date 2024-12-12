@@ -163,7 +163,7 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
 
         # Presence score metrics
         if met_score is not None:
-            scores = all_scores if label_type == 'all' else [0, 1, 2, 3]
+            scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3] if label_type == 'all' else [0, 1, 2, 3]
             for i, sc_i in enumerate(scores):
                 data_id_score = [str(model_id) + "_sc_" + str(sc_i)] + data_id[1:]
                 header_score_sco, data_score_sco = get_header_and_data_metrics(met_score[i], header_id, data_id_score,

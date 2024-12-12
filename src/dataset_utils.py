@@ -227,7 +227,7 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     nan_str = replace_nan + "_tnan_" + str(thres_nan)
     length_seq = param_task['set_length']
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
-    pickle_name_fold = param_log['pickle_name_fold']
+    root_data_folder = param_log['root_data_folder']
 
     # Placeholders for training, validation, and test sets
     x_train, y_train, seg_train = [], [], []
@@ -362,23 +362,18 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     # compute all scores
     all_scores = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
     split_str = "with_no_split_" if with_cross_val else "split_only_"
-    save_with_pickle(all_scores, pickle_name_fold + "_all_scores_" + split_str + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(all_scores, "all_scores_" + split_str + nan_str + length_str, "raw_folds", root_data_folder)
 
     # Save lists with pickle
-    save_with_pickle(train_res, pickle_name_fold + "_train_" + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(valid_res, pickle_name_fold + "_valid_" + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(test_res, pickle_name_fold + "_test_" + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
-    save_with_pickle(no_split_res, pickle_name_fold + "_no_split_" + nan_str + length_str,
-                     pickle_folder="raw_folds", root_folder="cmu_mosei")
+    save_with_pickle(train_res, "train_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(valid_res, "valid_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(test_res, "test_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(no_split_res, "no_split_" + nan_str + length_str, "raw_folds", root_data_folder)
 
     return train_res, valid_res, test_res, no_split_res, all_scores
 
 
-def split_for_cross_validation(train_list, valid_list, test_list, no_split_list, param_training, param_task,
+def split_for_cross_validation(train_list, valid_list, test_list, no_split_list, param_training, param_task, param_log,
                                data_ext_name):
 
     def create_split_for_one_fold(index):
@@ -428,7 +423,8 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
     label_type = param_task['label_type']
     label_type_str = label_type[:4] if label_type == 'present' else label_type[:3]
     predict_neutral_class = param_task['predict_neutral_class']
-    cv_filename = "cv_" + str(num_folds) + "_true_" + label_type_str + "_" + data_ext_name
+    cv_filename = "cv_" + str(num_folds) if num_folds != -1 else "hold_out"
+    cv_filename += "_true_" + label_type_str + "_" + data_ext_name
     cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
     print("Compute folds for stratified cross-validation...")
@@ -470,11 +466,12 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
             valid_index_l += [valid_index]
             test_index_l += [test_index]
 
-    save_with_pickle(train_res, "train_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
-    save_with_pickle(valid_res, "valid_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
-    save_with_pickle(test_res, "test_" + cv_filename, pickle_folder="processed_folds", root_folder="cmu_mosei")
+    root_data_folder = param_log['root_data_folder']
+    save_with_pickle(train_res, "train_" + cv_filename, "processed_folds", root_data_folder)
+    save_with_pickle(valid_res, "valid_" + cv_filename, "processed_folds", root_data_folder)
+    save_with_pickle(test_res, "test_" + cv_filename, "processed_folds", root_data_folder)
     save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], "ind_" + cv_filename,
-                     pickle_folder="processed_folds", root_folder="cmu_mosei")
+                     "processed_folds", root_data_folder)
     print("Complete cross-validation.")
 
     return train_res, valid_res, test_res
