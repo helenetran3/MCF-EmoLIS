@@ -4,7 +4,7 @@ import random
 import warnings
 from mmsdk import mmdatasdk
 from src.pickle_functions import *
-from src.label_processing import trunc, get_available_presence_scores_arr
+from src.label_processing import trunc, create_label_filename, get_available_presence_scores_arr
 from statistics import mean
 from itertools import combinations
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
@@ -374,7 +374,24 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
 
 
 def split_for_cross_validation(train_list, valid_list, test_list, no_split_list, param_training, param_task, param_log,
-                               data_ext_name):
+                               label_type, data_ext_name):
+    """
+    Generate three lists of num_folds elements, with each element being a list in the form [x, y, seg],
+     with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+    It also saves the indexes from raw folds, in the form [training_index_l, train_index_l, valid_index_l, test_index_l]
+     where each of the four lists have num_folds sub-elements, and each sub-element contains the list of indexes for the
+     split.
+
+    :param train_list:
+    :param valid_list:
+    :param test_list:
+    :param no_split_list:
+    :param param_training:
+    :param param_task:
+    :param param_log:
+    :param data_ext_name:
+    :return: [train_res, valid_res, test_res]
+    """
 
     def create_split_for_one_fold(index):
         l_res = []
@@ -425,10 +442,9 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
         return y_strat
 
     num_folds = param_training['cross_val_folds']
-    label_type = param_task['label_type']
-    label_type_str = label_type[:4] if label_type == 'present' else label_type[:3]
+    label_type_str = create_label_filename(label_type)
     predict_neutral_class = param_task['predict_neutral_class']
-    cv_filename = "cv_" + str(num_folds) if num_folds != -1 else "hold_out"
+    cv_filename = "cv_" + str(num_folds)
     cv_filename += "_true_" + label_type_str + "_" + data_ext_name
     cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
@@ -486,6 +502,20 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
     print("Complete cross-validation.")
 
     return train_res, valid_res, test_res
+
+
+def create_split_multitask(train_list_cv, valid_list_cv, test_list_cv, label_type, filename_cv, root_data_folder):
+    assert(type(label_type) == dict)
+    label_type_coarse = label_type['coarse_task']
+    indexes = load_from_pickle("ind_" + filename_cv, 'processed_folds', root_data_folder)
+    for train_fold_i, valid_fold_i, test_fold_i in zip(train_list_cv, valid_list_cv, test_list_cv):
+        new_y_train, new_y_valid, new_y_test = {}, {}, {}
+        new_y_train['fine_task'] = train_fold_i[1]
+        new_y_valid['fine_task'] = valid_fold_i[1]
+        new_y_test['fine_task'] = test_fold_i[1]
+
+
+
 
 
 def data_normalization(train_list, valid_list, test_list, param_task, with_cross_val):

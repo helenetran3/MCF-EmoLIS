@@ -293,8 +293,12 @@ def csv_summary(with_cross_val, param_log):
                     data_metrics = pd.read_csv(csv_path_model_metrics)
                     data_param = pd.read_csv(csv_path_model_id)
                     if with_cross_val:
+                        # We use the numpy std, as Panda's std uses Bessel's correction by default
+                        def std_for_pd(x):
+                            from numpy import std
+                            return std(x)
                         data_metrics = data_metrics.drop(columns='fold_id')
-                        data_metrics = data_metrics.groupby('model_id').agg(['mean', 'std']).reset_index()
+                        data_metrics = data_metrics.groupby('model_id').agg(['mean', std_for_pd]).reset_index()
                         round_decimals = param_log['round_decimals']
                         data_metrics = data_metrics.round(round_decimals)
                     model_column = [model for _ in range(len(data_metrics.index))]

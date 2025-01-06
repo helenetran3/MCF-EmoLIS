@@ -1,9 +1,9 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset, \
-    split_for_cross_validation, data_normalization
+    split_for_cross_validation, create_split_multitask, data_normalization
 from src.hyperparam_processing import get_hyperparam_from_json
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
-from src.label_processing import label_multitask, update_labels
+from src.label_processing import create_label_multitask, create_label_filename, update_labels
 from src.model_metrics import compute_and_save_model_metrics
 from src.hyperparam_processing import possible_val_metrics
 import itertools
@@ -13,11 +13,12 @@ def main():
 
     param_log = get_hyperparam_from_json("param_logistics")
     param_training, param_task = get_hyperparam_from_json("param_training_task")
-    with_cross_validation = (param_training['cross_val_folds'] != -1)
+    num_folds = param_training['cross_val_folds']
+    with_cross_validation = (num_folds != -1)
 
     # Transform label_type to dict with keys 'coarse_task' and 'fine_task' when label_type is a list
     label_type = param_task['label_type']
-    label_type = label_multitask(label_type) if type(label_type) == list else label_type
+    label_type = create_label_multitask(label_type) if type(label_type) == list else label_type
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     root_data_folder = param_log['root_data_folder']
@@ -27,11 +28,9 @@ def main():
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
     data_ext_name = nan_str + length_str
 
-    num_folds = param_training['cross_val_folds']
-    label_type = param_task['label_type']
-    label_type_str = label_type[:4] if label_type == 'present' else label_type[:3]
     predict_neutral_class = param_task['predict_neutral_class']
-    cv_filename = "cv_" + str(num_folds) + "_true_" + label_type_str + "_" + data_ext_name
+    label_filename = create_label_filename(label_type)
+    cv_filename = "cv_" + str(num_folds) + "_true_" + label_filename + "_" + data_ext_name
     cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
     if with_cross_validation and pickle_file_exists("train_" + cv_filename, "processed_folds", root_data_folder):
@@ -66,13 +65,13 @@ def main():
         # coarse_oh, present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
         train_list_task, valid_list_task, test_list_task, no_split_list_task = \
             update_labels(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, param_task, label_type,
-                          all_scores)
+                          all_scores, data_ext_name, root_data_folder)
 
         # Cross-validation
         if with_cross_validation:
             train_list_task, valid_list_task, test_list_task = \
                 split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
-                                           param_training, param_task, param_log, data_ext_name)
+                                           param_training, param_task, param_log, label_type, data_ext_name)
 
     # Data normalization
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,

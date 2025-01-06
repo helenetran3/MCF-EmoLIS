@@ -1,5 +1,5 @@
 import numpy as np
-
+import re
 from src.pickle_functions import *
 
 from sklearn.preprocessing import LabelEncoder, LabelBinarizer, MultiLabelBinarizer
@@ -10,7 +10,7 @@ def trunc(val, decimals):
     return np.trunc((val * stepper)) / stepper
 
 
-def label_multitask(label_type):
+def create_label_multitask(label_type):
     if len(label_type) != 2:
         raise ValueError("The list format for label_type is reserved for multitask and must contain exactly 2 elements."
                          " Please change in config/param_training_task.json.")
@@ -26,6 +26,21 @@ def label_multitask(label_type):
     else:
         y_label = {'coarse_task': label_type[1], 'fine_task': label_type[0]}
     return y_label
+
+
+def create_label_filename(label_type):
+    def shorten_label(label):
+        if 'coarse' in label:
+            m = re.search(r'(?<=_)\w+', label)
+            return 'coa' + m.group(0) if m is not None else 'coa'
+        elif label == 'present':
+            return 'pres'
+        else:
+            return label[:3]
+    if type(label_type) == dict:
+        return shorten_label(label_type['fine_task']) + '&' + shorten_label(label_type['coarse_task'])
+    else:
+        return shorten_label(label_type)
 
 
 def from_one_hot_to_plain(scores_array, num_classes):
@@ -364,7 +379,8 @@ def compute_pred_labels(pred_raw, predict_neutral_class, thres_score_pres, thres
     return pred_classes_pres, pred_classes_dom
 
 
-def update_labels(train_list, valid_list, test_list, no_split_list, param_task, label_type, all_scores):
+def update_labels(train_list, valid_list, test_list, no_split_list, param_task, label_type, all_scores, data_ext_name,
+                  root_data_folder):
     """
     Update labels for each fold so that it matches with the targeted task given by label_type:
     - all: original presence scores provided by the dataset
@@ -527,6 +543,19 @@ def update_labels(train_list, valid_list, test_list, no_split_list, param_task, 
                                                                                                 new_valid_list,
                                                                                                 new_test_list,
                                                                                                 new_no_split_list)
+
+    # Saving
+    short_label_func = lambda label: 'pres' if label == 'present' else label[:3]
+    if type(label_type) == dict:
+        label_type_str = short_label_func(label_type['fine_task']) + '&' + short_label_func(label_type['coarse_task'])
+    else:
+        label_type_str = short_label_func(label_type)
+    ho_filename = "hold_out_true_" + label_type_str + "_" + data_ext_name
+    ho_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
+    save_with_pickle(new_train_list, "train_" + ho_filename, "processed_folds", root_data_folder)
+    save_with_pickle(new_valid_list, "valid_" + ho_filename, "processed_folds", root_data_folder)
+    save_with_pickle(new_test_list, "test_" + ho_filename, "processed_folds", root_data_folder)
+    save_with_pickle(new_no_split_list, "no_split_" + ho_filename, "processed_folds", root_data_folder)
 
     return new_train_list, new_valid_list, new_test_list, new_no_split_list
 

@@ -12,7 +12,7 @@
 import torch
 from torch import nn
 
-from src.label_processing import label_multitask
+from src.label_processing import create_label_multitask
 from src.models.mult.modules.transformer import TransformerEncoder
 
 
@@ -53,7 +53,7 @@ class MModel(nn.Module):
         self.label_type = param_task['label_type']
 
         label_type = param_task['label_type']
-        self.label_type = label_multitask(label_type) if type(label_type) == list else label_type
+        self.label_type = create_label_multitask(label_type) if type(label_type) == list else label_type
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 

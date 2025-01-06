@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from src.pickle_functions import save_with_pickle, load_from_pickle
 from src.csv_functions import save_results_in_csv_file
-from src.label_processing import label_multitask, compute_true_labels
+from src.label_processing import compute_true_labels
 from src.print_functions import print_mean_std_cross_validation
 
 from sklearn.preprocessing import label_binarize, LabelBinarizer
@@ -222,14 +222,14 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
 
-    scores = [0, 1, 2, 3] if coarse else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
+    scores = [0, 1, 2] if coarse else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66]
     task = "coa" if coarse else "all"
 
     res = []
     for sc_id, sc_i in enumerate(scores):
         print("\n>>> Score threshold:", sc_i)
-        true_classes_i = (true_scores >= sc_i).astype(int)
-        pred_classes_i = (pred_scores >= sc_i).astype(int)
+        true_classes_i = (true_scores > sc_i).astype(int)
+        pred_classes_i = (pred_scores > sc_i).astype(int)
         res += [get_classification_metrics(true_classes_i, pred_classes_i, num_classes, round_decimals, task,
                                            model_id_str, model_folder, with_cross_val, fold_id=fold_id, score_id=sc_id)]
 
@@ -542,9 +542,6 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :return: metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
     """
 
-    # Some metrics do not make sense for the targeted task (label_type): we do not print them
-    label_type_for_reg = 'coarse' if 'coarse' in label_type else label_type
-
     def compute_metrics_one_model(true_all_i, true_coa_i, true_pres_i, true_dom_i,
                                   pred_raw_i, pred_pres_i, pred_dom_i, task_mt=None, fold_id=None):
 
@@ -756,4 +753,4 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     # Save metrics in csv file
     save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,
                              metrics_regression, metrics_score, metrics_presence, metrics_dominant,
-                             with_cross_val, predict_neutral_class, thres_score_pres, all_scores, label_type)
+                             with_cross_val, predict_neutral_class, thres_score_pres, label_type)
