@@ -103,17 +103,15 @@ def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label
         return res_str
 
     def print_mean_std_regression(met_regression):
-        length = len(met_regression[0])
-        assert(length in [5 + 5 * num_classes, 4 + 4 * num_classes])
+        assert(len(met_regression[0]) == 5 + 5 * num_classes)
         mae = [met_i[0] for met_i in met_regression]
         mse = [met_i[1] for met_i in met_regression]
         r2 = [met_i[2] for met_i in met_regression]
         kl = [met_i[3] for met_i in met_regression]
-        start_ind = 5 if length == 5 + 5 * num_classes else 4
-        mae_per_fold = [met_i[start_ind:start_ind + num_classes] for met_i in met_regression]
-        mse_per_fold = [met_i[start_ind + num_classes:start_ind + 2 * num_classes] for met_i in met_regression]
-        r2_per_fold = [met_i[start_ind + 2 * num_classes:start_ind + 3 * num_classes] for met_i in met_regression]
-        kl_per_fold = [met_i[start_ind + 3 * num_classes:start_ind + 4 * num_classes] for met_i in met_regression]
+        mae_per_fold = [met_i[5:5 + num_classes] for met_i in met_regression]
+        mse_per_fold = [met_i[5 + num_classes:5 + 2 * num_classes] for met_i in met_regression]
+        r2_per_fold = [met_i[5 + 2 * num_classes:5 + 3 * num_classes] for met_i in met_regression]
+        kl_per_fold = [met_i[5 + 3 * num_classes:5 + 4 * num_classes] for met_i in met_regression]
         print("Mean absolute error (for each emotion):", str_emo(mae_per_fold))
         print("Mean absolute error (overall):", str_overall(mae))
         print("Mean squared error (for each emotion):", str_emo(mse_per_fold))
@@ -122,10 +120,9 @@ def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label
         print("R2 score (overall):", str_overall(r2))
         print("KL divergence (for each emotion):", str_emo(kl_per_fold))
         print("KL divergence (overall):", str_overall(kl))
-        if length == 5 + 5 * num_classes:
+        if met_regression[0][4] is not None:  # c_index is computed or not depending on the targeted task
             c_index = [met_i[4] for met_i in met_regression]
-            c_index_per_fold = [met_i[start_ind + 4 * num_classes:start_ind + 5 * num_classes] for met_i in
-                                met_regression]
+            c_index_per_fold = [met_i[5 + 4 * num_classes:5 + 5 * num_classes] for met_i in met_regression]
             print("C-index (for each emotion):", str_emo(c_index_per_fold))
             print("C-index (unweighted mean):", str_overall(c_index))
 

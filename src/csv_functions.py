@@ -186,12 +186,6 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
                                                                          predict_neutral_class, is_classification=True)
             write_csv(csv_path_dominant, header_dominant, data_dominant)
 
-        # print(len(header_regression), len(data_regression))
-        # print(len(header_score_coa), len(data_score_coa))
-        # print(len(header_dominant), len(data_dominant))
-        # for i in range(len(metrics_presence)):
-        #     print(len(header_presence), len(data_presence[i]))
-
     if with_cross_val:
         for fold_id, (l_val_i, m_reg_i, m_sc_i, m_pres_i, m_dom_i) in enumerate(zip(model_eval_output,
                                                                                     metrics_regression, metrics_scores,
