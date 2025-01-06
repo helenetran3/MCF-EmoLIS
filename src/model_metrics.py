@@ -228,8 +228,8 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
     res = []
     for sc_id, sc_i in enumerate(scores):
         print("\n>>> Score threshold:", sc_i)
-        true_classes_i = (true_scores >= sc_i).astype(int)
-        pred_classes_i = (pred_scores >= sc_i).astype(int)
+        true_classes_i = (true_scores > sc_i).astype(int)
+        pred_classes_i = (pred_scores > sc_i).astype(int)
         res += [get_classification_metrics(true_classes_i, pred_classes_i, num_classes, round_decimals, task,
                                            model_id, model_folder, with_cross_val, fold_id=fold_id, score_id=sc_id)]
 
