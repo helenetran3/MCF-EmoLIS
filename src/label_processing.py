@@ -28,15 +28,17 @@ def create_label_multitask(label_type):
     return y_label
 
 
+def shorten_label(label):
+    if 'coarse' in label:
+        m = re.search(r'(?<=_)\w+', label)
+        return 'coa' + m.group(0) if m is not None else 'coa'
+    elif label == 'present':
+        return 'pres'
+    else:
+        return label[:3]
+
+
 def create_label_filename(label_type):
-    def shorten_label(label):
-        if 'coarse' in label:
-            m = re.search(r'(?<=_)\w+', label)
-            return 'coa' + m.group(0) if m is not None else 'coa'
-        elif label == 'present':
-            return 'pres'
-        else:
-            return label[:3]
     if type(label_type) == dict:
         return shorten_label(label_type['fine_task']) + '&' + shorten_label(label_type['coarse_task'])
     else:
@@ -545,12 +547,8 @@ def update_labels(train_list, valid_list, test_list, no_split_list, param_task, 
                                                                                                 new_no_split_list)
 
     # Saving
-    short_label_func = lambda label: 'pres' if label == 'present' else label[:3]
-    if type(label_type) == dict:
-        label_type_str = short_label_func(label_type['fine_task']) + '&' + short_label_func(label_type['coarse_task'])
-    else:
-        label_type_str = short_label_func(label_type)
-    ho_filename = "hold_out_true_" + label_type_str + "_" + data_ext_name
+    label_type_str = create_label_filename(label_type)
+    ho_filename = "ho_true_" + label_type_str + "_" + data_ext_name
     ho_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
     save_with_pickle(new_train_list, "train_" + ho_filename, "processed_folds", root_data_folder)
     save_with_pickle(new_valid_list, "valid_" + ho_filename, "processed_folds", root_data_folder)
