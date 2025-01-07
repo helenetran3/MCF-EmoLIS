@@ -67,7 +67,7 @@ def main():
         if with_cross_validation:
             train_list_task, valid_list_task, test_list_task = \
                 split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
-                                           param_training, param_task, param_log, data_ext_name)
+                                           param_training, param_task, param_log, label_type_str, data_ext_name)
 
     # Data normalization
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,
