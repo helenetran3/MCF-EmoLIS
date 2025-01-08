@@ -360,9 +360,11 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     no_split_res = [x_no_split, y_no_split_emo, seg_no_split]
 
     # compute all scores
-    all_scores = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
-    split_str = "with_no_split_" if with_cross_val else "split_only_"
-    save_with_pickle(all_scores, "all_scores_" + split_str + nan_str + length_str, "raw_folds", root_data_folder)
+    all_scores_ho = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
+    all_scores_cv = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
+    all_scores = all_scores_cv if with_cross_val else all_scores_ho
+    save_with_pickle(all_scores_ho, "all_scores_split_only_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(all_scores_cv, "all_scores_with_no_split_" + nan_str + length_str, "raw_folds", root_data_folder)
 
     # Save lists with pickle
     save_with_pickle(train_res, "train_" + nan_str + length_str, "raw_folds", root_data_folder)

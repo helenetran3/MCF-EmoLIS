@@ -1,6 +1,7 @@
 import os
 import csv
 import pandas as pd
+from src.label_processing import shorten_label
 
 
 def create_csv_path(model_name, filename, ext_name="", with_cross_val=None, is_summary=False):
@@ -147,25 +148,27 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
     
     def write_csv_one_model(eval_out, met_reg, met_score, met_pres, met_dom, task_mt=None, fold_id=None):
 
-        # Create model parameter header and data for each csv file
+        label_t = label_type[task_mt] if task_mt is not None else label_type
+
         header_id = ['model_id'] if not with_cross_val else ['model_id', 'fold_id']
-        header_id = header_id + [loss_function, val_metrics]
-        model_id_str = str(model_id) + '_' + task_mt if task_mt is not None else str(model_id)
-        data_id = [model_id_str] if not with_cross_val else [model_id_str, fold_id]
-        data_id = data_id + eval_out
+        model_id_str = str(model_id) + '_' + shorten_label(label_t) if task_mt is not None else str(model_id)
 
         # Regression metrics
         if met_reg is not None:
-            header_regression, data_regression = get_header_and_data_metrics(met_reg, header_id, data_id,
+            header_id_reg = header_id + [loss_function, val_metrics]
+            data_id_reg = [model_id_str] if not with_cross_val else [model_id_str, fold_id]
+            data_id_reg = data_id_reg + eval_out  # eval_out contains loss function and validation metric values
+            header_regression, data_regression = get_header_and_data_metrics(met_reg, header_id_reg, data_id_reg,
                                                                              predict_neutral_class,
                                                                              is_classification=False)
             write_csv(csv_path_regression, header_regression, data_regression)
 
         # Presence score metrics
         if met_score is not None:
-            scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3] if label_type == 'all' else [0, 1, 2, 3]
+            scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66] if label_t == 'all' else [0, 1, 2]
             for i, sc_i in enumerate(scores):
-                data_id_score = [str(model_id) + "_sc_" + str(sc_i)] + data_id[1:]
+                model_id_str_score = model_id_str + "_sc_" + str(sc_i)
+                data_id_score = [model_id_str_score] if not with_cross_val else [model_id_str_score, fold_id]
                 header_score_sco, data_score_sco = get_header_and_data_metrics(met_score[i], header_id, data_id_score,
                                                                                predict_neutral_class,
                                                                                is_classification=True)
@@ -174,7 +177,8 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
         # Present emotion metrics
         if met_pres is not None:
             for i, thres in enumerate(thres_score_pres):
-                data_id_pres = [str(model_id) + "_t_" + str(thres)] + data_id[1:]
+                model_id_str_pres = model_id_str + "_t_" + str(thres)
+                data_id_pres = [model_id_str_pres] if not with_cross_val else [model_id_str_pres, fold_id]
                 header_presence, data_presence = get_header_and_data_metrics(met_pres[i], header_id, data_id_pres,
                                                                              predict_neutral_class,
                                                                              is_classification=True)
@@ -182,7 +186,8 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
 
         # Dominant emotion metrics
         if met_dom is not None:
-            header_dominant, data_dominant = get_header_and_data_metrics(met_dom, header_id, data_id,
+            data_id_dom = [model_id_str] if not with_cross_val else [model_id_str, fold_id]
+            header_dominant, data_dominant = get_header_and_data_metrics(met_dom, header_id, data_id_dom,
                                                                          predict_neutral_class, is_classification=True)
             write_csv(csv_path_dominant, header_dominant, data_dominant)
 

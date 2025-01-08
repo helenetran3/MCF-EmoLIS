@@ -54,6 +54,8 @@ def main():
             test_list_task = load_from_pickle("test_" + ho_filename, "processed_folds", root_data_folder)
             if with_cross_validation:
                 no_split_list_task = load_from_pickle("no_split_" + ho_filename, "processed_folds", root_data_folder)
+            split_str = "with_no_split_" if with_cross_validation else "split_only_"
+            all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name, "raw_folds", root_data_folder)
 
         else:
             # Load raw data from CMU-MOSEI SDK if already saved locally

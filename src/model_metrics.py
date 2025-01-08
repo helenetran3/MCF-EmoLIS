@@ -517,7 +517,7 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                               pred_raw, pred_classes_pres, pred_classes_dom, with_cross_val, thres_score_pres,
-                              num_classes, all_scores, round_decimals, model_id, model_folder):
+                              num_classes, all_scores, round_decimals, model_id, model_folder, task_mt=None):
     """
     Compute metrics for four tasks: estimation of presence score (regression), classification of presence score among
     [0, 1, 2, 3], binary classification for each emotion, and prediction of dominant classes (multilabel classification)
@@ -539,11 +539,12 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :param round_decimals: Number of decimals to be rounded for metrics
     :param model_id: Model id (int)
     :param model_folder: The folder where the result will be saved
+    :param task_mt: either coarse_task or fine_task when multitask mode is enabled. None by default.
     :return: metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
     """
 
     def compute_metrics_one_model(true_all_i, true_coa_i, true_pres_i, true_dom_i,
-                                  pred_raw_i, pred_pres_i, pred_dom_i, task_mt=None, fold_id=None):
+                                  pred_raw_i, pred_pres_i, pred_dom_i, fold_id=None):
 
         true_label_for_reg = {'all': true_all_i, 'coarse': true_coa_i, 'present': true_pres_i, 'dominant': true_dom_i}
         metrics_score, metrics_presence, metrics_dominant = None, None, None
@@ -554,27 +555,30 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
             print("\n\n=============================== Fold {} ===============================".format(fold_id))
         if task_mt is not None:
             print("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            print(">>>>>> Metrics for {}: {}".format(task_mt, label_type[task_mt]))
+            print(">>>>>> Metrics for {}: {}".format(task_mt, label_type))
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
 
         # This block computes regression metrics for the targeted task
         print("\n------- Presence score estimation (regression) --------\n")
 
-        def get_regression_met(label_t, pred_r):
-            label_t = label_t if 'coarse' not in label_t else 'coarse'
-            tl_for_reg = true_label_for_reg[label_t]
-            tl_for_reg = tl_for_reg[0] if label_type == 'present' else tl_for_reg
-            return get_regression_metrics(tl_for_reg, pred_r, label_type, all_scores, round_decimals)
+        # def get_regression_met(label_t, pred_r):
+        #     label_t = label_t if 'coarse' not in label_t else 'coarse'
+        #     tl_for_reg = true_label_for_reg[label_t]
+        #     tl_for_reg = tl_for_reg[0] if label_t == 'present' else tl_for_reg
+        #     return get_regression_metrics(tl_for_reg, pred_r, label_t, all_scores, round_decimals)
 
-        if type(label_type) == dict:
-            # metrics_reg = []
-            # for task_i in ['coarse_task', 'fine_task']:
-            print("\n>>> Task: {}".format(label_type[task_mt]))
-            metrics_regression = get_regression_met(label_type[task_mt], pred_raw_i)
-            # metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
-        else:
-            print("\n")
-            metrics_regression = get_regression_met(label_type, pred_raw_i)
+        # if type(label_type) == dict:
+        #     # metrics_reg = []
+        #     # for task_i in ['coarse_task', 'fine_task']:
+        #     print("\n>>> Task: {}".format(label_type[task_mt]))
+        #     metrics_regression = get_regression_met(label_type[task_mt], pred_raw_i)
+        #     # metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
+        # else:
+        #     print("\n")
+        label_t = label_type if 'coarse' not in label_type else 'coarse'
+        tl_for_reg = true_label_for_reg[label_t]
+        tl_for_reg = tl_for_reg[0] if label_type == 'present' else tl_for_reg
+        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw, label_type, all_scores, round_decimals)
 
         if 'coarse' in label_type or label_type == 'all':
             print(f"\n------- Presence score classification -------\n")
@@ -600,17 +604,14 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
     if with_cross_val:
         met_reg, met_score, met_pres, met_dom = [], [], [], []
+        print("compute type")
+        for t in [true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom, pred_raw, pred_classes_pres, pred_classes_dom]:
+            print(type(t))
+
         for fold_id, (tf_i, tc_i, tp_i, td_i, pr_i, pp_i, pd_i) in \
                 enumerate(zip(true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                               pred_raw, pred_classes_pres, pred_classes_dom)):
-            if type(label_type) == dict:
-                mr, ms, mp, md = {}, {}, {}, {}
-                for task_i in ['coarse_task', 'fine_task']:
-                    mr[task_i], ms[task_i], mp[task_i], md[task_i] = \
-                        compute_metrics_one_model(tf_i[task_i], tc_i[task_i], tp_i[task_i], td_i[task_i], pr_i[task_i],
-                                                  pp_i[task_i], pd_i[task_i], task_mt=task_i, fold_id=fold_id)
-            else:
-                mr, ms, mp, md = compute_metrics_one_model(tf_i, tc_i, tp_i, td_i, pr_i, pp_i, pd_i, fold_id)
+            mr, ms, mp, md = compute_metrics_one_model(tf_i, tc_i, tp_i, td_i, pr_i, pp_i, pd_i, fold_id)
             met_reg += [mr]
             met_score += [ms]
             met_pres += [mp]
@@ -621,19 +622,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
                                         thres_score_pres, round_decimals)
 
     else:
-        if type(label_type) == dict:
-            met_reg, met_score, met_pres, met_dom = {}, {}, {}, {}
-            for task_i in ['coarse_task', 'fine_task']:
-                met_reg[task_i], met_score[task_i], met_pres[task_i], met_dom[task_i] = \
-                    compute_metrics_one_model(true_scores_all[task_i], true_scores_coa[task_i],
-                                              true_classes_pres[task_i], true_classes_dom[task_i],
-                                              pred_raw[task_i], pred_classes_pres[task_i], pred_classes_dom[task_i],
-                                              task_mt=task_i)
-        else:
-            met_reg, met_score, met_pres, met_dom = compute_metrics_one_model(true_scores_all, true_scores_coa,
-                                                                              true_classes_pres, true_classes_dom,
-                                                                              pred_raw, pred_classes_pres,
-                                                                              pred_classes_dom)
+        met_reg, met_score, met_pres, met_dom = compute_metrics_one_model(true_scores_all, true_scores_coa,
+                                                                          true_classes_pres, true_classes_dom,
+                                                                          pred_raw, pred_classes_pres, pred_classes_dom)
     return met_reg, met_score, met_pres, met_dom
 
 
@@ -672,29 +663,41 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     model_folder = os.path.join('results', model_name)
 
     # Compute true labels for calculation metrics on test set
-    def compute_true_label_for_metrics(y_test):
+    def compute_true_label_for_metrics(y_test, label_t):
         true_all, true_coa, true_pres, true_dom = compute_true_labels(y_test, "test", all_scores,
                                                                       predict_neutral_class, thres_score_pres,
-                                                                      param_task, num_classes, label_type,
-                                                                      for_test=True)
+                                                                      param_task, num_classes, label_t, for_test=True)
 
         return true_all, true_coa, true_pres, true_dom
 
     if with_cross_val:
-        y_test_cv_fold_0 = test_list_task[0][1]
+        y_test_cv_fold_0 = test_list_task[0][1]['coarse_task'] if type(label_type) == dict else test_list_task[0][1]
         num_classes = y_test_cv_fold_0[0].shape[1] if not ('oh' in label_type) else y_test_cv_fold_0[0].shape[0]
         true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = [], [], [], []
         for fold_i in range(num_folds):
-            ts_all, ts_coa, tc_pres, tc_dom = compute_true_label_for_metrics(test_list_task[fold_i][1])
+            if type(label_type) == dict:
+                ts_all, ts_coa, tc_pres, tc_dom = {}, {}, {}, {}
+                for task_i in ['fine_task', 'coarse_task']:
+                    ts_all[task_i], ts_coa[task_i], tc_pres[task_i], tc_dom[task_i] = \
+                        compute_true_label_for_metrics(test_list_task[fold_i][1][task_i], label_type[task_i])
+            else:
+                ts_all, ts_coa, tc_pres, tc_dom = compute_true_label_for_metrics(test_list_task[fold_i][1], label_type)
             true_scores_all += [ts_all]
             true_scores_coa += [ts_coa]
             true_classes_pres += [tc_pres]
             true_classes_dom += [tc_dom]
+
     else:
-        y_test_hold_out = test_list_task[1]
+        y_test_hold_out = test_list_task[1]['coarse_task'] if type(label_type) == dict else test_list_task[1]
         num_classes = y_test_hold_out[0].shape[1] if not ('oh' in label_type) else y_test_hold_out[0].shape[0]
-        true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
-            compute_true_label_for_metrics(test_list_task[1])
+        if type(label_type) == dict:
+            true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = {}, {}, {}, {}
+            for task_i in ['fine_task', 'coarse_task']:
+                true_scores_all[task_i], true_scores_coa[task_i], true_classes_pres[task_i], true_classes_dom[task_i] = \
+                    compute_true_label_for_metrics(test_list_task[1][task_i], label_type[task_i])
+        else:
+            true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = \
+                compute_true_label_for_metrics(test_list_task[1], label_type)
 
     ####################################################################################################################
     # Confusion matrices
@@ -719,11 +722,26 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
             plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id_str, model_folder,
                                              label_i, display_fig, thres_score_pres)
 
+    if with_cross_val:
+        for fold_i in range(num_folds):
+            if type(label_type) == dict:
+                for task_i in ['coarse_task', 'fine_task']:
+                    compute_confusion_matrix_i(label_type[task_i], true_scores_all[fold_i][task_i],
+                                               true_scores_coa[fold_i][task_i],
+                                               true_classes_pres[fold_i][task_i], true_classes_dom[fold_i][task_i],
+                                               pred_raw[fold_i][task_i], pred_classes_pres[fold_i][task_i],
+                                               pred_classes_dom[fold_i][task_i], task_mt=task_i)
+            else:
+                compute_confusion_matrix_i(label_type, true_scores_all, true_scores_coa, true_classes_pres,
+                                           true_classes_dom, pred_raw[fold_i], pred_classes_pres[fold_i],
+                                           pred_classes_dom[fold_i])
+
+    else:
         if type(label_type) == dict:
             for task_i in ['coarse_task', 'fine_task']:
-                compute_confusion_matrix_i(label_type[task_i], true_scores_all, true_scores_coa, true_classes_pres,
-                                           true_classes_dom, pred_raw[task_i], pred_classes_pres[task_i],
-                                           pred_classes_dom[task_i], task_mt=task_i)
+                compute_confusion_matrix_i(label_type[task_i], true_scores_all[task_i], true_scores_coa[task_i],
+                                           true_classes_pres[task_i], true_classes_dom[task_i], pred_raw[task_i],
+                                           pred_classes_pres[task_i], pred_classes_dom[task_i], task_mt=task_i)
         else:
             compute_confusion_matrix_i(label_type, true_scores_all, true_scores_coa, true_classes_pres,
                                        true_classes_dom, pred_raw, pred_classes_pres, pred_classes_dom)
@@ -740,15 +758,52 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     print("\n----------- Model training characteristics ------------\n")
     print("Model name:", model_name)
     print("Model id:", model_id)
-    print("Label type:", param_task['label_type'])
+    print("Label type:", label_type)
     print("Loss function:", loss_function)
     print("Validation metrics:", val_metrics_str)
 
+    def compute_metrics_i(label_i, true_all_i, true_coa_i, true_pres_i, true_dom_i, pred_raw_i, pred_pres_i, pred_dom_i,
+                          task_mt=None):
+        return get_and_print_all_metrics(label_i, true_all_i, true_coa_i, true_pres_i, true_dom_i, pred_raw_i,
+                                         pred_pres_i, pred_dom_i, with_cross_val, thres_score_pres, num_classes,
+                                         all_scores, round_decimals, model_id, model_folder, task_mt)
+
     # Compute all metrics
-    metrics_regression, metrics_score, metrics_presence, metrics_dominant = \
-        get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                                  pred_raw, pred_classes_pres, pred_classes_dom, with_cross_val, thres_score_pres,
-                                  num_classes, all_scores, round_decimals, model_id, model_folder)
+    if with_cross_val:
+        for fold_i in range(num_folds):
+            if type(label_type) == dict:
+                metrics_regression, metrics_score, metrics_presence, metrics_dominant = {}, {}, {}, {}
+
+                # TODO swap task_i and fold_i so that we can perform cv inside get_and_print_all_metrics function
+                for task_i in ['coarse_task', 'fine_task']:
+                    metrics_regression[task_i], metrics_score[task_i], metrics_presence[task_i], \
+                    metrics_dominant[task_i] = compute_metrics_i(label_type[task_i], true_scores_all[fold_i][task_i],
+                                                                 true_scores_coa[fold_i][task_i],
+                                                                 true_classes_pres[fold_i][task_i],
+                                                                 true_classes_dom[fold_i][task_i],
+                                                                 pred_raw[fold_i][task_i],
+                                                                 pred_classes_pres[fold_i][task_i],
+                                                                 pred_classes_dom[fold_i][task_i], task_i)
+
+            else:
+                metrics_regression, metrics_score, metrics_presence, metrics_dominant = \
+                    compute_metrics_i(label_type, true_scores_all[fold_i], true_scores_coa[fold_i],
+                                      true_classes_pres[fold_i], true_classes_dom[fold_i], pred_raw[fold_i],
+                                      pred_classes_pres[fold_i], pred_classes_dom[fold_i])
+
+    else:
+        if type(label_type) == dict:
+            metrics_regression, metrics_score, metrics_presence, metrics_dominant = {}, {}, {}, {}
+            for task_i in ['coarse_task', 'fine_task']:
+                metrics_regression[task_i], metrics_score[task_i], metrics_presence[task_i], metrics_dominant[task_i] = \
+                    compute_metrics_i(label_type[task_i], true_scores_all[task_i], true_scores_coa[task_i],
+                                      true_classes_pres[task_i], true_classes_dom[task_i], pred_raw[task_i],
+                                      pred_classes_pres[task_i], pred_classes_dom[task_i], task_i)
+
+        else:
+            metrics_regression, metrics_score, metrics_presence, metrics_dominant = \
+                compute_metrics_i(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
+                                  pred_raw, pred_classes_pres, pred_classes_dom)
 
     # Save metrics in csv file
     save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,

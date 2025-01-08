@@ -377,20 +377,21 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             valid_thres_ml_per_emo, valid_monitor_per_emo_i = {}, {}
             for task_i in ['coarse_task', 'fine_task']:
                 if val_metrics is None or (param_training['thres_ml_from_best_metric'] and
-                                           task_i in ['present', 'dominant']):
+                                           label_type[task_i] in ['present', 'dominant']):
                     t_valid, p_valid = true_valid[task_i], pred_valid[task_i]
                     vt, vm = compute_best_thres_for_monitor_metric(np.array(t_valid).reshape(-1, num_classes),
                                                                    np.array(p_valid).reshape(-1, num_classes),
                                                                    round_decimals)
-                    valid_thres_ml_per_emo[task_i] = vt  # List of thresholds
+                    valid_thres_ml_per_emo[task_i] = [np.round(v, 2) for v in vt.tolist()]  # List of thresholds
                     # Used only when val_metrics is None
-                    valid_monitor_per_emo_i[task_i] += vm  # List of validation metrics
+                    valid_monitor_per_emo_i[task_i] = vm  # List of validation metrics
 
         # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
         if val_metrics is None:
             if type(label_type) == dict:
                 mean_per_task = [np.mean(valid_monitor_per_emo_i[task_i]) for task_i in ['coarse_task', 'fine_task']]
                 valid_monitor_avg = np.round(np.mean(mean_per_task), round_decimals)
+                # The following three lines is to add mean to the list of validation metrics values
                 valid_monitor_all = valid_monitor_per_emo_i.copy()
                 valid_monitor_all['coarse_task'] += [mean_per_task[0]]
                 valid_monitor_all['fine_task'] += [mean_per_task[1]]
@@ -474,12 +475,11 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     if type(label_type) == str:
         if label_type in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
             valid_thres_ml_best = thres_list
-    elif type(label_type) == dict and not param_training['thres_ml_from_best_metric']:
-        valid_thres_ml_best = {}
+    elif type(label_type) == dict:
         for task_i, label_i in zip(label_type.keys(), label_type.values()):
-            if label_i in ['present', 'dominant']:
+            if label_i in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
                 valid_thres_ml_best[task_i] = thres_list
-            else:
+            elif label_i not in ['present', 'dominant']:
                 valid_thres_ml_best[task_i] = None
 
     return valid_thres_ml_best
