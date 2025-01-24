@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from src.pickle_functions import save_with_pickle, load_from_pickle
 from src.csv_functions import save_results_in_csv_file
-from src.label_processing import compute_true_labels
+from src.label_processing import compute_true_labels, shorten_label
 from src.print_functions import print_mean_std_cross_validation
 
 from sklearn.preprocessing import label_binarize, LabelBinarizer
@@ -72,7 +72,7 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
     return best_thres_per_emo, f1_each_rounded
 
 
-def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_id_str, model_folder, task,
+def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_id, model_folder, task_i, task_mt=None,
                                thres=None, fold_id=None, score_id=None):
     """
     Compute a list of accuracies per emotion.
@@ -80,8 +80,10 @@ def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_i
     :param is_weighted: whether the accuracy is weighted or not
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param with_cross_val: boolean (cross_validation or not)
-    :param model_id_str: Extension of filename containing model id (int) (+ 'coarse_task' or 'fine_task' if multitask)
+    :param model_id: Model id (int)
     :param model_folder: the folder where the results are saved (str)
+    :param task_i: Either 'all', 'coa', 'pres' or 'dom'
+    :param task_mt: Either 'coarse_task', 'fine_task' or None
     :param thres: threshold at which emotions are considered to be present. Must be between 0 and 3
     :param fold_id: Cross-validation fold id (int)
     :param score_id: Index position of the presence score (int)
@@ -111,10 +113,17 @@ def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_i
             acc_list_i.append(acc_emo)
         return acc_list_i
 
-    ext_name = task[:3] if thres is None else "pres_t_{}".format(thres)
+    ext_name = str(model_id)
+    if task_mt is not None:
+        ext_name += '_ftask' if 'fine' in task_mt else '_ctask'
+    if thres is not None:
+        ext_name += "_pres_t_{}".format(thres)
+    else:
+        ext_name += '_dom' if task_i == 'dom' else '_scores'
     ext_name += "_cv" if with_cross_val else ""
-    conf_matrix = load_from_pickle('conf_matrix_{}_{}'.format(model_id_str, ext_name),
+    conf_matrix = load_from_pickle('conf_matrix_{}'.format(ext_name),
                                    pickle_folder="confusion_matrix", root_folder=model_folder)
+
     conf_matrix_i = conf_matrix[fold_id] if fold_id is not None else conf_matrix
     conf_matrix_i = conf_matrix_i[score_id] if score_id is not None else conf_matrix_i
     acc_list = compute_acc_i(conf_matrix_i)
@@ -205,7 +214,7 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
 
 
 def get_classification_metrics_score(true_scores, pred_scores, num_classes, round_decimals,
-                                     model_id_str, model_folder, with_cross_val, fold_id, coarse):
+                                     model_id, model_folder, with_cross_val, task_mt, fold_id, coarse):
     """
     Return unweighted mean of all the classification metrics for the case of coarse scores.
 
@@ -213,9 +222,10 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
     :param pred_scores: Array of shape (test_size, 6) giving the predicted presence scores among [0, 1, 2, 3]
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
-    :param model_id_str: Extension of filename containing model id (int) (+ 'coarse_task' or 'fine_task' if multitask)
+    :param model_id: model id (int)
     :param model_folder: the folder where the results are saved (str)
     :param with_cross_val: boolean (cross_validation or not)
+    :param task_mt: Either 'coarse_task', 'fine_task' or None
     :param fold_id: Cross-validation fold id (int)
     :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
@@ -223,21 +233,21 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
     """
 
     scores = [0, 1, 2] if coarse else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66]
-    task = "coa" if coarse else "all"
 
     res = []
     for sc_id, sc_i in enumerate(scores):
         print("\n>>> Score threshold:", sc_i)
         true_classes_i = (true_scores > sc_i).astype(int)
         pred_classes_i = (pred_scores > sc_i).astype(int)
-        res += [get_classification_metrics(true_classes_i, pred_classes_i, num_classes, round_decimals, task,
-                                           model_id_str, model_folder, with_cross_val, fold_id=fold_id, score_id=sc_id)]
+        res += [get_classification_metrics(true_classes_i, pred_classes_i, num_classes, round_decimals, model_id,
+                                           model_folder, with_cross_val, task_i="coa" if coarse else "all",
+                                           task_mt=task_mt, fold_id=fold_id, score_id=sc_id)]
 
     return res
 
 
-def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, task,
-                               model_id_str, model_folder, with_cross_val, fold_id=None, thres=None, score_id=None):
+def get_classification_metrics(true_classes, pred_classes, num_classes, round_decimals, model_id, model_folder,
+                               with_cross_val, task_i, task_mt=None, fold_id=None, thres=None, score_id=None):
     """
     Compute classification metrics.
      Accuracy
@@ -249,10 +259,11 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     :param pred_classes: binary array of predictions, shape (test_size, num_classes) (num_classes = 7 if with neutral class, else 6)
     :param num_classes: number of classes (7 with neutral class, else 6)
     :param round_decimals: number of decimals to be rounded for metrics
-    :param task: Name of the task, among 'all', 'coa', 'pres' and 'dom'
-    :param model_id_str: Extension of filename containing model id (int) (+ 'coarse_task' or 'fine_task' if multitask)
+    :param model_id: model id (int)
     :param model_folder: The folder where the result will be saved
     :param with_cross_val: boolean (cross_validation or not)
+    :param task_i: Either 'all', 'coa', 'pres' or 'dom'
+    :param task_mt: Either 'coarse_task' or 'fine_task'
     :param fold_id: Cross-validation fold id (int)
     :param thres: threshold at which emotions are considered to be present. Must be between 0 and 3 (int)
     :param score_id: Index position of the presence score (int)
@@ -264,10 +275,10 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
 
     # Accuracy
     bin_acc_per_class, weight_classes_for_mean = \
-        compute_accuracy_per_class(False, num_classes, with_cross_val, model_id_str, model_folder,
-                                   task, thres=thres, fold_id=fold_id, score_id=score_id)
-    wei_acc_per_class, _ = compute_accuracy_per_class(True, num_classes, with_cross_val, model_id_str, model_folder,
-                                                      task, thres=thres, fold_id=fold_id, score_id=score_id)
+        compute_accuracy_per_class(False, num_classes, with_cross_val, model_id, model_folder, task_i,
+                                   task_mt, thres=thres, fold_id=fold_id, score_id=score_id)
+    wei_acc_per_class, _ = compute_accuracy_per_class(True, num_classes, with_cross_val, model_id, model_folder,
+                                                      task_i, task_mt, thres=thres, fold_id=fold_id, score_id=score_id)
     bin_acc_per_class = [bin_acc_i*100 for bin_acc_i in bin_acc_per_class]
     wei_acc_per_class = [wei_acc_i*100 if not np.isnan(wei_acc_i) else np.nan for wei_acc_i in wei_acc_per_class]
     multilabel_acc = accuracy_score(true_classes, pred_classes)*100  # True and pred class vectors must exactly match
@@ -337,7 +348,7 @@ def get_classification_metrics(true_classes, pred_classes, num_classes, round_de
     return res
 
 
-def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id_str, model_folder, label_type,
+def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
                                      display_fig, thres_score_pres):
     """
     Generate up to three plots, depending on the label type: one for fine-grained presence score, one for coarse-grained,
@@ -345,7 +356,7 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
     :param num_classes: number of classes to predict (int)
     :param with_cross_val: whether cross-validation is performed or not (bool)
     :param num_folds: number of folds in cross-validation (int)
-    :param model_id_str: Extension of filename containing model id (int) (+ 'coarse_task' or 'fine_task' if multitask)
+    :param model_id: Extension of filename containing model id (int)
     :param model_folder: the folder where the results are saved (str)
     :param label_type: type of labels used for model training and evaluation ('all', 'coarse', 'coarse_prob',
     'coarse_oh', 'present', 'dominant')
@@ -361,16 +372,20 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
     emotions = ['happy', 'sad', 'anger', 'surprise', 'disgust', 'fear']
     if num_classes == 7:
         emotions += ['neutral']
-    ext_name = "_cv" if with_cross_val else ""
 
-    def plot_task(task_name, score_batch=None, score_batch_id=None):
+    def plot_task(task_i, task_mt, score_batch=None):
+        ext_name = str(model_id)
+        if task_mt is not None:
+            ext_name += '_ftask' if 'fine' in task_mt else '_ctask'
+        ext_name_cv = "_cv" if with_cross_val else ""
 
-        def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, end_of_title, score_id=None):
-            conf_matrix_i = conf_matrix[score_id][emo_i, :, :] if score_id is not None else conf_matrix[emo_i, :, :]
+        def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, end_of_title):
+            conf_matrix_i = conf_matrix[emo_i, :, :]
+            print("conf_matrix_i.shape:", conf_matrix_i.shape)
             d = ConfusionMatrixDisplay(confusion_matrix=conf_matrix_i, display_labels=[0, 1])
             d.plot(ax=axes[axe_id], values_format='.4g')
             d.ax_.set_title(emotions[emo_i] + end_of_title)
-            # if task_name == 'all':  # 90° rotation of x labels for better readability
+            # if task_i == 'all':  # 90° rotation of x labels for better readability
             #     d.ax_.tick_params(axis='x', rotation=90)
             if emo_i != 0:
                 d.ax_.set_ylabel('')
@@ -393,85 +408,113 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
             return d
 
         # Plot confusion matrix
-        if task_name == 'all' or task_name == 'coa':
-            f, axes = plt.subplots(4, num_classes, figsize=(3 * num_classes, 3 * 4), tight_layout=True)
-            axes = axes.ravel()
-            conf_matrix = load_from_pickle('conf_matrix_{}_{}{}'.format(model_id_str, task_name, ext_name),
+        if task_i == 'all' or task_i == 'coa':
+            conf_matrix = load_from_pickle('conf_matrix_{}_scores{}'.format(ext_name, ext_name_cv),
                                            pickle_folder="confusion_matrix", root_folder=model_folder)
-            # Below, score_batch is [k, k + 0.33, k + 0.66, k + 1] for 'all' or [0, 1, 2, 3] for 'coa'
-            for ii, sc_i in enumerate(score_batch):
-                sc_index = 0 + ii + 3 * score_batch_id if task_name == 'all' else sc_i
+            # Below, score_batch is [k, k + 0.33, k + 0.66] for 'all' or [0, 1, 2] for 'coa'
+            for ii_list, sc_i_list in enumerate(score_batch):
+                f, axes = plt.subplots(3, num_classes, figsize=(3 * num_classes, 3 * 3), tight_layout=True)
+                axes = axes.ravel()
+                for ii, sc_i in enumerate(sc_i_list):
+                    sc_index = 3 * ii_list + ii if task_i == 'all' else sc_i
+                    if with_cross_val:
+                        conf_matrix_for_score_i = [conf_matrix[fold_i][sc_index] for fold_i in range(num_folds)]
+                        display = cross_valid_plot_matrix(np.array(conf_matrix_for_score_i), line_id=ii, task_name=task_i)
+                    else:
+                        display = hold_out_plot_matrix(conf_matrix[sc_index], line_id=ii, task_name=task_i)
+
+                plt.savefig(os.path.join(model_folder, "confusion_matrix",
+                                         "conf_matrix_{}_scores_{}{}.png".format(ext_name, ii_list, ext_name_cv)),
+                            bbox_inches='tight')
+                f.colorbar(display.im_, ax=axes)
+                if display_fig:
+                    plt.show()
+
+        else:
+            if task_i == 'pres':
+                f, axes = plt.subplots(len(thres_score_pres), num_classes,
+                                       figsize=(3 * num_classes, 3 * len(thres_score_pres)), tight_layout=True)
+                axes = axes.ravel()
+                for i, thres in enumerate(thres_score_pres):
+                    conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}{}'.format(ext_name, thres, ext_name_cv),
+                                                        pickle_folder="confusion_matrix", root_folder=model_folder)
+                    if with_cross_val:
+                        display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i, thres=thres, task_name='pres')
+                    else:
+                        display = hold_out_plot_matrix(conf_matrix_pres, line_id=i, thres=thres, task_name='pres')
+
+            else:  # task_i = dom
+                f, axes = plt.subplots(1, num_classes, figsize=(3 * num_classes, 3))
+                axes = axes.ravel()
+                conf_matrix = load_from_pickle('conf_matrix_{}_dom{}'.format(ext_name, ext_name_cv),
+                                               pickle_folder="confusion_matrix", root_folder=model_folder)
                 if with_cross_val:
-                    conf_matrix_for_score_i = [conf_matrix[fold_i][sc_index] for fold_i in range(num_folds)]
-                    display = cross_valid_plot_matrix(np.array(conf_matrix_for_score_i), line_id=ii, task_name=task_name)
+                    display = cross_valid_plot_matrix(conf_matrix, line_id=0, task_name=task_i)
                 else:
-                    display = hold_out_plot_matrix(conf_matrix[sc_index], line_id=ii, task_name=task_name)
+                    display = hold_out_plot_matrix(conf_matrix, line_id=0, task_name=task_i)
 
-        elif task_name == 'pres':
-            f, axes = plt.subplots(len(thres_score_pres), num_classes,
-                                   figsize=(3 * num_classes, 3 * len(thres_score_pres)), tight_layout=True)
-            axes = axes.ravel()
-            for i, thres in enumerate(thres_score_pres):
-                conf_matrix_pres = load_from_pickle('conf_matrix_{}_pres_t_{}{}'.format(model_id_str, thres, ext_name),
-                                                    pickle_folder="confusion_matrix", root_folder=model_folder)
-                if with_cross_val:
-                    display = cross_valid_plot_matrix(conf_matrix_pres, line_id=i, thres=thres, task_name='pres')
-                else:
-                    display = hold_out_plot_matrix(conf_matrix_pres, line_id=i, thres=thres, task_name='pres')
+            # Save figure
+            plt.savefig(os.path.join(model_folder, "confusion_matrix",
+                                     "conf_matrix_{}_{}{}.png".format(ext_name, task_i, ext_name_cv)),
+                        bbox_inches='tight')
 
-        else:  # task_name = dom
-            f, axes = plt.subplots(1, num_classes, figsize=(3 * num_classes, 3))
-            axes = axes.ravel()
-            conf_matrix = load_from_pickle('conf_matrix_{}_{}{}'.format(model_id_str, task_name, ext_name),
-                                           pickle_folder="confusion_matrix", root_folder=model_folder)
-            if with_cross_val:
-                display = cross_valid_plot_matrix(conf_matrix, line_id=0, task_name=task_name)
-            else:
-                display = hold_out_plot_matrix(conf_matrix, line_id=0, task_name=task_name)
+            f.colorbar(display.im_, ax=axes)
+            if display_fig:
+                plt.show()
 
-        # Save figure
-        score_batch_str = "_{}".format(score_batch_id) if score_batch_id is not None else ""
-        plt.savefig(os.path.join(model_folder, "confusion_matrix",
-                                 "conf_matrix_{}_{}{}.png".format(task_name, model_id_str, score_batch_str)),
-                    bbox_inches='tight')
+    def plot_all_tasks(label_i, task_mt=None):
+        if label_i == 'all':
+            score_batch = [[k, np.round(k + 0.33, 2), np.round(k + 0.66, 2)] for k in [0, 1, 2]]
+            # Generate three plots: [0, 0.33, 0.66], [1, 1.33, 1.66], [2, 2.33, 2.66]
+            plot_task("all", task_mt, score_batch=score_batch)
+        if 'coarse' in label_i:
+            plot_task("coa", task_mt, score_batch=[[0, 1, 2]])
+        if label_i != 'dominant':
+            plot_task("pres", task_mt)
+        if label_i != 'present':
+            plot_task("dom", task_mt)
 
-        f.colorbar(display.im_, ax=axes)
-        if display_fig:
-            plt.show()
-
-    if label_type == 'all':
-        scores = [[k, k + 0.33, k + 0.66, k + 1] for k in [0, 1, 2]]
-        for score_batch_id, score_batch in enumerate(scores):
-            # Generate three plots: [0, 0.33, 0.66, 1], [1, 1.33, 1.66, 2], [2, 2.33, 2.66, 3]
-            plot_task("all", score_batch, score_batch_id)
-    if 'coarse' in label_type:
-        plot_task("coa", score_batch=[0, 1, 2, 3])
-    if label_type != 'dominant':
-        plot_task("pres")
-    if label_type != 'present':
-        plot_task("dom")
+    if type(label_type) == dict:
+        for task_i in ['coarse_task', 'fine_task']:
+            plot_all_tasks(label_type[task_i], task_mt=task_i)
+    else:
+        plot_all_tasks(label_type)
 
 
-def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_val, num_classes,
-                                        model_id_str, model_folder, task_name, scores=None, thres_score_pres=None):
+def compute_multilabel_confusion_matrix(true_scores_all, true_scores_coa, true_classes_pres,
+                                        true_classes_dom, pred_raw, pred_classes_pres, pred_classes_dom,
+                                        with_cross_val, num_classes, model_id, model_folder,
+                                        label_type, num_folds, thres_score_pres):
     """
-    Compute the multilabel confusion matrix for each emotion (whether the emotion is present or not).
+    Compute the multilabel confusion matrix for each emotion (whether the emotion is present or not). The first seven
+    inputs of the function can be of type dict with keys 'fine_task' and 'coarse_task' if multitask.
     Pickle file generated.
 
-    :param true_classes: List of arrays giving the emotions truly present (varying thresholds for presence score
-    given by thres_score_pres) or the dominant emotions
-    :param pred_classes: List of arrays giving the emotions present/dominant predicted by the model
+    :param true_scores_all: array of shape (test size, 6) giving the true scores for the 6 emotions (given by the database)
+    :param true_scores_coa: array of shape (test size, 6) giving the true scores for the 6 emotions among [0, 1, 2, 3]
+    :param true_classes_pres: list of arrays of shape (test size, 6) giving the emotions truly present (varying
+    thresholds for presence score given by thres_score_pres)
+    :param true_classes_dom: array of shape (test size, 6) giving the dominance for each emotion
+    :param pred_raw: array of shape (test_size, 6) predicting the presence score of the 6 emotions
+    :param pred_classes_pres: list of arrays of shape (test_size, 6) giving the presence for each emotion
+    :param pred_classes_dom: array of shape (test_size, 6) giving the dominance for each emotion
     :param with_cross_val: boolean (cross_validation or not)
     :param num_classes: number of classes (7 with neutral class, else 6)
-    :param model_id_str: Extension of filename containing model id (int) (+ 'coarse_task' or 'fine_task' if multitask)
+    :param model_id: Model id (int)
     :param model_folder: The folder where the results will be saved
-    :param task_name: Name of the task, among 'all', 'coa', 'pres' and 'dom'
-    :param scores: list of scores threshold used for binarizing
+    :param label_type: Type of labels used for model training and evaluation
+    :param num_folds: number of folds in cross-validation (int)
     :param thres_score_pres: list of thresholds at which emotions are considered to be present. Must be between 0 and 3.
     This parameter should be used only when dealing with emotions present.
     """
 
-    def compute_all_conf_matrices(task_n, thres=None, thres_id=None):
+    def compute_all_conf_matrices(true_classes, pred_classes, label_i, task_mt, scores=None, thres=None, thres_id=None):
+
+        ext_name = str(model_id)
+        if task_mt is not None:
+            ext_name += '_ftask' if 'fine' in task_mt else '_ctask'
+        ext_name += "_pres_t_{}".format(thres) if thres is not None else "_" + label_i
+        ext_name += "_cv" if with_cross_val else ""
 
         def compute_conf_matrix(tc, pc):
             if scores is not None:
@@ -485,39 +528,50 @@ def compute_multilabel_confusion_matrix(true_classes, pred_classes, with_cross_v
                 conf_mat = multilabel_confusion_matrix(tc, pc, labels=list(range(num_classes)))
             return conf_mat
 
-        task_n = "pres_t_{}".format(thres) if thres is not None else task_n
-        cv_str = "_cv" if with_cross_val else ""
         if with_cross_val:
             conf_matrix = []
-            num_folds = len(pred_classes)  # pred_classes is a list of num_fold elements
-            for fold_id in range(num_folds):
-                true_c = true_classes[fold_id][thres_id] if thres_id is not None else true_classes[fold_id]
-                pred_c = pred_classes[fold_id][thres_id] if thres_id is not None else pred_classes[fold_id]
-                conf_matrix += [compute_conf_matrix(true_c, pred_c)]
+            for i, fold_id in enumerate(range(num_folds)):
+                true_c, pred_c = true_classes[fold_id], pred_classes[fold_id]
+                if task_mt is not None:
+                    true_cti = true_c[task_i] if thres_id is None else true_c[task_i][thres_id]
+                    pred_cti = pred_c[task_i] if thres_id is None else pred_c[task_i][thres_id]
+                else:
+                    true_cti = true_c if thres_id is None else true_c[thres_id]
+                    pred_cti = pred_c if thres_id is None else pred_c[thres_id]
+                conf_matrix += [compute_conf_matrix(true_cti, pred_cti)]
         else:
-            true_c = true_classes[thres_id] if thres_id is not None else true_classes
-            pred_c = pred_classes[thres_id] if thres_id is not None else pred_classes
+            if task_mt is not None:
+                true_c = true_classes[task_i][thres_id] if thres_id is not None else true_classes[task_i]
+                pred_c = pred_classes[task_i][thres_id] if thres_id is not None else pred_classes[task_i]
+            else:
+                true_c = true_classes[thres_id] if thres_id is not None else true_classes
+                pred_c = pred_classes[thres_id] if thres_id is not None else pred_classes
             conf_matrix = compute_conf_matrix(true_c, pred_c)
-        save_with_pickle(conf_matrix, 'conf_matrix_{}_{}{}'.format(model_id_str, task_n, cv_str),
+        save_with_pickle(conf_matrix, 'conf_matrix_{}'.format(ext_name),
                          pickle_folder="confusion_matrix", root_folder=model_folder)
 
-    # emotions present
-    if task_name == 'pres':
-        for thres_id, thres in enumerate(thres_score_pres):
-            compute_all_conf_matrices(task_name, thres, thres_id)
+    def compute_conf_matrix_per_task(label_i, task_mt=None):
+        if label_i != 'dominant' and label_i != 'present':
+            true_scores_i = true_scores_all if label_i == 'all' else true_scores_coa
+            scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66] if label_i == 'all' else [0, 1, 2, 3]
+            compute_all_conf_matrices(true_scores_i, pred_raw, "scores", task_mt, scores=scores)
+        if label_i != 'dominant':
+            for thres_id, thres in enumerate(thres_score_pres):
+                compute_all_conf_matrices(true_classes_pres, pred_classes_pres, "pres", task_mt,
+                                          thres=thres, thres_id=thres_id)
+        if label_i != 'present':
+            compute_all_conf_matrices(true_classes_dom, pred_classes_dom, "dom", task_mt)
 
-    # emotions dominant or emotions evaluated on presence scores
-    elif task_name == 'dom' or task_name == 'coa' or task_name == 'all':
-        compute_all_conf_matrices(task_name)
-
+    if type(label_type) == dict:
+        for task_i in ['coarse_task', 'fine_task']:
+            compute_conf_matrix_per_task(label_type[task_i], task_mt=task_i)
     else:
-        raise ValueError("Error in task_name parameter of function compute_multilabel_confusion_matrix: "
-                         "please choose between 'all', 'coa', 'pres' and 'dom'.")
+        compute_conf_matrix_per_task(label_type)
 
 
 def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                               pred_raw, pred_classes_pres, pred_classes_dom, with_cross_val, thres_score_pres,
-                              num_classes, all_scores, round_decimals, model_id, model_folder, task_mt=None):
+                              num_classes, all_scores, round_decimals, model_id, model_folder, num_folds):
     """
     Compute metrics for four tasks: estimation of presence score (regression), classification of presence score among
     [0, 1, 2, 3], binary classification for each emotion, and prediction of dominant classes (multilabel classification)
@@ -539,23 +593,23 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     :param round_decimals: Number of decimals to be rounded for metrics
     :param model_id: Model id (int)
     :param model_folder: The folder where the result will be saved
-    :param task_mt: either coarse_task or fine_task when multitask mode is enabled. None by default.
     :return: metrics_regression, metrics_score_coa, metrics_presence, metrics_dominant
     """
 
     def compute_metrics_one_model(true_all_i, true_coa_i, true_pres_i, true_dom_i,
-                                  pred_raw_i, pred_pres_i, pred_dom_i, fold_id=None):
+                                  pred_raw_i, pred_pres_i, pred_dom_i, task_mt=None, fold_id=None):
 
         true_label_for_reg = {'all': true_all_i, 'coarse': true_coa_i, 'present': true_pres_i, 'dominant': true_dom_i}
         metrics_score, metrics_presence, metrics_dominant = None, None, None
 
-        model_id_str = str(model_id) + '_' + task_mt if task_mt is not None else str(model_id)
+        label_t = label_type[task_mt] if task_mt is not None else label_type
+        label_t = label_t if 'coarse' not in label_t else 'coarse'
 
         if fold_id is not None:
             print("\n\n=============================== Fold {} ===============================".format(fold_id))
         if task_mt is not None:
             print("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            print(">>>>>> Metrics for {}: {}".format(task_mt, label_type))
+            print(">>>>>> Metrics for {}: {}".format(task_mt, label_t))
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
 
         # This block computes regression metrics for the targeted task
@@ -575,56 +629,85 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         #     # metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
         # else:
         #     print("\n")
-        label_t = label_type if 'coarse' not in label_type else 'coarse'
         tl_for_reg = true_label_for_reg[label_t]
-        tl_for_reg = tl_for_reg[0] if label_type == 'present' else tl_for_reg
-        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw, label_type, all_scores, round_decimals)
+        tl_for_reg = tl_for_reg[0] if label_t == 'present' else tl_for_reg
+        pred_for_reg = pred_raw_i[0] if label_t == 'present' else pred_raw_i
+        metrics_regression = get_regression_metrics(tl_for_reg, pred_for_reg, label_type, all_scores, round_decimals)
 
         if 'coarse' in label_type or label_type == 'all':
             print(f"\n------- Presence score classification -------\n")
             coarse = ('coarse' in label_type)
             metrics_score = get_classification_metrics_score(true_all_i, pred_raw_i, num_classes, round_decimals,
-                                                             model_id_str, model_folder, with_cross_val, fold_id, coarse)
+                                                             model_id, model_folder, with_cross_val, task_mt, fold_id,
+                                                             coarse)
 
         # Classification metrics of emotion present
         if pred_pres_i is not None:
             print("\n------- Detecting the presence of emotions ------------")
             metrics_presence = [get_classification_metrics(true_pres_i[j], pred_pres_i[j], num_classes, round_decimals,
-                                                           "pres", model_id_str, model_folder, with_cross_val,
-                                                           fold_id=fold_id, thres=thres)
+                                                           model_id, model_folder, with_cross_val, task_i='pres',
+                                                           task_mt=task_mt, fold_id=fold_id, thres=thres)
                                 for j, thres in enumerate(thres_score_pres)]
 
         # Classification metrics of dominant emotions
         if pred_dom_i is not None:
             print("\n------- Predicting dominant emotions ------------------\n")
-            metrics_dominant = get_classification_metrics(true_dom_i, pred_dom_i, num_classes, round_decimals, "dom",
-                                                          model_id_str, model_folder, with_cross_val, fold_id=fold_id)
+            metrics_dominant = get_classification_metrics(true_dom_i, pred_dom_i, num_classes, round_decimals,
+                                                          model_id, model_folder, with_cross_val, task_i='dom',
+                                                          task_mt=task_mt, fold_id=fold_id)
 
         return metrics_regression, metrics_score, metrics_presence, metrics_dominant
 
-    if with_cross_val:
-        met_reg, met_score, met_pres, met_dom = [], [], [], []
-        print("compute type")
-        for t in [true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom, pred_raw, pred_classes_pres, pred_classes_dom]:
-            print(type(t))
+    def swap_fold_and_task_indexes_for_true_and_pred_vectors():
+        # Swap fold_i and task_i indexes
+        true_all, true_coa, true_pres, true_dom, pred_r, pred_pres, pred_dom = {}, {}, {}, {}, {}, {}, {}
+        for task_i in ['fine_task', 'coarse_task']:
+            true_all[task_i] = [true_scores_all[fold_i][task_i] for fold_i in range(num_folds)]
+            true_coa[task_i] = [true_scores_coa[fold_i][task_i] for fold_i in range(num_folds)]
+            true_pres[task_i] = [true_classes_pres[fold_i][task_i] for fold_i in range(num_folds)]
+            true_dom[task_i] = [true_classes_dom[fold_i][task_i] for fold_i in range(num_folds)]
+            pred_r[task_i] = [pred_raw[fold_i][task_i] for fold_i in range(num_folds)]
+            pred_pres[task_i] = [pred_classes_pres[fold_i][task_i] for fold_i in range(num_folds)]
+            pred_dom[task_i] = [pred_classes_dom[fold_i][task_i] for fold_i in range(num_folds)]
+        return true_all, true_coa, true_pres, true_dom, pred_r, pred_pres, pred_dom
 
-        for fold_id, (tf_i, tc_i, tp_i, td_i, pr_i, pp_i, pd_i) in \
-                enumerate(zip(true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                              pred_raw, pred_classes_pres, pred_classes_dom)):
-            mr, ms, mp, md = compute_metrics_one_model(tf_i, tc_i, tp_i, td_i, pr_i, pp_i, pd_i, fold_id)
-            met_reg += [mr]
-            met_score += [ms]
-            met_pres += [mp]
-            met_dom += [md]
+    def compute_all_metrics(t_all, t_coa, t_pres, t_dom, p_raw, p_pres, p_dom, task_mt=None):
+        if with_cross_val:
+            met_reg_i, met_score_i, met_pres_i, met_dom_i = [], [], [], []
 
-        # Print Mean and Std of values
-        print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label_type, num_classes,
-                                        thres_score_pres, round_decimals)
+            for fold_id, (tf_i, tc_i, tp_i, td_i, pr_i, pp_i, pd_i) in \
+                    enumerate(zip(t_all, t_coa, t_pres, t_dom, p_raw, p_pres, p_dom)):
+                mr, ms, mp, md = compute_metrics_one_model(tf_i, tc_i, tp_i, td_i, pr_i, pp_i, pd_i, task_mt, fold_id)
+                met_reg_i += [mr]
+                met_score_i += [ms]
+                met_pres_i += [mp]
+                met_dom_i += [md]
 
+            # Print Mean and Std of values
+            print_mean_std_cross_validation(met_reg_i, met_score_i, met_pres_i, met_dom_i, label_type, num_classes,
+                                            thres_score_pres, round_decimals)
+
+        else:
+            met_reg_i, met_score_i, met_pres_i, met_dom_i = compute_metrics_one_model(t_all, t_coa, t_pres, t_dom,
+                                                                              p_raw, p_pres, p_dom, task_mt)
+
+        return met_reg_i, met_score_i, met_pres_i, met_dom_i
+
+    if type(label_type) == dict:
+        true_all, true_coa, true_pres, true_dom, pred_r, pred_pres, pred_dom = \
+            swap_fold_and_task_indexes_for_true_and_pred_vectors() if with_cross_val \
+                else (true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom, pred_raw,
+                      pred_classes_pres, pred_classes_dom)
+        met_reg, met_score, met_pres, met_dom = {}, {}, {}, {}
+        for task_i in ['fine_task', 'coarse_task']:
+            met_reg[task_i], met_score[task_i], met_pres[task_i], met_dom[task_i] = \
+                compute_all_metrics(true_all[task_i], true_coa[task_i], true_pres[task_i], true_dom[task_i],
+                                    pred_r[task_i], pred_pres[task_i], pred_dom[task_i], task_mt=task_i)
     else:
-        met_reg, met_score, met_pres, met_dom = compute_metrics_one_model(true_scores_all, true_scores_coa,
-                                                                          true_classes_pres, true_classes_dom,
-                                                                          pred_raw, pred_classes_pres, pred_classes_dom)
+        met_reg, met_score, met_pres, met_dom = compute_all_metrics(true_scores_all, true_scores_coa, true_classes_pres,
+                                                                    true_classes_dom, pred_raw, pred_classes_pres,
+                                                                    pred_classes_dom)
+
     return met_reg, met_score, met_pres, met_dom
 
 
@@ -702,49 +785,14 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     ####################################################################################################################
     # Confusion matrices
     ####################################################################################################################
-    def compute_confusion_matrix_i(label_i, true_all_i, true_coa_i, true_pres_i, true_dom_i,
-                                   pred_raw_i, pred_pres_i, pred_dom_i, task_mt=None):
+    # TODO compute pred_scores_all and pred_scores_coa -> useful?
+    compute_multilabel_confusion_matrix(true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
+                                        pred_raw, pred_classes_pres, pred_classes_dom, with_cross_val, num_classes,
+                                        model_id, model_folder, label_type, num_folds, thres_score_pres)
 
-        model_id_str = str(model_id) + '_' + task_mt if task_mt is not None else str(model_id)
-
-        if label_i != 'dominant' and label_i != 'present':
-            true_scores_i = true_all_i if label_i == 'all' else true_coa_i
-            scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3] if label_i == 'all' else [0, 1, 2, 3]
-            compute_multilabel_confusion_matrix(true_scores_i, pred_raw_i, with_cross_val, num_classes,
-                                                model_id_str, model_folder, label_i[:3], scores=scores)
-        if label_i != 'dominant':
-            compute_multilabel_confusion_matrix(true_pres_i, pred_pres_i, with_cross_val, num_classes,
-                                                model_id_str, model_folder, "pres", thres_score_pres=thres_score_pres)
-        if label_i != 'present':
-            compute_multilabel_confusion_matrix(true_dom_i, pred_dom_i, with_cross_val, num_classes,
-                                                model_id_str, model_folder, "dom")
-        if plot_confusion_matrix:
-            plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id_str, model_folder,
-                                             label_i, display_fig, thres_score_pres)
-
-    if with_cross_val:
-        for fold_i in range(num_folds):
-            if type(label_type) == dict:
-                for task_i in ['coarse_task', 'fine_task']:
-                    compute_confusion_matrix_i(label_type[task_i], true_scores_all[fold_i][task_i],
-                                               true_scores_coa[fold_i][task_i],
-                                               true_classes_pres[fold_i][task_i], true_classes_dom[fold_i][task_i],
-                                               pred_raw[fold_i][task_i], pred_classes_pres[fold_i][task_i],
-                                               pred_classes_dom[fold_i][task_i], task_mt=task_i)
-            else:
-                compute_confusion_matrix_i(label_type, true_scores_all, true_scores_coa, true_classes_pres,
-                                           true_classes_dom, pred_raw[fold_i], pred_classes_pres[fold_i],
-                                           pred_classes_dom[fold_i])
-
-    else:
-        if type(label_type) == dict:
-            for task_i in ['coarse_task', 'fine_task']:
-                compute_confusion_matrix_i(label_type[task_i], true_scores_all[task_i], true_scores_coa[task_i],
-                                           true_classes_pres[task_i], true_classes_dom[task_i], pred_raw[task_i],
-                                           pred_classes_pres[task_i], pred_classes_dom[task_i], task_mt=task_i)
-        else:
-            compute_confusion_matrix_i(label_type, true_scores_all, true_scores_coa, true_classes_pres,
-                                       true_classes_dom, pred_raw, pred_classes_pres, pred_classes_dom)
+    if plot_confusion_matrix:
+        plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, model_id, model_folder, label_type,
+                                         display_fig, thres_score_pres)
 
     ####################################################################################################################
     # Compute and save metrics
@@ -762,48 +810,10 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     print("Loss function:", loss_function)
     print("Validation metrics:", val_metrics_str)
 
-    def compute_metrics_i(label_i, true_all_i, true_coa_i, true_pres_i, true_dom_i, pred_raw_i, pred_pres_i, pred_dom_i,
-                          task_mt=None):
-        return get_and_print_all_metrics(label_i, true_all_i, true_coa_i, true_pres_i, true_dom_i, pred_raw_i,
-                                         pred_pres_i, pred_dom_i, with_cross_val, thres_score_pres, num_classes,
-                                         all_scores, round_decimals, model_id, model_folder, task_mt)
-
-    # Compute all metrics
-    if with_cross_val:
-        for fold_i in range(num_folds):
-            if type(label_type) == dict:
-                metrics_regression, metrics_score, metrics_presence, metrics_dominant = {}, {}, {}, {}
-
-                # TODO swap task_i and fold_i so that we can perform cv inside get_and_print_all_metrics function
-                for task_i in ['coarse_task', 'fine_task']:
-                    metrics_regression[task_i], metrics_score[task_i], metrics_presence[task_i], \
-                    metrics_dominant[task_i] = compute_metrics_i(label_type[task_i], true_scores_all[fold_i][task_i],
-                                                                 true_scores_coa[fold_i][task_i],
-                                                                 true_classes_pres[fold_i][task_i],
-                                                                 true_classes_dom[fold_i][task_i],
-                                                                 pred_raw[fold_i][task_i],
-                                                                 pred_classes_pres[fold_i][task_i],
-                                                                 pred_classes_dom[fold_i][task_i], task_i)
-
-            else:
-                metrics_regression, metrics_score, metrics_presence, metrics_dominant = \
-                    compute_metrics_i(label_type, true_scores_all[fold_i], true_scores_coa[fold_i],
-                                      true_classes_pres[fold_i], true_classes_dom[fold_i], pred_raw[fold_i],
-                                      pred_classes_pres[fold_i], pred_classes_dom[fold_i])
-
-    else:
-        if type(label_type) == dict:
-            metrics_regression, metrics_score, metrics_presence, metrics_dominant = {}, {}, {}, {}
-            for task_i in ['coarse_task', 'fine_task']:
-                metrics_regression[task_i], metrics_score[task_i], metrics_presence[task_i], metrics_dominant[task_i] = \
-                    compute_metrics_i(label_type[task_i], true_scores_all[task_i], true_scores_coa[task_i],
-                                      true_classes_pres[task_i], true_classes_dom[task_i], pred_raw[task_i],
-                                      pred_classes_pres[task_i], pred_classes_dom[task_i], task_i)
-
-        else:
-            metrics_regression, metrics_score, metrics_presence, metrics_dominant = \
-                compute_metrics_i(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
-                                  pred_raw, pred_classes_pres, pred_classes_dom)
+    metrics_regression, metrics_score, metrics_presence, metrics_dominant = \
+        get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
+                                  pred_raw, pred_classes_pres, pred_classes_dom, with_cross_val, thres_score_pres,
+                                  num_classes, all_scores, round_decimals, model_id, model_folder, num_folds)
 
     # Save metrics in csv file
     save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,

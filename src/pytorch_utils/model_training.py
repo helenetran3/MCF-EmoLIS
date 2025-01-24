@@ -436,7 +436,16 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
         if param_training['thres_ml_from_best_metric'] or val_metrics is None:
             # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
-            print(f"          - Threshold valid per emo (according to F1 score): {valid_thres_ml_per_emo}")
+            print(f"          - Threshold valid per emo (according to F1 score): ", end="")
+            for v_id, (k, v) in enumerate(valid_thres_ml_per_emo.items()):
+                if v_id == 0:
+                    print("{", end="")
+                print(label_type[k], end="")
+                print(":", v, end="")
+                if v_id == len(valid_thres_ml_per_emo.keys()) - 1:
+                    print("}")
+                else:
+                    print(", ", end="")
         print("-------------------------------------------------------------------------------------------------------")
 
         # Display and save history plot
@@ -481,6 +490,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 valid_thres_ml_best[task_i] = thres_list
             elif label_i not in ['present', 'dominant']:
                 valid_thres_ml_best[task_i] = None
+
+    print("\n\n")
 
     return valid_thres_ml_best
 
