@@ -381,7 +381,6 @@ def plot_multilabel_confusion_matrix(num_classes, with_cross_val, num_folds, mod
 
         def plot_one_confusion_matrix(conf_matrix, emo_i, axe_id, end_of_title):
             conf_matrix_i = conf_matrix[emo_i, :, :]
-            print("conf_matrix_i.shape:", conf_matrix_i.shape)
             d = ConfusionMatrixDisplay(confusion_matrix=conf_matrix_i, display_labels=[0, 1])
             d.plot(ax=axes[axe_id], values_format='.4g')
             d.ax_.set_title(emotions[emo_i] + end_of_title)
@@ -614,25 +613,9 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
 
         # This block computes regression metrics for the targeted task
         print("\n------- Presence score estimation (regression) --------\n")
-
-        # def get_regression_met(label_t, pred_r):
-        #     label_t = label_t if 'coarse' not in label_t else 'coarse'
-        #     tl_for_reg = true_label_for_reg[label_t]
-        #     tl_for_reg = tl_for_reg[0] if label_t == 'present' else tl_for_reg
-        #     return get_regression_metrics(tl_for_reg, pred_r, label_t, all_scores, round_decimals)
-
-        # if type(label_type) == dict:
-        #     # metrics_reg = []
-        #     # for task_i in ['coarse_task', 'fine_task']:
-        #     print("\n>>> Task: {}".format(label_type[task_mt]))
-        #     metrics_regression = get_regression_met(label_type[task_mt], pred_raw_i)
-        #     # metrics_regression = np.mean(metrics_reg, axis=0)  # mean of the two tasks
-        # else:
-        #     print("\n")
         tl_for_reg = true_label_for_reg[label_t]
         tl_for_reg = tl_for_reg[0] if label_t == 'present' else tl_for_reg
-        pred_for_reg = pred_raw_i[0] if label_t == 'present' else pred_raw_i
-        metrics_regression = get_regression_metrics(tl_for_reg, pred_for_reg, label_type, all_scores, round_decimals)
+        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, label_type, all_scores, round_decimals)
 
         if 'coarse' in label_type or label_type == 'all':
             print(f"\n------- Presence score classification -------\n")

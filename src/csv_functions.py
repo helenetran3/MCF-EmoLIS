@@ -197,24 +197,28 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
         # for i in range(len(metrics_presence)):
         #     print(len(header_presence), len(data_presence[i]))
 
-    if with_cross_val:
-        for fold_i, (l_val_i, m_reg_i, m_sc_i, m_pres_i, m_dom_i) in enumerate(zip(model_eval_output,
-                                                                                   metrics_regression, metrics_scores,
-                                                                                   metrics_presence, metrics_dominant)):
-            if type(metrics_regression) == dict:
-                for task_i in ['coarse_task', 'fine_task']:
-                    write_csv_one_model(l_val_i[task_i], m_reg_i[task_i], m_sc_i[task_i],
-                                        m_pres_i[task_i], m_dom_i[task_i], task_mt=task_i, fold_id=fold_i)
+    if type(metrics_regression) == dict: # Multitask case
+        for task_i in ['coarse_task', 'fine_task']:
+            if with_cross_val:
+                for fold_i, (l_val_i, m_reg_i, m_sc_i, m_pres_i, m_dom_i) in enumerate(zip(model_eval_output,
+                                                                                           metrics_regression[task_i],
+                                                                                           metrics_scores[task_i],
+                                                                                           metrics_presence[task_i],
+                                                                                           metrics_dominant[task_i])):
+                    write_csv_one_model(l_val_i, m_reg_i, m_sc_i, m_pres_i, m_dom_i, task_mt=task_i, fold_id=fold_i)
             else:
-                write_csv_one_model(l_val_i, m_reg_i, m_sc_i, m_pres_i, m_dom_i, fold_id=fold_i)
-            
-    else:
-        if type(metrics_regression) == dict:  # Multitask case
-            for task_i in ['coarse_task', 'fine_task']:
                 write_csv_one_model(model_eval_output, metrics_regression[task_i], metrics_scores[task_i],
                                     metrics_presence[task_i], metrics_dominant[task_i], task_mt=task_i)
-        else:  # Mono-task
-            write_csv_one_model(model_eval_output, metrics_regression, metrics_scores, metrics_presence, metrics_dominant)
+
+    else:
+        if with_cross_val:
+            for fold_i, (l_val_i, m_reg_i, m_sc_i, m_pres_i, m_dom_i) in enumerate(zip(model_eval_output,
+                                                                                       metrics_regression, metrics_scores,
+                                                                                       metrics_presence, metrics_dominant)):
+                write_csv_one_model(l_val_i, m_reg_i, m_sc_i, m_pres_i, m_dom_i, fold_id=fold_i)
+        else:
+            write_csv_one_model(model_eval_output, metrics_regression, metrics_scores, metrics_presence,
+                                metrics_dominant)
 
 
 def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, loss_function,
