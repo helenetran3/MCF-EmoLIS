@@ -48,12 +48,10 @@ class MModel(nn.Module):
         self.dominant_mod = param_model['dominant_modality']
         self.cross_module = param_model['with_cross_module']
         self.lav_as_modality = param_model['lav_as_modality']
-        self.multitask = param_model['multitask']
-        self.gml = param_model['gml']
-        self.label_type = param_task['label_type']
 
         label_type = param_task['label_type']
         self.label_type = create_label_multitask(label_type) if type(label_type) == list else label_type
+        self.multitask = type(self.label_type) == dict
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
@@ -66,8 +64,6 @@ class MModel(nn.Module):
         else:
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v) if not self.dominant_mod else \
                 self.d_l + 2 * (self.d_a + self.d_v)
-
-        self.output_dim = self.num_classes * self.num_scores if self.gml else self.num_classes
 
         # 1. Temporal convolutional layers
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
@@ -112,12 +108,17 @@ class MModel(nn.Module):
         # Projection layers
         combined_dim = combined_dim*4 if int(self.cross_module + self.lav_as_modality) == 2 else \
             combined_dim*2 if self.lav_as_modality or self.cross_module else combined_dim
-        self.proj1 = [nn.Linear(combined_dim, combined_dim) for _ in range(2)]
-        self.proj2 = [nn.Linear(combined_dim, combined_dim) for _ in range(2)]
-        self.out_layer = [nn.Linear(combined_dim, self.output_dim) for _ in range(2)]
-
+        self.proj1_main = nn.Linear(combined_dim, combined_dim)
+        self.proj2_main = nn.Linear(combined_dim, combined_dim)
+        label_for_output_dim_main = self.label_type['coarse_task'] if self.multitask else self.label_type
+        output_dim_main = self.num_classes * self.num_scores if 'oh' in label_for_output_dim_main else self.num_classes
+        self.out_layer_main = nn.Linear(combined_dim, output_dim_main)
         if self.multitask:
             self.proj_last_hs = nn.Conv1d(combined_dim, self.d_last_hs, kernel_size=1, padding=0, bias=False)
+            self.proj1_multi = nn.Linear(combined_dim, combined_dim)
+            self.proj2_multi = nn.Linear(combined_dim, combined_dim)
+            output_dim_multi = self.num_classes * self.num_scores if 'oh' in self.label_type['fine_task'] else self.num_classes
+            self.out_layer_multi = nn.Linear(combined_dim, output_dim_multi)
 
     def get_network(self, self_type='l', layers=-1):
         if self_type in ['l', 'al', 'vl', 'lavl']:
@@ -268,19 +269,26 @@ class MModel(nn.Module):
 
         return proj_x, last_hs
 
+    def final_layers(self, output, label_i):
+        if label_i in ['present', 'dominant']:
+            return torch.sigmoid(output)
+        elif 'oh' in label_i:
+            return torch.softmax(output.view(-1, self.num_classes, self.num_scores), dim=2)
+        else:
+            return torch.relu(output)
+
     def forward(self, x_l, x_v, x_a):  # inverted x_v and x_a to fit the current code
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
 
-        output_multi = None
         proj_x, last_hs = self.mult_backbone(x_l, x_a, x_v, ind=0)
 
         # Residual block for main task
-        last_hs_proj = self.proj2[0](
-            torch.dropout(torch.relu(self.proj1[0](last_hs)), p=self.out_dropout, train=self.training))
+        last_hs_proj = self.proj2_main(
+            torch.dropout(torch.relu(self.proj1_main(last_hs)), p=self.out_dropout, train=self.training))
         last_hs_proj += last_hs
-        output_main = self.out_layer[0](last_hs_proj)
+        output_main = self.out_layer_main(last_hs_proj)
 
         if self.multitask:
             # Output of the self-attention transformer of the Multi-label (ML) branch
@@ -296,29 +304,13 @@ class MModel(nn.Module):
             _, last_hs_multi = self.mult_backbone(x_l_multi, x_a_multi, x_v_multi, ind=1)
 
             # Residual block for the second task (usually the finer grained one)
-            last_hs_proj_multi = self.proj2[1](torch.dropout(
-                torch.relu(self.proj1[1](last_hs_multi)), p=self.out_dropout, train=self.training))
+            last_hs_proj_multi = self.proj2_multi(torch.dropout(
+                torch.relu(self.proj1_multi(last_hs_multi)), p=self.out_dropout, train=self.training))
             last_hs_proj_multi += last_hs_multi
-            output_multi = self.out_layer[1](last_hs_proj_multi)
-
-        if self.multitask:
-            activation = {}
-            for task_i in ['coarse_task', 'fine_task']:
-                if self.label_type[task_i] in ['present', 'dominant']:
-                    activation[task_i] = torch.sigmoid
-                else:
-                    activation[task_i] = torch.relu  # For 'coarse' and 'all' tasks, we do not perform 'coarse_oh' here
-            output = {"coarse_task": activation['coarse_task'](output_main),
-                      "fine_task": activation['fine_task'](output_multi)}
-
-        elif self.gml:
-            output = output_main.view(-1, self.num_classes, self.num_scores)
-            output = torch.softmax(output, dim=2)
-
+            output_multi = self.out_layer_multi(last_hs_proj_multi)
+            output = {"coarse_task": self.final_layers(output_main, self.label_type['coarse_task']),
+                      "fine_task": self.final_layers(output_multi, self.label_type['fine_task'])}
         else:
-            if self.label_type in ['present', 'dominant']:
-                output = torch.sigmoid(output_main)
-            else:
-                output = torch.relu(output_main)
+            output = self.final_layers(output_main, self.label_type)
 
         return output#, last_hs_1
