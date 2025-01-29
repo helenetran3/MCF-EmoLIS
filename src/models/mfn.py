@@ -129,7 +129,7 @@ class MModel(nn.Module):
 
         return all_mems, all_h_ls, all_h_as, all_h_vs, all_c_ls, all_c_as, all_c_vs
 
-    def final_layers(self, output, label_i):
+    def final_activation(self, output, label_i):
         if label_i in ['present', 'dominant']:
             return torch.sigmoid(output)
         elif 'oh' in label_i:
@@ -172,9 +172,9 @@ class MModel(nn.Module):
             last_mem_multi = all_mems_multi[-1]
             last_hs_multi = torch.cat([last_h_l_multi, last_h_a_multi, last_h_v_multi, last_mem_multi], dim=1)
             output_multi = self.out_fc2[1](self.out_dropout[1](torch.relu(self.out_fc1[1](last_hs_multi))))
-            output = {"coarse_task": self.final_layers(output_main, self.label_type['coarse_task']),
-                      "fine_task": self.final_layers(output_multi, self.label_type['fine_task'])}
+            output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
+                      "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:
-            output = self.final_layers(output_main, self.label_type)
+            output = self.final_activation(output_main, self.label_type)
 
         return output

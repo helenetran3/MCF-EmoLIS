@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 
+from src.label_processing import create_label_multitask
 
 class MModel(nn.Module):
     """
@@ -27,43 +28,66 @@ class MModel(nn.Module):
         self.num_features_image = num_features_image
         self.num_features_audio = num_features_audio
         self.mods = 'tav'  # we use the three modalities here
-        self.gml = param_model['gml']
-        self.label_type = param_task['label_type']
+
+        label_type = param_task['label_type']
+        self.label_type = create_label_multitask(label_type) if type(label_type) == list else label_type
+        self.multitask = type(self.label_type) == dict
+
+        num_branches = 2 if self.multitask else 1
 
         self.num_features_tav = num_features_text + num_features_image + num_features_audio
         self.num_scores = 4
         self.num_classes = num_classes
+        compute_dim = lambda l: self.num_classes * self.num_scores if 'oh' in l else self.num_classes
+        output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
+            if self.multitask else [compute_dim(self.label_type)]
 
-        self.concatenate = torch.cat
+        if self.multitask:
+            self.proj = nn.Conv1d(3*self.num_features_tav, self.num_features_tav, kernel_size=1, padding=0, bias=False)
 
-        self.rnn = nn.LSTM(input_size=self.num_features_tav,
-                           hidden_size=self.num_features_tav,
-                           num_layers=num_layers,
-                           dropout=(dropout if num_layers > 1 else 0),
-                           bidirectional=bi)
+        self.rnn = nn.ModuleList([nn.LSTM(input_size=self.num_features_tav,
+                                          hidden_size=self.num_features_tav,
+                                          num_layers=num_layers,
+                                          dropout=(dropout if num_layers > 1 else 0),
+                                          bidirectional=bi) for i in range(num_branches)])
 
         linear_in_size = self.num_features_tav if not bi else self.num_features_tav * 2
-        num_outputs = self.num_classes * self.num_scores if self.gml else self.num_classes
 
-        self.affine = nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
-                                    nn.ReLU(),
-                                    nn.Linear(linear_in_size // 2, num_outputs))
+
+        self.affine = nn.ModuleList([nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
+                                                   nn.ReLU(),
+                                                   nn.Linear(linear_in_size // 2, output_dim[i]))
+                                     for i in range(num_branches)])
+
+    def final_activation(self, output, label_i):
+        if label_i in ['present', 'dominant']:
+            return torch.sigmoid(output)
+        elif 'oh' in label_i:
+            return torch.softmax(output.view(-1, self.num_classes, self.num_scores), dim=2)
+        else:
+            return torch.relu(output)
 
     def forward(self, x_text, x_image, x_audio):
 
-        x = self.concatenate((x_text, x_image, x_audio), 2)
-        x = x.transpose(0, 1)
-        _, (x_hn, _) = self.rnn(x)
-        x_hn = x_hn.transpose(0, 1).flatten(start_dim=1)
-        x_hn = self.affine(x_hn)
+        x = torch.cat([x_text, x_image, x_audio], dim=2)  # (num_samples, t, num_features)
+        x = x.transpose(0, 1)  # (t, num_samples, num_features)
+        # below, out_rnn of size (t, num_samples, 2*num_features)
+        #        x_hnn of size (2, num_samples, num_features), 2 for bidirectional
+        out_rnn, (x_hn_main, _) = self.rnn[0](x)
+        x_hn_main = x_hn_main.transpose(0, 1).flatten(start_dim=1)  # (num_samples, 2 * num_features)
+        output_main = self.affine[0](x_hn_main)  # (num_samples, num_classes)
 
-        if self.gml:
-            x_hn = x_hn.view(-1, self.num_classes, self.num_scores)
-            x_hn = torch.softmax(x_hn, dim=2)
+        if self.multitask:
+            x_multi = torch.cat([x, out_rnn], dim=2)  # (t, num_samples, 3*num_features)
+            x_multi = x_multi.permute(1, 2, 0)  # (num_samples, 3*num_features, t)
+            x_multi = self.proj(x_multi)  # (num_samples, num_features, t)
+            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, num_features)
+            _, (x_hn_multi, _) = self.rnn[1](x_multi)
+            x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
+            output_multi = self.affine[1](x_hn_multi)
+            output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
+                      "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:
-            if self.label_type in ['present', 'dominant']:
-                x_hn = torch.sigmoid(x_hn)
-            else:
-                x_hn = torch.relu(x_hn)
+            output = self.final_activation(output_main, self.label_type)
 
-        return x_hn
+        return output

@@ -268,7 +268,7 @@ class MModel(nn.Module):
 
         return proj_x, last_hs
 
-    def final_layers(self, output, label_i):
+    def final_activation(self, output, label_i):
         if label_i in ['present', 'dominant']:
             return torch.sigmoid(output)
         elif 'oh' in label_i:
@@ -307,9 +307,9 @@ class MModel(nn.Module):
                 torch.relu(self.proj1[1](last_hs_multi)), p=self.out_dropout, train=self.training))
             last_hs_proj_multi += last_hs_multi
             output_multi = self.out_layer[1](last_hs_proj_multi)
-            output = {"coarse_task": self.final_layers(output_main, self.label_type['coarse_task']),
-                      "fine_task": self.final_layers(output_multi, self.label_type['fine_task'])}
+            output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
+                      "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:
-            output = self.final_layers(output_main, self.label_type)
+            output = self.final_activation(output_main, self.label_type)
 
         return output#, last_hs_1
