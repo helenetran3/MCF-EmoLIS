@@ -434,7 +434,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         else:
             print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
             print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
-        if param_training['thres_ml_from_best_metric'] or val_metrics is None:
+        if valid_thres_ml_per_emo is not None:
             # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
             print(f"          - Threshold valid per emo (according to F1 score): ", end="")
             for v_id, (k, v) in enumerate(valid_thres_ml_per_emo.items()):

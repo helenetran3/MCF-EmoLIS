@@ -52,6 +52,7 @@ class MModel(nn.Module):
         label_type = param_task['label_type']
         self.label_type = create_label_multitask(label_type) if type(label_type) == list else label_type
         self.multitask = type(self.label_type) == dict
+        num_branches = 2 if self.multitask else 1
 
         self.partial_mode = self.lonly + self.aonly + self.vonly
 
@@ -65,6 +66,10 @@ class MModel(nn.Module):
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v) if not self.dominant_mod else \
                 self.d_l + 2 * (self.d_a + self.d_v)
 
+        compute_dim = lambda l: self.num_classes * self.num_scores if 'oh' in l else self.num_classes
+        output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
+            if self.multitask else [compute_dim(self.label_type)]
+
         # 1. Temporal convolutional layers
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)
         self.proj_a = nn.Conv1d(self.orig_d_a, self.d_a, kernel_size=1, padding=0, bias=False)
@@ -72,53 +77,47 @@ class MModel(nn.Module):
         if self.lav_as_modality:
             self.proj_lav = nn.Conv1d(self.orig_d_l + self.orig_d_a + self.orig_d_v, self.d_lav,
                                       kernel_size=1, padding=0, bias=False)
+        if self.multitask:
+            self.proj_last_hs = nn.Conv1d(combined_dim, self.d_last_hs, kernel_size=1, padding=0, bias=False)
 
         # 2. Crossmodal Attentions
         if self.lonly and not self.dominant_mod:
-            self.trans_l_with_a = [self.get_network(self_type='la') for _ in range(2)]
-            self.trans_l_with_v = [self.get_network(self_type='lv') for _ in range(2)]
+            self.trans_l_with_a = nn.ModuleList([self.get_network(self_type='la') for _ in range(num_branches)])
+            self.trans_l_with_v = nn.ModuleList([self.get_network(self_type='lv') for _ in range(num_branches)])
         if self.aonly:
-            self.trans_a_with_l = [self.get_network(self_type='al') for _ in range(2)]
-            self.trans_a_with_v = [self.get_network(self_type='av') for _ in range(2)]
+            self.trans_a_with_l = nn.ModuleList([self.get_network(self_type='al') for _ in range(num_branches)])
+            self.trans_a_with_v = nn.ModuleList([self.get_network(self_type='av') for _ in range(num_branches)])
         if self.vonly:
-            self.trans_v_with_l = [self.get_network(self_type='vl') for _ in range(2)]
-            self.trans_v_with_a = [self.get_network(self_type='va') for _ in range(2)]
+            self.trans_v_with_l = nn.ModuleList([self.get_network(self_type='vl') for _ in range(num_branches)])
+            self.trans_v_with_a = nn.ModuleList([self.get_network(self_type='va') for _ in range(num_branches)])
         if self.lav_as_modality:
-            self.trans_l_with_lav = [self.get_network(self_type='llav') for _ in range(2)]
-            self.trans_a_with_lav = [self.get_network(self_type='alav') for _ in range(2)]
-            self.trans_v_with_lav = [self.get_network(self_type='vlav') for _ in range(2)]
-            self.trans_lav_with_l = [self.get_network(self_type='lavl') for _ in range(2)]
-            self.trans_lav_with_a = [self.get_network(self_type='lava') for _ in range(2)]
-            self.trans_lav_with_v = [self.get_network(self_type='lavv') for _ in range(2)]
+            self.trans_l_with_lav = nn.ModuleList([self.get_network(self_type='llav') for _ in range(num_branches)])
+            self.trans_a_with_lav = nn.ModuleList([self.get_network(self_type='alav') for _ in range(num_branches)])
+            self.trans_v_with_lav = nn.ModuleList([self.get_network(self_type='vlav') for _ in range(num_branches)])
+            self.trans_lav_with_l = nn.ModuleList([self.get_network(self_type='lavl') for _ in range(num_branches)])
+            self.trans_lav_with_a = nn.ModuleList([self.get_network(self_type='lava') for _ in range(num_branches)])
+            self.trans_lav_with_v = nn.ModuleList([self.get_network(self_type='lavv') for _ in range(num_branches)])
 
         # 3. Self Attentions (Could be replaced by LSTMs, GRUs, etc.)
         #    [e.g., self.trans_x_mem = nn.LSTM(self.d_x, self.d_x, 1)
-        self.trans_l_mem = [self.get_network(self_type='l_mem', layers=3) for _ in range(2)]
-        self.trans_a_mem = [self.get_network(self_type='a_mem', layers=3) for _ in range(2)]
-        self.trans_v_mem = [self.get_network(self_type='v_mem', layers=3) for _ in range(2)]
+        self.trans_l_mem = nn.ModuleList([self.get_network(self_type='l_mem', layers=3) for _ in range(num_branches)])
+        self.trans_a_mem = nn.ModuleList([self.get_network(self_type='a_mem', layers=3) for _ in range(num_branches)])
+        self.trans_v_mem = nn.ModuleList([self.get_network(self_type='v_mem', layers=3) for _ in range(num_branches)])
         if self.lav_as_modality:
-            self.trans_lav_mem = [self.get_network(self_type='lav_mem', layers=3) for _ in range(2)]
+            self.trans_lav_mem = nn.ModuleList([self.get_network(self_type='lav_mem', layers=3) for _ in range(num_branches)])
         if self.cross_module:
-            self.trans_all_mem = [self.get_network(self_type='all_mem', layers=3) for _ in range(2)]
+            self.trans_all_mem = nn.ModuleList([self.get_network(self_type='all_mem', layers=3) for _ in range(num_branches)])
         if self.multitask:
             mod_id = ['l', 'a', 'v']
-            self.trans_mem_multi = [self.get_network(self_type=mod_id[i]+'_mem_multi', layers=3)
-                                    for i in range(3)]
+            self.trans_mem_multi = nn.ModuleList([self.get_network(self_type=mod_id[i]+'_mem_multi', layers=3)
+                                                  for i in range(3)])
        
         # Projection layers
         combined_dim = combined_dim*4 if int(self.cross_module + self.lav_as_modality) == 2 else \
             combined_dim*2 if self.lav_as_modality or self.cross_module else combined_dim
-        self.proj1_main = nn.Linear(combined_dim, combined_dim)
-        self.proj2_main = nn.Linear(combined_dim, combined_dim)
-        label_for_output_dim_main = self.label_type['coarse_task'] if self.multitask else self.label_type
-        output_dim_main = self.num_classes * self.num_scores if 'oh' in label_for_output_dim_main else self.num_classes
-        self.out_layer_main = nn.Linear(combined_dim, output_dim_main)
-        if self.multitask:
-            self.proj_last_hs = nn.Conv1d(combined_dim, self.d_last_hs, kernel_size=1, padding=0, bias=False)
-            self.proj1_multi = nn.Linear(combined_dim, combined_dim)
-            self.proj2_multi = nn.Linear(combined_dim, combined_dim)
-            output_dim_multi = self.num_classes * self.num_scores if 'oh' in self.label_type['fine_task'] else self.num_classes
-            self.out_layer_multi = nn.Linear(combined_dim, output_dim_multi)
+        self.proj1 = nn.ModuleList([nn.Linear(combined_dim, combined_dim) for _ in range(num_branches)])
+        self.proj2 = nn.ModuleList([nn.Linear(combined_dim, combined_dim) for _ in range(num_branches)])
+        self.out_layer = nn.ModuleList([nn.Linear(combined_dim, output_dim[i]) for i in range(num_branches)])
 
     def get_network(self, self_type='l', layers=-1):
         if self_type in ['l', 'al', 'vl', 'lavl']:
@@ -285,10 +284,10 @@ class MModel(nn.Module):
         proj_x, last_hs = self.mult_backbone(x_l, x_a, x_v, ind=0)
 
         # Residual block for main task
-        last_hs_proj = self.proj2_main(
-            torch.dropout(torch.relu(self.proj1_main(last_hs)), p=self.out_dropout, train=self.training))
+        last_hs_proj = self.proj2[0](torch.dropout(torch.relu(self.proj1[0](last_hs)),
+                                                   p=self.out_dropout, train=self.training))
         last_hs_proj += last_hs
-        output_main = self.out_layer_main(last_hs_proj)
+        output_main = self.out_layer[0](last_hs_proj)
 
         if self.multitask:
             # Output of the self-attention transformer of the Multi-label (ML) branch
@@ -304,10 +303,10 @@ class MModel(nn.Module):
             _, last_hs_multi = self.mult_backbone(x_l_multi, x_a_multi, x_v_multi, ind=1)
 
             # Residual block for the second task (usually the finer grained one)
-            last_hs_proj_multi = self.proj2_multi(torch.dropout(
-                torch.relu(self.proj1_multi(last_hs_multi)), p=self.out_dropout, train=self.training))
+            last_hs_proj_multi = self.proj2[1](torch.dropout(
+                torch.relu(self.proj1[1](last_hs_multi)), p=self.out_dropout, train=self.training))
             last_hs_proj_multi += last_hs_multi
-            output_multi = self.out_layer_multi(last_hs_proj_multi)
+            output_multi = self.out_layer[1](last_hs_proj_multi)
             output = {"coarse_task": self.final_layers(output_main, self.label_type['coarse_task']),
                       "fine_task": self.final_layers(output_multi, self.label_type['fine_task'])}
         else:

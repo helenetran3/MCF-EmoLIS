@@ -24,13 +24,15 @@ def main():
     root_data_folder = param_log['root_data_folder']
     tnan = param_task['thres_nan']
     nan_str = param_task['replace_nan'] + "_tnan_" + str(tnan)
+    tscore_str = "_tscore_" + str(param_task['thres_score_pres'])
     length_seq = param_task['set_length']
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
-    data_ext_name = nan_str + length_str
+    data_ext_name_raw = nan_str + length_str
+    data_ext_name_proc = nan_str + tscore_str + length_str
 
     predict_neutral_class = param_task['predict_neutral_class']
     label_filename = create_label_filename(label_type)  # for multitask, it looks like coa&pres
-    cv_filename = "cv_" + str(num_folds) + "_true_" + label_filename + "_" + data_ext_name
+    cv_filename = "cv_" + str(num_folds) + "_true_" + label_filename + "_" + data_ext_name_proc
     cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
     # Load folds for cross-validation if the targeted task (mono or multi) are already saved locally
@@ -38,7 +40,7 @@ def main():
         train_list_task = load_from_pickle("train_" + cv_filename, 'processed_folds', root_data_folder)
         valid_list_task = load_from_pickle("valid_" + cv_filename, 'processed_folds', root_data_folder)
         test_list_task = load_from_pickle("test_" + cv_filename, 'processed_folds', root_data_folder)
-        all_scores = load_from_pickle("all_scores_with_no_split_" + data_ext_name, "raw_folds", root_data_folder)
+        all_scores = load_from_pickle("all_scores_with_no_split_" + data_ext_name_raw, "raw_folds", root_data_folder)
         print("\nLoaded {} folds for cross-validation, for task {}, max NaN of {}%, max length of {} and predict "
               "neutral class is {}, from folder '{}/processed_folds'.".format(num_folds, label_type, tnan, length_seq,
                                                                               (predict_neutral_class == 1),
@@ -46,7 +48,7 @@ def main():
 
     else:
         # Load hold-out data if the targeted task (mono or multi) are already saved locally
-        ho_filename = "ho_true_" + label_filename + "_" + data_ext_name
+        ho_filename = "ho_true_" + label_filename + "_" + data_ext_name_proc
         ho_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
         if pickle_file_exists("train_" + ho_filename, "processed_folds", root_data_folder):
             train_list_task = load_from_pickle("train_" + ho_filename, "processed_folds", root_data_folder)
@@ -55,17 +57,17 @@ def main():
             if with_cross_validation:
                 no_split_list_task = load_from_pickle("no_split_" + ho_filename, "processed_folds", root_data_folder)
             split_str = "with_no_split_" if with_cross_validation else "split_only_"
-            all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name, "raw_folds", root_data_folder)
+            all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name_raw, "raw_folds", root_data_folder)
 
         else:
             # Load raw data from CMU-MOSEI SDK if already saved locally
-            if pickle_file_exists("train_" + nan_str + length_str, "raw_folds", root_data_folder):
-                train_list_orig = load_from_pickle("train_" + data_ext_name, "raw_folds", root_data_folder)
-                valid_list_orig = load_from_pickle("valid_" + data_ext_name, "raw_folds", root_data_folder)
-                test_list_orig = load_from_pickle("test_" + data_ext_name,  "raw_folds", root_data_folder)
-                no_split_list_orig = load_from_pickle("no_split_" + data_ext_name,  "raw_folds", root_data_folder)
+            if pickle_file_exists("train_" + data_ext_name_raw, "raw_folds", root_data_folder):
+                train_list_orig = load_from_pickle("train_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                valid_list_orig = load_from_pickle("valid_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                test_list_orig = load_from_pickle("test_" + data_ext_name_raw,  "raw_folds", root_data_folder)
+                no_split_list_orig = load_from_pickle("no_split_" + data_ext_name_raw,  "raw_folds", root_data_folder)
                 split_str = "with_no_split_" if with_cross_validation else "split_only_"
-                all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name, "raw_folds", root_data_folder)
+                all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name_raw, "raw_folds", root_data_folder)
 
             else:
                 # Load CMU-MOSEI dataset
@@ -75,7 +77,7 @@ def main():
                 train_ids, valid_ids, test_ids = get_fold_ids(param_task)
                 train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, all_scores = \
                     process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log,
-                                              with_cross_validation)
+                                              with_cross_validation, data_ext_name_raw)
 
             # Update labels so that it matches with the targeted task given by label_type (all, coarse, coarse_prob,
             # coarse_oh, present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
@@ -83,13 +85,13 @@ def main():
             # 'coarse_task' and 'fine_task'
             train_list_task, valid_list_task, test_list_task, no_split_list_task = \
                 update_labels(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, param_task,
-                              label_type, all_scores, data_ext_name, root_data_folder)
+                              label_type, all_scores, data_ext_name_proc, root_data_folder)
 
         # Cross-validation
         if with_cross_validation:
             train_list_task, valid_list_task, test_list_task = \
                 split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
-                                           param_training, param_task, param_log, label_type, data_ext_name)
+                                           param_training, param_task, param_log, label_type, data_ext_name_proc)
 
     # Data normalization: we perform it after cross-validation (or hold-out) because it uses values from training set
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,

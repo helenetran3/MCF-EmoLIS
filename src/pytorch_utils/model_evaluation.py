@@ -95,6 +95,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                 if type(pred) == dict:
                     pred_raw['coarse_task'] += pred['coarse_task'].tolist()
                     pred_raw['fine_task'] += pred['fine_task'].tolist()
+                else:
+                    pred_raw += pred.tolist()
                 loss_fn_value += loss_fn(pred, y).item()
                 if val_metrics is not None:
                     val_met_value += val_metrics(pred, y).item()
