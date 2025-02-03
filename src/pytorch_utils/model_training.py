@@ -437,15 +437,18 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         if valid_thres_ml_per_emo is not None:
             # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
             print(f"          - Threshold valid per emo (according to F1 score): ", end="")
-            for v_id, (k, v) in enumerate(valid_thres_ml_per_emo.items()):
-                if v_id == 0:
-                    print("{", end="")
-                print(label_type[k], end="")
-                print(":", v, end="")
-                if v_id == len(valid_thres_ml_per_emo.keys()) - 1:
-                    print("}")
-                else:
-                    print(", ", end="")
+            if type(label_type) == dict:
+                for v_id, (k, v) in enumerate(valid_thres_ml_per_emo.items()):
+                    if v_id == 0:
+                        print("{", end="")
+                    print(label_type[k], end="")
+                    print(":", v, end="")
+                    if v_id == len(valid_thres_ml_per_emo.keys()) - 1:
+                        print("}")
+                    else:
+                        print(", ", end="")
+            else:
+                print(valid_thres_ml_per_emo)
         print("-------------------------------------------------------------------------------------------------------")
 
         # Display and save history plot
