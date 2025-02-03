@@ -5,7 +5,8 @@
     "root_data_folder": "cmu_mosei",
     "round_decimals": 2,
     "plot_confusion_matrix": 1,
-    "save_predictions": 1,
+    "save_predictions": 0,
+    "save_csv": 1,
     "display_fig": 0,
     "num_training_prints": 1
   }

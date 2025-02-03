@@ -799,6 +799,7 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
                                   num_classes, all_scores, round_decimals, model_id, model_folder, num_folds)
 
     # Save metrics in csv file
-    save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,
-                             metrics_regression, metrics_score, metrics_presence, metrics_dominant,
-                             with_cross_val, predict_neutral_class, thres_score_pres, label_type)
+    if param_log['save_csv']:
+        save_results_in_csv_file(model_name, model_id, loss_function, val_metrics_str, model_eval_output,
+                                 metrics_regression, metrics_score, metrics_presence, metrics_dominant,
+                                 with_cross_val, predict_neutral_class, thres_score_pres, label_type)

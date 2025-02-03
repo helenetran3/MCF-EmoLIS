@@ -104,6 +104,11 @@ def main():
         num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task,
                                        with_cross_validation, is_tf)
 
+        if param_log['save_csv']:
+            # Save model parameters in csv file
+            save_model_param_in_csv_file(model_id, param_task, param_model_j, param_training, model_name,
+                                         loss_function, val_metrics, with_cross_validation)
+
         # Model training
         if is_tf:
             from src.tensorflow_utils.model_training import train_tf_model
@@ -134,10 +139,6 @@ def main():
                 evaluate_torch_model(test_list_task, param_task, param_model_j, param_training,
                                      param_log, num_steps, model_name, model_id, label_type, loss_function, val_metrics,
                                      thres_multilabel, device, with_cross_validation)
-
-        # Save model parameters in csv file
-        save_model_param_in_csv_file(model_id, param_task, param_model_j, param_training, model_name,
-                                     loss_function, val_metrics, with_cross_validation)
 
         # Compute and save metrics
         compute_and_save_model_metrics(test_list_task, with_cross_validation, model_eval_output,
@@ -182,7 +183,8 @@ def main():
                 run_one_experiment(model, lf_i, vm_i, param_model)
 
     # Summary files
-    csv_summary(with_cross_validation, param_log)
+    if param_log['save_csv']:
+        csv_summary(with_cross_validation, param_log)
 
 
 if __name__ == "__main__":

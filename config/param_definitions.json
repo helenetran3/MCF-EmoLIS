@@ -5,6 +5,7 @@
         "round_decimals": "Number of decimals to be rounded for metrics",
         "plot_confusion_matrix": "Whether we plot and save confusion matrices with pickle (0 or 1)",
         "save_predictions": "Whether we save predictions with pickle (0 or 1)",
+        "save_csv": "Whether we save data in csv",
         "display_fig": "Whether we display the figures from the terminal (0 or 1)",
         "num_training_prints": "Number of prints for each epoch (only for PyTorch)"
     },
