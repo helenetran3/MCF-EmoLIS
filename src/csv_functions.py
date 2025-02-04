@@ -115,7 +115,7 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
     return header, data
 
 
-def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, model_eval_output,
+def save_results_in_csv_file(model_name, model_id, model_eval_output,
                              metrics_regression, metrics_scores, metrics_presence, metrics_dominant, with_cross_val,
                              predict_neutral_class, thres_score_pres, label_type):
     """
@@ -123,8 +123,6 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
 
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
-    :param loss_function: Loss function
-    :param val_metrics: Validation metric used for monitoring
     :param model_eval_output: List of [loss function, validation metric] obtained by the model
     :param metrics_regression: List of metrics for regression
     :param metrics_scores: List of metrics for classifying the presence scores of each emotion
@@ -155,7 +153,7 @@ def save_results_in_csv_file(model_name, model_id, loss_function, val_metrics, m
 
         # Regression metrics
         if met_reg is not None:
-            header_id_reg = header_id + [loss_function, val_metrics]
+            header_id_reg = header_id + ['loss_function', 'val_metrics']
             data_id_reg = [model_id_str] if not with_cross_val else [model_id_str, fold_id]
             data_id_reg = data_id_reg + eval_out  # eval_out contains loss function and validation metric values
             header_regression, data_regression = get_header_and_data_metrics(met_reg, header_id_reg, data_id_reg,
