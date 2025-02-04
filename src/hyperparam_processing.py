@@ -4,12 +4,11 @@ import numpy as np
 from src.models import ef_from_mfn, ef_rnn_me2e, ef_trans_me2e, ef_williams_tf, ef_williams_torch, \
     late_fusion, lf_rnn_me2e, lf_trans_me2e, mfn
 from src.models.mult import model_mult, model_mult_gml_2
-from src.models.me2e import mme2e
+# from src.models.me2e import mme2e
 # from sklearn.metrics import zero_one_loss, hamming_loss
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams',
-                   'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_trans_me2e',
-                   'mfn', 'mme2e', 'mult', 'mult_gml_2']
+                   'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mult', 'mult_gml_2']
 possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_multitask', 'wei_bce_mse_multitask',
                     'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
@@ -35,7 +34,6 @@ def get_model_module(model_str, is_tf):
         'lf_rnn_me2e': lf_rnn_me2e,
         'lf_trans_me2e': lf_trans_me2e,
         'mfn': mfn,
-        'mme2e': mme2e,
         'mult': model_mult,
         'mult_gml_2': model_mult_gml_2
     }

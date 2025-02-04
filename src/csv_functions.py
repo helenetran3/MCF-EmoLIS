@@ -1,5 +1,6 @@
 import os
 import csv
+import re
 import pandas as pd
 from src.label_processing import shorten_label
 
@@ -273,6 +274,25 @@ def csv_summary(with_cross_val, param_log):
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
     """
 
+    def compute_task_column(data_metrics_i):
+        def get_only_model_id(model_id_str):
+            if type(model_id_str) == int:
+                return model_id_str
+            elif model_id_str.isdigit():
+                return int(model_id_str)
+            pattern = re.compile('^\d+(?=_)')  # take first number before '_'
+            return re.search(pattern, model_id_str).group(0)
+
+        csv_path_model_id = create_csv_path(model, "model_ids", with_cross_val=None)
+        data_param = pd.read_csv(csv_path_model_id).set_index('model_id')
+
+        task_column = pd.Series(data_metrics_i['model_id'].apply(get_only_model_id))
+        model_id_to_label = data_param['label_type'].to_dict()
+        for model_id in list(task_column.unique()):
+            task_column = task_column.replace(model_id, model_id_to_label[int(model_id)])
+
+        return task_column
+
     if os.path.isdir("results/"):
 
         # This section gets the list of all filenames (regression, classif_score_coa, etc)
@@ -297,10 +317,8 @@ def csv_summary(with_cross_val, param_log):
                 os.remove(csv_path_summary)  # for file reinitialisation
             for model in list_model_names:
                 csv_path_model_metrics = create_csv_path(model, csv_file, with_cross_val=with_cross_val)
-                csv_path_model_id = create_csv_path(model, "model_ids", with_cross_val=None)
                 if os.path.exists(csv_path_model_metrics):
                     data_metrics = pd.read_csv(csv_path_model_metrics)
-                    data_param = pd.read_csv(csv_path_model_id)
                     if with_cross_val:
                         # We use the numpy std, as Panda's std uses Bessel's correction by default
                         def std_for_pd(x):
@@ -311,7 +329,8 @@ def csv_summary(with_cross_val, param_log):
                         round_decimals = param_log['round_decimals']
                         data_metrics = data_metrics.round(round_decimals)
                     model_column = [model for _ in range(len(data_metrics.index))]
-                    task_column = data_param['label_type']
+                    task_column = compute_task_column(data_metrics)
+
                     data_metrics.insert(0, 'model', model_column, allow_duplicates=True)
                     data_metrics.insert(2, 'task', task_column, allow_duplicates=True)
                     df = pd.concat([df, data_metrics], axis=0)
