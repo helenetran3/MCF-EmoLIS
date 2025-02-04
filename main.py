@@ -24,7 +24,8 @@ def main():
     root_data_folder = param_log['root_data_folder']
     tnan = param_task['thres_nan']
     nan_str = param_task['replace_nan'] + "_tnan_" + str(tnan)
-    tscore_str = "_tscore_" + str(param_task['thres_score_pres'])
+    thres_score = param_task['thres_score_pres']
+    tscore_str = "_tscore_" + str(thres_score)
     length_seq = param_task['set_length']
     length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
     data_ext_name_raw = nan_str + length_str
@@ -41,10 +42,10 @@ def main():
         valid_list_task = load_from_pickle("valid_" + cv_filename, 'processed_folds', root_data_folder)
         test_list_task = load_from_pickle("test_" + cv_filename, 'processed_folds', root_data_folder)
         all_scores = load_from_pickle("all_scores_with_no_split_" + data_ext_name_raw, "raw_folds", root_data_folder)
-        print("\nLoaded {} folds for cross-validation, for task {}, max NaN of {}%, max length of {} and predict "
-              "neutral class is {}, from folder '{}/processed_folds'.".format(num_folds, label_type, tnan, length_seq,
-                                                                              (predict_neutral_class == 1),
-                                                                              root_data_folder))
+        print("\nLoaded {} folds for cross-validation, for task {}, max NaN of {}%, max length of {}, score threshold of"
+              "{} and predict neutral class is {}, from folder '{}/processed_folds'."
+              .format(num_folds, label_type, tnan, length_seq, thres_score, (predict_neutral_class == 1),
+                      root_data_folder))
 
     else:
         # Load hold-out data if the targeted task (mono or multi) are already saved locally
