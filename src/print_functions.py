@@ -137,24 +137,6 @@ def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label
             print("C-index (for each emotion):", str_emo(c_index_per_fold))
             print("C-index (unweighted mean):", str_overall(c_index))
 
-    def print_mean_std_classification_score(met_class_score):
-        acc_macro = [met_i[0] for met_i in met_class_score]
-        f1_macro = [met_i[1] for met_i in met_class_score]
-        rec_macro = [met_i[2] for met_i in met_class_score]
-        prec_macro = [met_i[3] for met_i in met_class_score]
-        acc_per_fold = [met_i[4:4 + num_classes] for met_i in met_class_score]
-        f1_per_fold = [met_i[4 + num_classes:4 + 2 * num_classes] for met_i in met_class_score]
-        rec_per_fold = [met_i[4 + 2 * num_classes:4 + 3 * num_classes] for met_i in met_class_score]
-        prec_per_fold = [met_i[4 + 3 * num_classes:4 + 4 * num_classes] for met_i in met_class_score]
-        print("Accuracy (for each, unweighted across scores):", str_emo(acc_per_fold))
-        print("Accuracy (unweighted mean):", str_overall(acc_macro))
-        print("F1 score (for each, unweighted across scores):", str_emo(f1_per_fold))
-        print("F1 score (unweighted mean):", str_overall(f1_macro))
-        print("Recall (for each, unweighted across scores):", str_emo(rec_per_fold))
-        print("Recall (unweighted mean):", str_overall(rec_macro))
-        print("Precision (for each, unweighted across scores):", str_emo(prec_per_fold))
-        print("Precision (unweighted mean):", str_overall(prec_macro))
-
     def print_mean_std_binary_classification(met_class_bin):
         """
         Print mean and std of binary classifications.
@@ -212,7 +194,7 @@ def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label
         print("\n------- Presence score estimation (regression) --------\n")
         print_mean_std_regression(met_reg)
     if not (None in met_score):
-        scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3] if label_type == 'all' else [0, 1, 2, 3]
+        scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66] if label_type == 'all' else [0, 1, 2]
         print(f"\n------- Presence score classification -------\n")
         for i, sc_i in enumerate(scores):
             print("\n>>> Score threshold:", sc_i)

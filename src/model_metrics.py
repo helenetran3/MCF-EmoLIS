@@ -227,7 +227,7 @@ def get_classification_metrics_score(true_scores, pred_scores, num_classes, roun
     :param with_cross_val: boolean (cross_validation or not)
     :param task_mt: Either 'coarse_task', 'fine_task' or None
     :param fold_id: Cross-validation fold id (int)
-    :param coarse: if True, the resulting presence scores in [0, 1, 2, 3], else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66, 3]
+    :param coarse: if True, the resulting presence scores in [0, 1, 2], else [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66]
     :return: [f1_macro_uw_mean, f1_weighted_uw_mean, rec_macro_uw_mean, rec_weighted_uw_mean, prec_macro_uw_mean,
               prec_weighted_uw_mean, roc_auc_macro_uw_mean, roc_auc_weighted_uw_mean]
     """
@@ -552,7 +552,7 @@ def compute_multilabel_confusion_matrix(true_scores_all, true_scores_coa, true_c
     def compute_conf_matrix_per_task(label_i, task_mt=None):
         if label_i != 'dominant' and label_i != 'present':
             true_scores_i = true_scores_all if label_i == 'all' else true_scores_coa
-            scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66] if label_i == 'all' else [0, 1, 2, 3]
+            scores = [0, 0.33, 0.66, 1, 1.33, 1.66, 2, 2.33, 2.66] if label_i == 'all' else [0, 1, 2]
             compute_all_conf_matrices(true_scores_i, pred_raw, "scores", task_mt, scores=scores)
         if label_i != 'dominant':
             for thres_id, thres in enumerate(thres_score_pres):
