@@ -43,7 +43,7 @@ def main():
         test_list_task = load_from_pickle("test_" + cv_filename, 'processed_folds', root_data_folder)
         all_scores = load_from_pickle("all_scores_with_no_split_" + data_ext_name_raw, "raw_folds", root_data_folder)
         print("\nLoaded {} folds for cross-validation, for task {}, max NaN of {}%, max length of {}, score threshold of"
-              "{} and predict neutral class is {}, from folder '{}/processed_folds'."
+              " {} and predict neutral class is {}, from folder '{}/processed_folds'."
               .format(num_folds, label_type, tnan, length_seq, thres_score, (predict_neutral_class == 1),
                       root_data_folder))
 

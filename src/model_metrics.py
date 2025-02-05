@@ -615,11 +615,11 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         print("\n------- Presence score estimation (regression) --------\n")
         tl_for_reg = true_label_for_reg[label_t]
         tl_for_reg = tl_for_reg[0] if label_t == 'present' else tl_for_reg
-        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, label_type, all_scores, round_decimals)
+        metrics_regression = get_regression_metrics(tl_for_reg, pred_raw_i, label_t, all_scores, round_decimals)
 
-        if 'coarse' in label_type or label_type == 'all':
+        if 'coarse' in label_t or label_t == 'all':
             print(f"\n------- Presence score classification -------\n")
-            coarse = ('coarse' in label_type)
+            coarse = ('coarse' in label_t)
             metrics_score = get_classification_metrics_score(true_all_i, pred_raw_i, num_classes, round_decimals,
                                                              model_id, model_folder, with_cross_val, task_mt, fold_id,
                                                              coarse)
@@ -667,7 +667,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
                 met_dom_i += [md]
 
             # Print Mean and Std of values
-            print_mean_std_cross_validation(met_reg_i, met_score_i, met_pres_i, met_dom_i, label_type, num_classes,
+            label_t = label_type[task_mt] if task_mt is not None else label_type
+            print_mean_std_cross_validation(met_reg_i, met_score_i, met_pres_i, met_dom_i, label_t, num_classes,
                                             thres_score_pres, round_decimals)
 
         else:
@@ -736,9 +737,10 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
 
         return true_all, true_coa, true_pres, true_dom
 
+    is_oh = ('oh' in label_type['coarse_task']) if type(label_type) == dict else ('oh' in label_type)
     if with_cross_val:
         y_test_cv_fold_0 = test_list_task[0][1]['coarse_task'] if type(label_type) == dict else test_list_task[0][1]
-        num_classes = y_test_cv_fold_0[0].shape[1] if not ('oh' in label_type) else y_test_cv_fold_0[0].shape[0]
+        num_classes = y_test_cv_fold_0[0].shape[1] if not is_oh else y_test_cv_fold_0[0].shape[0]
         true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = [], [], [], []
         for fold_i in range(num_folds):
             if type(label_type) == dict:
@@ -755,7 +757,7 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
 
     else:
         y_test_hold_out = test_list_task[1]['coarse_task'] if type(label_type) == dict else test_list_task[1]
-        num_classes = y_test_hold_out[0].shape[1] if not ('oh' in label_type) else y_test_hold_out[0].shape[0]
+        num_classes = y_test_hold_out[0].shape[1] if not is_oh else y_test_hold_out[0].shape[0]
         if type(label_type) == dict:
             true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom = {}, {}, {}, {}
             for task_i in ['fine_task', 'coarse_task']:
