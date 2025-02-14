@@ -146,7 +146,7 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     """
 
     def concordance_index(t, p):
-        scores = all_scores if label_type == 'all' else [0, 1, 2, 3]
+        scores = all_scores if label_type == 'all' else [0, 1, 2, 3] if 'coarse' in label_type else [0, 1]
         # Create list of boolean values where
         index_scores = [list(np.where(t == sc_i)[0]) for sc_i in scores]
         num_values = t.shape[0] * t.shape[1] if t.ndim == 2 else t.shape[0]
@@ -203,12 +203,10 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals+2) for val in kl_div_emo])
     print("KL divergence (overall):", round_not_nan(kl_div, round_decimals))
 
-    c_index_emo, c_index = [None for _ in range(6)], None
-    if label_type == 'all' or 'coarse' in label_type:
-        c_index_emo = [concordance_index(t, p)*100 for t, p in zip(true_scores_emo, pred_scores_emo)]
-        c_index = np.mean(c_index_emo)
-        print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
-        print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
+    c_index_emo = [concordance_index(t, p)*100 for t, p in zip(true_scores_emo, pred_scores_emo)]
+    c_index = np.mean(c_index_emo)
+    print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
+    print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
 
     return [mae, mse, r2, kl_div, c_index] + mae_emo + mse_emo + r2_emo + kl_div_emo + c_index_emo
 
