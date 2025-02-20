@@ -2,7 +2,7 @@ import os.path
 
 from src.pickle_functions import save_with_pickle
 from src.tensorflow_utils.dataset_loader import DatasetTf
-from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics, get_optimizer
+from src.hyperparam_processing import get_model_module, get_optimizer
 from src.print_functions import print_training_parameters
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -61,7 +61,7 @@ def save_and_plot_history(history, ext_name, history_folder, root_folder, displa
 
 
 def run_one_training(train_list, valid_list, param_model, param_training, param_log, num_steps, model_name, model_id,
-                     loss_function_str, val_metrics_str, label_type, with_cross_val, fold_id=None):
+                     loss_function, val_metrics, with_cross_val, fold_id=None):
 
     batch_size = param_training['batch_size']
     optimizer_name = param_training['optimizer']
@@ -105,8 +105,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     num_features_text = x_train[0][0].shape[1]
     num_features_image = x_train[0][1].shape[1]
     num_features_audio = x_train[0][2].shape[1]
-    loss_function = get_loss_function(loss_function_str, param_training, is_tf=True)
-    val_metrics = get_val_metrics(val_metrics_str, param_training, is_tf=True)
     optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True)
     model_module = get_model_module(model_name, is_tf=True)
     model_class = model_module.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
@@ -147,7 +145,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
 
 def train_tf_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
-                   model_name, model_id, loss_function, val_metrics, label_type, with_cross_valid):
+                   model_name, model_id, loss_function, val_metrics, with_cross_valid):
     """
     Train the model using TensorFlow.
     Note that to use batches in TensorFlow, time sequences are padded to the max length in the training/validation sets.
@@ -164,9 +162,8 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
     :param num_steps: Fixed length for all sequences in the dataset
     :param model_name: Name of the model currently tested
     :param model_id: Model id (int)
-    :param loss_function: Name of the loss function (str)
-    :param val_metrics: Name of the validation metric used for monitoring (str)
-    :param label_type: Type of labels used for model training and evaluation
+    :param loss_function: TensorFlow loss function (str)
+    :param val_metrics: TensorFlow validation metric used for monitoring (str)
     :param with_cross_valid: boolean (cross_validation or not)
     """
 
@@ -179,11 +176,10 @@ def train_tf_model(train_list, valid_list, test_list, param_task, param_model, p
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
             thres_multilabel += [run_one_training(train_list_i, valid_list_i, param_model, param_training, param_log,
                                                   num_steps, model_name, model_id, loss_function, val_metrics,
-                                                  label_type, with_cross_valid, fold_id)]
+                                                  with_cross_valid, fold_id)]
 
     else:
         thres_multilabel = run_one_training(train_list, valid_list, param_model, param_training, param_log, num_steps,
-                                            label_type, model_name, model_id, loss_function, val_metrics,
-                                            with_cross_valid)
+                                            model_name, model_id, loss_function, val_metrics, with_cross_valid)
 
     return thres_multilabel

@@ -45,7 +45,7 @@ def get_model_module(model_str, is_tf):
         raise ValueError("Model name '{}' not valid. Please choose among {}.".format(model_str, possible_models))
 
 
-def get_loss_function(loss_function_str, param_training, is_tf):
+def get_loss_function(loss_function_str, coef_coa, is_tf):
     """
     Get TensorFlow or PyTorch loss function from string.
 
@@ -122,7 +122,6 @@ def get_loss_function(loss_function_str, param_training, is_tf):
 
         def wei_bce_multitask(output, target):
             check_multitask(output, target)
-            coef_coa = param_training['coef_coa']
             loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
             loss_fin = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['fine_task'], target['fine_task'])
             loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
@@ -131,7 +130,6 @@ def get_loss_function(loss_function_str, param_training, is_tf):
 
         def wei_bce_mse_multitask(output, target):
             check_multitask(output, target)
-            coef_coa = param_training['coef_coa']
             loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
             loss_fin = nn.MSELoss()(output['fine_task'], target['fine_task'])
             loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
@@ -166,7 +164,7 @@ def get_loss_function(loss_function_str, param_training, is_tf):
                          " Please choose among {}.".format(loss_function_str, possible_loss_fn))
 
 
-def get_val_metrics(val_metrics_str, param_training, is_tf):
+def get_val_metrics(val_metrics_str, coef_coa, is_tf):
     """
     Get TensorFlow or PyTorch loss function from string.
 
@@ -298,7 +296,7 @@ def get_val_metrics(val_metrics_str, param_training, is_tf):
 
     # Add loss functions to val_metrics_dict
     for loss_fn in possible_loss_fn:
-        val_metrics_dict[loss_fn] = get_loss_function(loss_fn, param_training, is_tf)
+        val_metrics_dict[loss_fn] = get_loss_function(loss_fn, coef_coa, is_tf)
 
     if val_metrics_str != -1:
         if val_metrics_str.lower() in val_metrics_dict.keys():
@@ -361,16 +359,29 @@ def check_model_name_and_structure(hyperparam_dict, model_name, json_name):
                                       .format(root_key, key, json_name))
 
     def check_value_is_number(hp_name, hp_value, min_value=None, max_value=None):
-        type_value = type(hp_value)
-        if not (type_value is int or type_value is float):
-            raise ValueError("The value '{}' assigned to hyperparameter '{}' is not a number. "
-                             "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
-        if min_value is not None and hp_value < min_value and hp_value != -1:
-            raise ValueError("The value '{}' assigned to hyperparameter '{}' is smaller than {} (or not equal to -1). "
-                             "Please check '{}.json' file.".format(hp_value, hp_name, min_value, json_name))
-        if max_value is not None and hp_value > max_value and hp_value != -1:
-            raise ValueError("The value '{}' assigned to hyperparameter '{}' is greater than {} (or not equal to -1). "
-                             "Please check '{}.json' file.".format(hp_value, hp_name, max_value, json_name))
+
+        def check_number_i(hp_val_i):
+            type_value = type(hp_val_i)
+            if not (type_value is int or type_value is float):
+                raise ValueError("The value '{}' assigned to hyperparameter '{}' is not a number. "
+                                 "Please check '{}.json' file.".format(hp_val_i, hp_name, json_name))
+            if min_value is not None and hp_val_i < min_value and hp_val_i != -1:
+                raise ValueError("The value '{}' assigned to hyperparameter '{}' is smaller than {} (or not equal to -1). "
+                                 "Please check '{}.json' file.".format(hp_val_i, hp_name, min_value, json_name))
+            if max_value is not None and hp_val_i > max_value and hp_val_i != -1:
+                raise ValueError("The value '{}' assigned to hyperparameter '{}' is greater than {} (or not equal to -1). "
+                                 "Please check '{}.json' file.".format(hp_val_i, hp_name, max_value, json_name))
+
+        if type(hp_value) == list and hp_name == "coef_coa":
+            if hp_name == "coef_coa":
+                for hp_val in hp_value:
+                    check_number_i(hp_val)
+            else:
+                raise ValueError("The value '{}' assigned to hyperparameter '{}' is not a number. "
+                                 "Please check '{}.json' file.".format(hp_value, hp_name, json_name))
+
+        else:
+            check_number_i(hp_value)
 
     def check_value_is_int_superior_to_min_value(hp_name, hp_value, min_value):
         check_value_is_number(hp_name, hp_value, min_value=min_value)
@@ -498,3 +509,13 @@ def get_hyperparam_from_json(json_name, model_name=None):
             hyperparam_out = None
 
         return hyperparam_out
+
+
+def check_compatibility_val_met_and_label(val_met, label_type, param_task):
+    if val_met == -1 and ((type(label_type) != list and label_type not in ['present', 'dominant']) or
+                          (type(label_type) == list and
+                           any([label_i not in ['present', 'dominant'] for label_i in label_type]))):
+        raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with",
+                         "tasks" if type(label_type) == list else "task",
+                         "'{}'. Please choose a value among {} in 'param_training_task.json' file."
+                         .format(param_task['label_type'], possible_val_metrics))

@@ -1,12 +1,11 @@
 from src.pickle_functions import pickle_file_exists, load_from_pickle
 from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset, \
     split_for_cross_validation, data_normalization
-from src.hyperparam_processing import get_hyperparam_from_json
+from src.hyperparam_processing import get_hyperparam_from_json, check_compatibility_val_met_and_label
 from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
 from src.label_processing import create_label_multitask, create_label_filename, update_labels
 from src.model_metrics import compute_and_save_model_metrics
-from src.hyperparam_processing import possible_val_metrics
-import itertools
+from src.hyperparam_processing import get_loss_function, get_val_metrics
 
 
 def main():
@@ -99,16 +98,17 @@ def main():
                                                                           test_list_task, param_task,
                                                                           with_cross_validation)
 
-    def run_one_experiment(model_name, loss_function, val_metrics, param_model_j):
-        model_id = get_current_model_id(model_name)
+    def run_one_experiment(model_name_j, loss_fn_j, loss_fn_str_j, loss_coef_coa_j,
+                           val_met_j, val_met_str_j, val_coef_coa_j, param_model_j):
+        model_id = get_current_model_id(model_name_j)
         is_tf = bool(param_model_j['is_TensorFlow'])
         num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task,
                                        with_cross_validation, is_tf)
 
         if param_log['save_csv']:
             # Save model parameters in csv file
-            save_model_param_in_csv_file(model_id, param_task, param_model_j, param_training, model_name,
-                                         loss_function, val_metrics, with_cross_validation)
+            save_model_param_in_csv_file(model_id, param_task, param_model_j, param_training, model_name_j,
+                                         loss_fn_j, val_met_j, loss_coef_coa_j, val_coef_coa_j, with_cross_validation)
 
         # Model training
         if is_tf:
@@ -116,12 +116,12 @@ def main():
             from src.tensorflow_utils.model_evaluation import evaluate_tf_model
 
             thres_multilabel = train_tf_model(train_list_task, valid_list_task, test_list_task, param_task,
-                                              param_model_j, param_training, param_log, num_steps, model_name, model_id,
-                                              loss_function, val_metrics, label_type, with_cross_validation)
+                                              param_model_j, param_training, param_log, num_steps, model_name_j,
+                                              model_id, loss_fn_j, val_met_j, with_cross_validation)
 
             model_eval_output, pred_raw, pred_classes_pres, pred_classes_dom = \
-                evaluate_tf_model(test_list_task, param_task, param_training, param_log, num_steps, model_name, model_id,
-                                  loss_function, val_metrics, thres_multilabel, with_cross_validation)
+                evaluate_tf_model(test_list_task, param_task, param_training, param_log, num_steps, model_name_j,
+                                  model_id, loss_fn_j, val_met_j, thres_multilabel, with_cross_validation)
 
         else:
             import torch
@@ -133,55 +133,67 @@ def main():
 
             thres_multilabel = train_torch_model(train_list_task, valid_list_task, test_list_task,
                                                  param_task, param_model_j, param_training, param_log,
-                                                 num_steps, model_name, model_id, loss_function, val_metrics,
-                                                 label_type, device, with_cross_validation)
+                                                 num_steps, model_name_j, model_id, loss_fn_j, loss_fn_str_j,
+                                                 val_met_j, val_met_str_j, label_type, device, with_cross_validation)
 
             model_eval_output, pred_raw, pred_classes_pres, pred_classes_dom = \
-                evaluate_torch_model(test_list_task, param_task, param_model_j, param_training,
-                                     param_log, num_steps, model_name, model_id, label_type, loss_function, val_metrics,
-                                     thres_multilabel, device, with_cross_validation)
+                evaluate_torch_model(test_list_task, param_task, param_model_j, param_log,
+                                     num_steps, num_folds, model_name_j, model_id, label_type, loss_fn_j, loss_fn_str_j,
+                                     val_met_j, val_met_str_j, thres_multilabel, device, with_cross_validation)
 
         # Compute and save metrics
         compute_and_save_model_metrics(test_list_task, with_cross_validation, model_eval_output,
                                        pred_raw, pred_classes_pres, pred_classes_dom,
-                                       param_task, param_training, param_log, model_name, model_id, label_type,
-                                       loss_function, val_metrics, all_scores)
+                                       param_task, param_training, param_log, model_name_j, model_id, label_type,
+                                       loss_fn_str_j, val_met_str_j, all_scores)
+
+    def get_metric_fn_and_str(param_name_fn):
+        fn_str = param_training[param_name_fn]
+        fn_list_str = fn_str if type(fn_str) == list else [fn_str]
+        get_fn = get_loss_function if param_name_fn == 'loss_function' else get_val_metrics
+        fn_list = []
+        coef_coa_list = []
+        for fn_str in fn_list_str:
+            if 'multitask' in fn_str:
+                coef_coa = param_training['coef_coa']
+                if type(coef_coa) == list:
+                    fn_list += [get_fn(fn_str, coef_coa=c, is_tf=False) for c in coef_coa]
+                    coef_coa_list += coef_coa
+                else:
+                    fn_list += [get_fn(fn_str, coef_coa=coef_coa, is_tf=False)]
+                    coef_coa_list += [coef_coa]
+            else:
+                fn_list += [get_fn(fn_str, coef_coa=None, is_tf=False)]
+                coef_coa_list += [None]
+        return fn_list_str, fn_list, coef_coa_list
 
     # Loop over the list of models, loss functions and validation metrics
     model = param_task['model_name']
-    loss_function_str = param_training['loss_function']
-    val_metrics_str = param_training['val_metrics']
-    loss_function_list = loss_function_str if type(loss_function_str) == list else [loss_function_str]
-    val_metrics_list = val_metrics_str if type(val_metrics_str) == list else [val_metrics_str]
-    for val_met in val_metrics_list:
-        if val_met == -1 and ((type(label_type) != list and label_type not in ['present', 'dominant']) or
-                              (type(label_type) == list and
-                               any([label_i not in ['present', 'dominant'] for label_i in label_type]))):
-            raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with",
-                             "tasks" if type(label_type) == list else "task",
-                             "'{}'. Please choose a value among {} in 'param_training_task.json' file."
-                             .format(param_task['label_type'], possible_val_metrics))
+    model_list = model if type(model) == list else [model]
+    loss_fn_list_str, loss_fn_list, coef_coa_loss_list = get_metric_fn_and_str('loss_function')
+    val_met_list_str, val_met_list, coef_coa_val_list = get_metric_fn_and_str('val_metrics')
+    for val_met in val_met_list_str:
+        check_compatibility_val_met_and_label(val_met, label_type, param_task)
 
-    if type(model) == list:
-        for model_i in model:
-            param_model_i = get_hyperparam_from_json("param_model", model_name=model_i)
-            # Iterate over all pairs (loss_function, val_metrics)
-            for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
-                run_one_experiment(model_i, lf_i, vm_i, param_model_i)
-    else:
-        param_model = get_hyperparam_from_json("param_model", model_name=model)
-        if model == 'mult' and param_model['run_model_var']:
+    for model_i in model_list:
+        param_model_i = get_hyperparam_from_json("param_model", model_name=model_i)
+        if model == 'mult' and param_model_i['run_model_var']:
             # For mult, automate the change of model hyperparameters
             hyperparam_loop = [[1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 1, 1]]
             for dominant_modality_i, with_cross_module_i, lav_as_modality_i in hyperparam_loop:
-                param_model['dominant_modality'] = dominant_modality_i
-                param_model['with_cross_module'] = with_cross_module_i
-                param_model['lav_as_modality'] = lav_as_modality_i
-                for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
-                    run_one_experiment(model, lf_i, vm_i, param_model)
+                param_model_i['dominant_modality'] = dominant_modality_i
+                param_model_i['with_cross_module'] = with_cross_module_i
+                param_model_i['lav_as_modality'] = lav_as_modality_i
+                for lf_str_i, lf_i, lf_coef_coa_i in zip(loss_fn_list_str, loss_fn_list, coef_coa_loss_list):
+                    for vm_str_i, vm_i, vm_coef_coa_i in zip(val_met_list_str, val_met_list, coef_coa_val_list):
+                        run_one_experiment(model_i, lf_i, lf_str_i, lf_coef_coa_i, vm_i, vm_str_i, vm_coef_coa_i,
+                                           param_model_i)
         else:
-            for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
-                run_one_experiment(model, lf_i, vm_i, param_model)
+            # Iterate over all pairs (loss_function, val_metrics)
+            for lf_str_i, lf_i in zip(loss_fn_list_str, loss_fn_list):
+                for vm_str_i, vm_i in zip(val_met_list_str, val_met_list):
+                    run_one_experiment(model_i, lf_i, lf_str_i, lf_coef_coa_i, vm_i, vm_str_i, vm_coef_coa_i,
+                                       param_model_i)
 
     # Summary files
     if param_log['save_csv']:

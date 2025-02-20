@@ -2,7 +2,6 @@ import os
 import numpy as np
 
 from tensorflow.keras.models import load_model
-from src.hyperparam_processing import get_loss_function, get_val_metrics
 from src.tensorflow_utils.dataset_loader import DatasetTf
 from src.pickle_functions import save_with_pickle
 from src.label_processing import compute_pred_labels, from_one_hot_to_plain

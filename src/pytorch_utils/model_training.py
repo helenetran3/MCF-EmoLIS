@@ -1,5 +1,5 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, collate_fn_for_variable_length
-from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics, get_optimizer
+from src.hyperparam_processing import get_model_module, get_optimizer
 from src.print_functions import print_training_parameters
 from src.pickle_functions import save_with_pickle
 from src.model_metrics import compute_best_thres_for_monitor_metric
@@ -146,8 +146,8 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
 
 
 def run_one_training(train_list, valid_list, param_model, param_training, param_task, param_log,
-                     num_steps, model_name, model_id, loss_function_str, val_metrics_str, label_type, device,
-                     with_cross_valid, fold_id=None):
+                     num_steps, model_name, model_id, loss_fn, loss_function_str, val_metrics, val_metrics_str,
+                     label_type, device, with_cross_valid, fold_id=None):
 
     batch_size = param_training['batch_size']
     optimizer_name = param_training['optimizer']
@@ -198,8 +198,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     # inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
 
     # Optimizing the model parameters
-    loss_fn = get_loss_function(loss_function_str, param_training, is_tf=False)
-    val_metrics = get_val_metrics(val_metrics_str, param_training, is_tf=False)
     optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
@@ -500,23 +498,25 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
 
 def train_torch_model(train_list, valid_list, test_list, param_task, param_model, param_training, param_log, num_steps,
-                      model_name, model_id, loss_function, val_metrics, label_type, device, with_cross_valid):
+                      model_name, model_id, loss_function, loss_function_str, val_metrics, val_metrics_str, label_type,
+                      device, with_cross_valid):
 
     print_training_parameters(train_list, valid_list, test_list, with_cross_valid,
                               param_task, param_model, param_training, num_steps, model_name, model_id,
-                              loss_function, val_metrics, label_type, is_tf=False)
+                              loss_function_str, val_metrics_str, label_type, is_tf=False)
 
     if with_cross_valid:
         valid_thres_ml_best = []
         for fold_id, (train_list_i, valid_list_i) in enumerate(zip(train_list, valid_list)):
             valid_thres_ml_best += [run_one_training(train_list_i, valid_list_i, param_model, param_training,
                                                      param_task, param_log, num_steps, model_name, model_id,
-                                                     loss_function, val_metrics, label_type, device, with_cross_valid,
-                                                     fold_id)]
+                                                     loss_function, loss_function_str, val_metrics, val_metrics_str,
+                                                     label_type, device, with_cross_valid, fold_id)]
 
     else:
         valid_thres_ml_best = run_one_training(train_list, valid_list, param_model, param_training, param_task,
-                                               param_log, num_steps, model_name, model_id, loss_function, val_metrics,
+                                               param_log, num_steps, model_name, model_id,
+                                               loss_function, loss_function_str, val_metrics, val_metrics_str,
                                                label_type, device, with_cross_valid)
 
     return valid_thres_ml_best

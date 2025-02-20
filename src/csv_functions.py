@@ -221,7 +221,7 @@ def save_results_in_csv_file(model_name, model_id, model_eval_output,
 
 
 def save_model_param_in_csv_file(model_id, param_task, param_model, param_training, model_name, loss_function,
-                                 val_metrics, with_cross_val):
+                                 val_metrics, coef_coa, with_cross_val):
     """
     Create a csv file which lists the model ids and model architecture/training parameters.
 
@@ -257,6 +257,8 @@ def save_model_param_in_csv_file(model_id, param_task, param_model, param_traini
             data_training[i] = loss_function
         if header_training[i] == 'val_metrics' and type(data_training[i]) == list:
             data_training[i] = val_metrics
+        if header_training[i] == 'coef_coa' and type(data_training[i]) == list:
+            data_training[i] = coef_coa
     data = data + data_training + [predict_neutral_class, label_type, thres_score_pres, set_length, with_cross_val]
     header = header + header_training + ['neutral_class', 'label_type', 'thres_score_pres', 'set_length', 'cross_val']
 

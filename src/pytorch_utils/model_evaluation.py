@@ -1,6 +1,6 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch
 from src.label_processing import compute_pred_labels, from_one_hot_to_plain
-from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics
+from src.hyperparam_processing import get_model_module
 from src.model_metrics import compute_best_thres_for_monitor_metric
 
 import os
@@ -10,8 +10,9 @@ from torch.utils.data import DataLoader
 from alive_progress import alive_bar
 
 
-def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_model, param_training, param_log,
-                       num_steps, model_name, model_id, label_type, loss_fn_str, val_met_str, thres_multilabel, device):
+def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_model, param_log,
+                       num_steps, model_name, model_id, label_type, loss_fn, loss_fn_str, val_metrics,
+                       val_met_str, thres_multilabel, device):
 
     predict_neutral_class = param_task['predict_neutral_class']
     thres_score_pres = [param_task['thres_score_pres']]
@@ -41,8 +42,6 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     test_dataloader = DataLoader(test_data)
 
     test_size = len(test_dataloader.dataset)
-    loss_fn = get_loss_function(loss_fn_str, param_training, is_tf=False)
-    val_metrics = get_val_metrics(val_met_str, param_training, is_tf=False)
     loss_fn_value, val_met_value = 0, 0
     pred_raw = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
 
@@ -182,25 +181,25 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     return [loss_fn_value, val_met_value], pred_raw_array, pred_classes_pres, pred_classes_dom
 
 
-def evaluate_torch_model(test_list, param_task, param_model, param_training, param_log, num_steps, model_name, model_id,
-                         label_type, loss_function, val_metrics, thres_multilabel, device, with_cross_valid):
+def evaluate_torch_model(test_list, param_task, param_model, param_log, num_steps, num_folds, model_name, model_id,
+                         label_type, loss_fn, loss_fn_str, val_metrics, val_met_str, thres_multilabel, device,
+                         with_cross_valid):
 
     if with_cross_valid:
-        num_folds = param_training['cross_val_folds']
         model_eval_output, pred_raw_array, pred_classes_pres, pred_classes_dom = [], [], [], []
         for fold_i in range(num_folds):
             loss_vals_i, pred_raw_i, pred_pres_i, pred_dom_i = \
-                run_one_evaluation(test_list[fold_i], with_cross_valid, fold_i, param_task, param_model, param_training,
-                                   param_log, num_steps, model_name, model_id, label_type, loss_function, val_metrics,
-                                   thres_multilabel[fold_i], device)
+                run_one_evaluation(test_list[fold_i], with_cross_valid, fold_i, param_task, param_model,
+                                   param_log, num_steps, model_name, model_id, label_type, loss_fn, loss_fn_str,
+                                   val_metrics, val_met_str, thres_multilabel[fold_i], device)
             model_eval_output += [loss_vals_i]  # loss_vals_i = [loss_fn_value, val_met_value]
             pred_raw_array += [pred_raw_i]
             pred_classes_pres += [pred_pres_i]
             pred_classes_dom += [pred_dom_i]
     else:
         model_eval_output, pred_raw_array, pred_classes_pres, pred_classes_dom = \
-            run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_training, param_log,
-                               num_steps, model_name, model_id, label_type, loss_function, val_metrics,
+            run_one_evaluation(test_list, with_cross_valid, None, param_task, param_model, param_log, num_steps,
+                               model_name, model_id, label_type, loss_fn, loss_fn_str, val_metrics, val_met_str,
                                thres_multilabel, device)
 
     return model_eval_output, pred_raw_array, pred_classes_pres, pred_classes_dom

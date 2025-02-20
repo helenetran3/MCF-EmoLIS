@@ -199,7 +199,8 @@ def process_not_finite_values(data_seg, method):
     return data_seg
 
 
-def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log, with_cross_val):
+def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log, with_cross_val,
+                              data_ext_name_raw):
     """
     For each training, validation and test sets (and no split set if cross-validation), create a list of three sublists:
     - one for features (x): a list of 3 arrays of shape (number steps, number features) for text, image and audio
@@ -363,14 +364,14 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     all_scores_ho = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
     all_scores_cv = get_available_presence_scores_arr(y_train_emo + y_valid_emo + y_test_emo + y_no_split_emo)
     all_scores = all_scores_cv if with_cross_val else all_scores_ho
-    save_with_pickle(all_scores_ho, "all_scores_split_only_" + nan_str + length_str, "raw_folds", root_data_folder)
-    save_with_pickle(all_scores_cv, "all_scores_with_no_split_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(all_scores_ho, "all_scores_split_only_" + data_ext_name_raw, "raw_folds", root_data_folder)
+    save_with_pickle(all_scores_cv, "all_scores_with_no_split_" + data_ext_name_raw, "raw_folds", root_data_folder)
 
     # Save lists with pickle
-    save_with_pickle(train_res, "train_" + nan_str + length_str, "raw_folds", root_data_folder)
-    save_with_pickle(valid_res, "valid_" + nan_str + length_str, "raw_folds", root_data_folder)
-    save_with_pickle(test_res, "test_" + nan_str + length_str, "raw_folds", root_data_folder)
-    save_with_pickle(no_split_res, "no_split_" + nan_str + length_str, "raw_folds", root_data_folder)
+    save_with_pickle(train_res, "train_" + data_ext_name_raw, "raw_folds", root_data_folder)
+    save_with_pickle(valid_res, "valid_" + data_ext_name_raw, "raw_folds", root_data_folder)
+    save_with_pickle(test_res, "test_" + data_ext_name_raw, "raw_folds", root_data_folder)
+    save_with_pickle(no_split_res, "no_split_" + data_ext_name_raw, "raw_folds", root_data_folder)
 
     return train_res, valid_res, test_res, no_split_res, all_scores
 
