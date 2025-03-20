@@ -2,7 +2,7 @@
   "task":
   {
     "model_name": ["mfn", "mult"],
-    "label_type": "present",
+    "label_type": ["all", "present"],
     "set_length": 56,
     "thres_score_pres": 0,
     "predict_neutral_class": 0,
@@ -19,8 +19,8 @@
     "patience": 8,
     "batch_size": 32,
     "optimizer": "adam",
-    "loss_function": "wei_bce",
-    "val_metrics": "wei_bce",
+    "loss_function": ["mse", "wei_bce"],
+    "val_metrics": ["mse", "wei_bce"],
     "coef_coa": 0.6,
     "bilevel_opt": 1,
     "thres_ml_from_best_metric": 1,

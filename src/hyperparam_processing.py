@@ -289,32 +289,28 @@ def get_val_metrics(val_metrics_str, label_type, param_training, is_tf):
 
             return loss
 
-        val_metrics_dict = {
-            'zero_one_loss': zero_one_loss,
-            'hamming_loss': hamming_loss,
-            'rank_loss_ml': rank_loss_ml,
-            'rank_loss_gml': rank_loss_gml,
-            -1: None
-        }
-
         # Add loss functions to val_metrics_dict
-        for loss_fn in possible_loss_fn:
-            val_metrics_dict[loss_fn] = get_loss_function(loss_fn, label_type, param_training, is_tf)
+        if type(val_str_i) == dict:
+            return get_loss_function(val_str_i, label_type, param_training, is_tf)
+        else:
+            val_metrics_dict = {
+                'zero_one_loss': zero_one_loss,
+                'hamming_loss': hamming_loss,
+                'rank_loss_ml': rank_loss_ml,
+                'rank_loss_gml': rank_loss_gml,
+                -1: None
+            }
+            for loss_fn in possible_loss_fn:
+                val_metrics_dict[loss_fn] = get_loss_function(loss_fn, label_type, param_training, is_tf)
 
-        if val_str_i != -1:
-            if type(val_str_i) == dict:
-                return get_loss_function(val_str_i, label_type, param_training, is_tf)
-            elif val_str_i.lower() in val_metrics_dict.keys():
-                return val_metrics_dict[val_str_i]
-            else:
-                raise ValueError("'{}' assigned to key 'val_metrics' in 'param_training_task.json' is invalid."
-                                 " Please choose among {}.".format(val_str_i, possible_val_metrics))
+            if val_str_i != -1:
+                if val_str_i.lower() in val_metrics_dict.keys():
+                    return val_metrics_dict[val_str_i]
+                else:
+                    raise ValueError("'{}' assigned to key 'val_metrics' in 'param_training_task.json' is invalid."
+                                     " Please choose among {}.".format(val_str_i, possible_val_metrics))
 
-    if type(label_type) == dict and param_training['bilevel_opt']:
-        return {'coarse_task': get_one_val_metric(val_metrics_str['coarse_task']),
-                'fine_task': get_one_val_metric(val_metrics_str['fine_task'])}
-    else:
-        return get_one_val_metric(val_metrics_str)
+    return get_one_val_metric(val_metrics_str)
 
 
 def get_optimizer(optimizer_str, learning_rate, is_tf, param_training, model=None):
