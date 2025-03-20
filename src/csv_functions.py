@@ -107,7 +107,7 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         data = data_param + metrics
 
     else:
-        header_overall = ['mae', 'mse', 'r2', 'kl_div', 'c_index']
+        header_overall = ['mae', 'mse', 'rmse', 'rrmse', 'r2', 'kl_div', 'c_index']
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
         data_param = ['N/A' if d is None else d for d in data_param]

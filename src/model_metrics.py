@@ -1,5 +1,6 @@
 import os.path
 
+import math
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -176,6 +177,12 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
 
         return res / total_values
 
+    def RRMSE(t, p, t_mean):
+        num = math.sqrt(mean_squared_error(t, p))
+        den = math.sqrt(mean_squared_error(t_mean, p))
+        return num / den
+
+
     def KL(t, p):
         return np.sum(np.where(t != 0, t * np.log(t / p), 0))
 
@@ -193,6 +200,18 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     print("Mean squared error (for each emotion):", [round_not_nan(val, round_decimals+2) for val in mse_emo])
     print("Mean squared error (overall):", round_not_nan(mse, round_decimals))
 
+    rmse_emo = [math.sqrt(mean_squared_error(t, p)) for t, p in zip(true_scores_emo, pred_scores_emo)]
+    rmse = math.sqrt(mean_squared_error(true_scores, pred_scores))
+    print("Root mean squared error (for each emotion):", [round_not_nan(val, round_decimals+2) for val in rmse_emo])
+    print("Root mean squared error (overall):", round_not_nan(rmse, round_decimals))
+
+    true_scores_emo_mean = [np.mean(ts) for ts in true_scores_emo]
+    rrmse_emo = [RRMSE(t, p, tm) for t, p, tm in zip(true_scores_emo, pred_scores_emo, true_scores_emo_mean)]
+    rrmse = np.mean(rrmse_emo)
+    print("Relative root mean squared error (for each emotion):",
+          [round_not_nan(val, round_decimals+2) for val in rrmse_emo])
+    print("Relative root mean squared error (overall):", round_not_nan(rrmse, round_decimals))
+
     r2_emo = [r2_score(t, p)*100 for t, p in zip(true_scores_emo, pred_scores_emo)]
     r2 = r2_score(true_scores, pred_scores)
     print("R2 score (for each emotion):", [round_not_nan(val, round_decimals) for val in r2_emo])
@@ -208,7 +227,8 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
     print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
 
-    return [mae, mse, r2, kl_div, c_index] + mae_emo + mse_emo + r2_emo + kl_div_emo + c_index_emo
+    return ([mae, mse, rmse, rrmse, r2, kl_div, c_index] + mae_emo + mse_emo + rmse_emo + rrmse_emo +
+            r2_emo + kl_div_emo + c_index_emo)
 
 
 def get_classification_metrics_score(true_scores, pred_scores, num_classes, round_decimals,
