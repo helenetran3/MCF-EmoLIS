@@ -198,9 +198,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     # inspect_model_tensorboard(writer, train_dataloader, model, model_id, model_name, num_steps)
 
     # Optimizing the model parameters
-    loss_fn = get_loss_function(loss_function_str, param_training, is_tf=False)
-    val_metrics = get_val_metrics(val_metrics_str, param_training, is_tf=False)
-    optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, model=model)
+    loss_fn = get_loss_function(loss_function_str, label_type, param_training, is_tf=False)
+    val_metrics = get_val_metrics(val_metrics_str, label_type, param_training, is_tf=False)
+    optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, param_training=param_training, model=model)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
@@ -258,18 +258,31 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             y[task_i] = y[task_i].float()
                     else:
                         y = y.float()
-                    batch_loss = loss_fn(pred, y)
+
+                    if param_training['bilevel_opt']:
+                        for _ in range(100):  # 100 and 10 iterations for heuristics
+                            for _ in range(10):
+                                optimizer['fine_task'].zero_grad()
+                                lower_batch_loss = loss_fn['fine_task'](pred['fine_task'], y['fine_task'])
+                                lower_batch_loss.backward()
+                                optimizer['fine_task'].step()
+
+                            optimizer['coarse_task'].zero_grad()
+                            lower_batch_loss = loss_fn['coarse_task'](pred['coarse_task'], y['coarse_task'])
+                            lower_batch_loss.backward()
+                            optimizer['coarse_task'].step()
+                    else:
+                        optimizer.zero_grad()
+                        batch_loss = loss_fn(pred, y)
+                        if param_training["clip"] != -1:
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
+                        batch_loss.backward()
+                        optimizer.step()
+
+
                     if val_metrics is not None:
                         batch_monitor = val_metrics(pred, y).item()
-                    # pred_train += pred.tolist()
-                    # true_train += y.tolist()
 
-                optimizer.zero_grad()
-                batch_loss.backward()
-
-                if param_training["clip"] != -1:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
-                optimizer.step()
 
                 batch_loss = batch_loss.item()
                 current = batch_id * batch_size + len(X)

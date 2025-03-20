@@ -18,7 +18,7 @@ def main():
 
     # Transform label_type to dict with keys 'coarse_task' and 'fine_task' when label_type is a list
     label_type = param_task['label_type']
-    label_type = create_label_multitask(label_type) if type(label_type) == list else label_type
+    label_type, granularity_order = create_label_multitask(label_type) if type(label_type) == list else (label_type, None)
 
     # Get data for training, validation and test sets from pickle (split provided by the SDK)
     root_data_folder = param_log['root_data_folder']
@@ -149,14 +149,31 @@ def main():
 
     # Loop over the list of models, loss functions and validation metrics
     model = param_task['model_name']
-    loss_function_str = param_training['loss_function']
-    val_metrics_str = param_training['val_metrics']
+
+    if type(label_type) == dict:
+        loss_function_str, val_metrics_str = {}, {}
+        loss_fn_param = param_training['loss_function']
+        val_metrics_param = param_training['val_metrics']
+        for task_i in ['coarse_task', 'fine_task']:
+            if type(loss_fn_param) == list:
+                # take loss function at the same position as its corresponding task in label_type from param_task
+                loss_function_str[task_i] = loss_fn_param[granularity_order[task_i]]
+            else:
+                # Same loss function when only one loss function is provided
+                loss_function_str[task_i] = loss_fn_param
+            if type(val_metrics_param) == list:
+                val_metrics_str[task_i] = val_metrics_param[granularity_order[task_i]]
+            else:
+                val_metrics_str[task_i] = val_metrics_param
+    else:
+        loss_function_str = param_training['loss_function']
+        val_metrics_str = param_training['val_metrics']
     loss_function_list = loss_function_str if type(loss_function_str) == list else [loss_function_str]
     val_metrics_list = val_metrics_str if type(val_metrics_str) == list else [val_metrics_str]
     for val_met in val_metrics_list:
-        if val_met == -1 and ((type(label_type) != list and label_type not in ['present', 'dominant']) or
-                              (type(label_type) == list and
-                               any([label_i not in ['present', 'dominant'] for label_i in label_type]))):
+        if val_met == -1 and ((type(label_type) != dict and label_type not in ['present', 'dominant']) or
+                              (type(label_type) == dict and
+                               any([label_i not in ['present', 'dominant'] for label_i in label_type.values()]))):
             raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with",
                              "tasks" if type(label_type) == list else "task",
                              "'{}'. Please choose a value among {} in 'param_training_task.json' file."

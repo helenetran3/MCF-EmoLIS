@@ -41,8 +41,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     test_dataloader = DataLoader(test_data)
 
     test_size = len(test_dataloader.dataset)
-    loss_fn = get_loss_function(loss_fn_str, param_training, is_tf=False)
-    val_metrics = get_val_metrics(val_met_str, param_training, is_tf=False)
+    loss_fn = get_loss_function(loss_fn_str, label_type, param_training, is_tf=False)
+    val_metrics = get_val_metrics(val_met_str, label_type, param_training, is_tf=False)
     loss_fn_value, val_met_value = 0, 0
     pred_raw = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
 

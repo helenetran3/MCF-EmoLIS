@@ -9,8 +9,7 @@ from src.models.mult import model_mult, model_mult_gml_2
 
 possible_models = ['ef_from_mfn', 'ef_rnn_me2e', 'ef_trans_me2e', 'ef_williams',
                    'ef_williams_debug', 'late_fusion', 'lf_rnn_me2e', 'lf_trans_me2e', 'mfn', 'mult', 'mult_gml_2']
-possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_multitask', 'wei_bce_mse_multitask',
-                    'wei_bce_gml', 'wei_cce_gml', 'kl_div']
+possible_loss_fn = ['mae', 'mse', 'bce', 'cce', 'wei_bce', 'wei_cce', 'wei_bce_gml', 'wei_cce_gml', 'kl_div']
 possible_val_metrics = possible_loss_fn + ['zero_one_loss', 'hamming_loss', 'rank_loss_ml', 'rank_loss_gml']
 possible_optimizers = ['adam', 'sgd', 'adagrad', 'adadelta', 'rmsprop']
 
@@ -45,305 +44,325 @@ def get_model_module(model_str, is_tf):
         raise ValueError("Model name '{}' not valid. Please choose among {}.".format(model_str, possible_models))
 
 
-def get_loss_function(loss_function_str, param_training, is_tf):
+def get_loss_function(loss_function_str, label_type, param_training, is_tf):
     """
     Get TensorFlow or PyTorch loss function from string.
 
     :param loss_function_str: string
+    :param label_type: Type of labels used for model training and evaluation
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
     :return: TensorFlow or Pytorch loss function
     """
 
-    # Initialization
-    loss_fn_dict = {}
-    for loss_fn in possible_loss_fn:
-        loss_fn_dict[loss_fn] = None
+    def get_one_loss_function(loss_str_i):
 
-    # TensorFlow
-    if is_tf:
-        from tensorflow.keras.losses import MeanAbsoluteError, MeanSquaredError, \
-            BinaryCrossentropy, CategoricalCrossentropy, KLDivergence
-        loss_fn_dict = {
-            'mae': MeanAbsoluteError(),
-            'mse': MeanSquaredError(),
-            'bce': BinaryCrossentropy(),
-            'cce': CategoricalCrossentropy(),
-            'kl_div': KLDivergence()
-        }
+        # Initialization
+        loss_fn_dict = {}
+        for loss_fn in possible_loss_fn:
+            loss_fn_dict[loss_fn] = None
 
-    # PyTorch
-    else:
-        import torch
-        from torch import nn
-        from torch.autograd import Variable
-        pos_weight = torch.tensor([0.86721177, 2.86069315, 3.63110931, 8.98950131, 4.65247525, 11.07615019],
-                                  dtype=torch.float32)
+        # TensorFlow
+        if is_tf:
+            from tensorflow.keras.losses import MeanAbsoluteError, MeanSquaredError, \
+                BinaryCrossentropy, CategoricalCrossentropy, KLDivergence
+            loss_fn_dict = {
+                'mae': MeanAbsoluteError(),
+                'mse': MeanSquaredError(),
+                'bce': BinaryCrossentropy(),
+                'cce': CategoricalCrossentropy(),
+                'kl_div': KLDivergence()
+            }
 
-        pos_weight_coarse = [[7218, 4370, 2609, 5251], [13533, 2826, 1957, 1132], [14517, 1943, 1362, 1626], [17162, 1592, 492, 202], [15408, 1876, 1098, 1066], [17557, 1156, 548, 187]]
-        neg_weight_coarse = [[12230, 15078, 16839, 14197], [5915, 16622, 17491, 18316], [4931, 17505, 18086, 17822], [2286, 17856, 18956, 19246], [4040, 17572, 18350, 18382], [1891, 18292, 18900, 19261]]
-        weight_coarse = [[1.6943751731781658, 3.4503432494279176, 6.454197010348793, 2.703675490382784], [0.43707973102785785, 5.881811748053786, 8.937659683188555, 16.180212014134277], [0.3396707308672591, 9.009264024704066, 13.279001468428781, 10.960639606396064], [0.1332012585945694, 11.21608040201005, 38.52845528455285, 95.27722772277228], [0.26220145379023885, 9.366737739872068, 16.712204007285976, 17.24390243902439], [0.10770632796035769, 15.823529411764707, 34.48905109489051, 103.0]]
-
-        def wei_bce_gml(output, target):
-            if target.size() != output.size() or target.dim() != 3:  # (num_samples, num_classes, num_scores)
-                raise ValueError("Output size does not match with target size. Please check if gml is set to 1 in "
-                                 "config/param_model.json.")
-
-            loss = []
-            for cl_i, weight_i in enumerate(weight_coarse):
-                loss_i = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
-                loss_i = loss_i * pos_weight[cl_i]
-                loss += [loss_i]
-            loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
-            loss = Variable(loss, requires_grad=True)
-            return loss
-
-        def wei_cce_gml(output, target):
-            assert(target.size() == output.size())
-            assert(target.dim() == 3)  # (num_samples, num_classes, num_scores)
-
-            loss = []
-            for cl_i, weight_i in enumerate(weight_coarse):
-                loss_i = nn.CrossEntropyLoss(weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
-                loss_i = loss_i * pos_weight[cl_i]
-                loss += [loss_i]
-            loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
-            loss = Variable(loss, requires_grad=True)
-            return loss
-
-        def check_multitask(output, target):
-            if not isinstance(output, dict) or \
-                    (isinstance(output, dict) and not list(output.keys()) == ['coarse_task', 'fine_task']):
-                raise ValueError("Model output does not return a dictionary with keys ['coarse_task', 'fine_task']")
-            if not isinstance(target, dict) or \
-                    (isinstance(target, dict) and not list(target.keys()) == ['coarse_task', 'fine_task']):
-                raise ValueError("Targeted task is not a list of 2 tasks. Please check 'label_type' in "
-                                 "config/param_training_task.json")
-
-        def wei_bce_multitask(output, target):
-            check_multitask(output, target)
-            coef_coa = param_training['coef_coa']
-            loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
-            loss_fin = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['fine_task'], target['fine_task'])
-            loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
-            loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
-            return loss
-
-        def wei_bce_mse_multitask(output, target):
-            check_multitask(output, target)
-            coef_coa = param_training['coef_coa']
-            loss_coa = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(output['coarse_task'], target['coarse_task'])
-            loss_fin = nn.MSELoss()(output['fine_task'], target['fine_task'])
-            loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
-            loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
-            return loss
-
-        loss_fn_dict = {
-            'mae': nn.L1Loss(),
-            'mse': nn.MSELoss(),
-            'bce': nn.BCELoss(),
-            'cce': nn.CrossEntropyLoss(),
-            'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight),
-            'wei_cce': nn.CrossEntropyLoss(weight=pos_weight),
-            'wei_bce_multitask': wei_bce_multitask,
-            'wei_bce_mse_multitask': wei_bce_mse_multitask,
-            'wei_bce_gml': wei_bce_gml,
-            'wei_cce_gml': wei_cce_gml,
-            'kl_div': nn.KLDivLoss(reduction='batchmean')
-        }
-
-    if loss_function_str.lower() in loss_fn_dict.keys():
-        loss_fn = loss_fn_dict[loss_function_str]
-        if loss_fn is not None:
-            return loss_fn
+        # PyTorch
         else:
-            lib_name = "TensorFlow" if is_tf else "PyTorch"
-            raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is not implemented yet"
-                             "for {} library. Please choose among {}."
-                             .format(loss_function_str, lib_name, possible_loss_fn))
+            import torch
+            from torch import nn
+            from torch.autograd import Variable
+            pos_weight = torch.tensor([0.86721177, 2.86069315, 3.63110931, 8.98950131, 4.65247525, 11.07615019],
+                                      dtype=torch.float32)
+
+            pos_weight_coarse = [[7218, 4370, 2609, 5251], [13533, 2826, 1957, 1132], [14517, 1943, 1362, 1626], [17162, 1592, 492, 202], [15408, 1876, 1098, 1066], [17557, 1156, 548, 187]]
+            neg_weight_coarse = [[12230, 15078, 16839, 14197], [5915, 16622, 17491, 18316], [4931, 17505, 18086, 17822], [2286, 17856, 18956, 19246], [4040, 17572, 18350, 18382], [1891, 18292, 18900, 19261]]
+            weight_coarse = [[1.6943751731781658, 3.4503432494279176, 6.454197010348793, 2.703675490382784], [0.43707973102785785, 5.881811748053786, 8.937659683188555, 16.180212014134277], [0.3396707308672591, 9.009264024704066, 13.279001468428781, 10.960639606396064], [0.1332012585945694, 11.21608040201005, 38.52845528455285, 95.27722772277228], [0.26220145379023885, 9.366737739872068, 16.712204007285976, 17.24390243902439], [0.10770632796035769, 15.823529411764707, 34.48905109489051, 103.0]]
+
+            def wei_bce_gml(output, target):
+                if target.size() != output.size() or target.dim() != 3:  # (num_samples, num_classes, num_scores)
+                    raise ValueError("Output size does not match with target size. Please check if gml is set to 1 in "
+                                     "config/param_model.json.")
+
+                loss = []
+                for cl_i, weight_i in enumerate(weight_coarse):
+                    loss_i = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
+                    loss_i = loss_i * pos_weight[cl_i]
+                    loss += [loss_i]
+                loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
+                loss = Variable(loss, requires_grad=True)
+                return loss
+
+            def wei_cce_gml(output, target):
+                assert(target.size() == output.size())
+                assert(target.dim() == 3)  # (num_samples, num_classes, num_scores)
+
+                loss = []
+                for cl_i, weight_i in enumerate(weight_coarse):
+                    loss_i = nn.CrossEntropyLoss(weight=torch.Tensor(weight_i))(output[:, cl_i, :], target[:, cl_i, :])
+                    loss_i = loss_i * pos_weight[cl_i]
+                    loss += [loss_i]
+                loss = torch.mean(torch.Tensor(loss), dtype=torch.float32)
+                loss = Variable(loss, requires_grad=True)
+                return loss
+
+            def check_multitask(output, target):
+                if not isinstance(output, dict) or \
+                        (isinstance(output, dict) and not list(output.keys()) == ['coarse_task', 'fine_task']):
+                    raise ValueError("Model output does not return a dictionary with keys ['coarse_task', 'fine_task']")
+                if not isinstance(target, dict) or \
+                        (isinstance(target, dict) and not list(target.keys()) == ['coarse_task', 'fine_task']):
+                    raise ValueError("Targeted task is not a list of 2 tasks. Please check 'label_type' in "
+                                     "config/param_training_task.json")
+
+            def loss_multitask(output, target):
+                check_multitask(output, target)
+                coef_coa = param_training['coef_coa']
+                loss_coa = get_one_loss_function(loss_str_i['coarse_task'])(output['coarse_task'], target['coarse_task'])
+                loss_fin = get_one_loss_function(loss_str_i['fine_task'])(output['fine_task'], target['fine_task'])
+                loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
+                loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
+                return loss
+
+
+            loss_fn_dict = {
+                'mae': nn.L1Loss(),
+                'mse': nn.MSELoss(),
+                'bce': nn.BCELoss(),
+                'cce': nn.CrossEntropyLoss(),
+                'wei_bce': nn.BCEWithLogitsLoss(pos_weight=pos_weight),
+                'wei_cce': nn.CrossEntropyLoss(weight=pos_weight),
+                'wei_bce_gml': wei_bce_gml,
+                'wei_cce_gml': wei_cce_gml,
+                'kl_div': nn.KLDivLoss(reduction='batchmean')
+            }
+
+        if type(loss_str_i) == dict:
+            return loss_multitask
+        elif loss_str_i.lower() in loss_fn_dict.keys():
+            loss_fn = loss_fn_dict[loss_str_i]
+            if loss_fn is not None:
+                return loss_fn
+            else:
+                lib_name = "TensorFlow" if is_tf else "PyTorch"
+                raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is not implemented yet"
+                                 "for {} library. Please choose among {}."
+                                 .format(loss_str_i, lib_name, possible_loss_fn))
+        else:
+            raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is invalid."
+                             " Please choose among {}.".format(loss_str_i, possible_loss_fn))
+
+    if type(label_type) == dict and param_training['bilevel_opt']:
+        return {'coarse_task': get_one_loss_function(loss_function_str['coarse_task']),
+                'fine_task': get_one_loss_function(loss_function_str['fine_task'])}
     else:
-        raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is invalid."
-                         " Please choose among {}.".format(loss_function_str, possible_loss_fn))
+        return get_one_loss_function(loss_function_str)
 
-
-def get_val_metrics(val_metrics_str, param_training, is_tf):
+def get_val_metrics(val_metrics_str, label_type, param_training, is_tf):
     """
     Get TensorFlow or PyTorch loss function from string.
 
     :param val_metrics_str: string
+    :param label_type: Type of labels used for model training and evaluation
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
     :return: TensorFlow or Pytorch validation metrics
     """
 
-    def zero_one_loss(output, target):
-        if is_tf:
-            import tensorflow as tf
-            target, output = output, target
-            num_diff = tf.math.count_nonzero(output - target, axis=-1)
-            loss = tf.where(tf.equal(num_diff, 0), 0, 1)
-            loss = tf.cast(loss, tf.float32)
-        else:
-            import torch
-            num_diff = torch.count_nonzero(output - target, dim=-1)
-            loss = (num_diff != 0).float()  # 0 if output == target, else 1
-            loss = torch.mean(loss, dtype=torch.float32)
-        return loss
+    def get_one_val_metric(val_str_i):
+        def zero_one_loss(output, target):
+            if is_tf:
+                import tensorflow as tf
+                target, output = output, target
+                num_diff = tf.math.count_nonzero(output - target, axis=-1)
+                loss = tf.where(tf.equal(num_diff, 0), 0, 1)
+                loss = tf.cast(loss, tf.float32)
+            else:
+                import torch
+                num_diff = torch.count_nonzero(output - target, dim=-1)
+                loss = (num_diff != 0).float()  # 0 if output == target, else 1
+                loss = torch.mean(loss, dtype=torch.float32)
+            return loss
 
-    def hamming_loss(output, target):
-        if is_tf:
-            import tensorflow as tf
-            target, output = output, target
-            num_diff = tf.math.count_nonzero(output - target, axis=-1)
-            loss = num_diff / target.shape[-1]
-            loss = tf.cast(loss, tf.float32)
-        else:
-            import torch
-            num_diff = torch.count_nonzero(output - target, dim=-1)
-            loss_batch = num_diff / target.shape[-1]
-            loss = torch.mean(loss_batch, dtype=torch.float32)
-            # num_diff = torch.count_nonzero(output - target)
-            # loss = num_diff / target.shape[-1]
-            # loss = loss / target.shape[0]  # Divide by the batch size
-        return loss
+        def hamming_loss(output, target):
+            if is_tf:
+                import tensorflow as tf
+                target, output = output, target
+                num_diff = tf.math.count_nonzero(output - target, axis=-1)
+                loss = num_diff / target.shape[-1]
+                loss = tf.cast(loss, tf.float32)
+            else:
+                import torch
+                num_diff = torch.count_nonzero(output - target, dim=-1)
+                loss_batch = num_diff / target.shape[-1]
+                loss = torch.mean(loss_batch, dtype=torch.float32)
+                # num_diff = torch.count_nonzero(output - target)
+                # loss = num_diff / target.shape[-1]
+                # loss = loss / target.shape[0]  # Divide by the batch size
+            return loss
 
-    def rank_loss_ml(output, target):  ## Works only for present and dominant classes
-        if is_tf:
-            import tensorflow as tf
-            target, output = tf.squeeze(output), tf.squeeze(target)
-            index_pos, index_neg = tf.where(target).numpy(), tf.where(tf.math.abs(1-target)).numpy()
-            # print("target:", tf.get_static_value(target))
-            # print("index_pos:", index_pos)
-            # print("index_neg:", index_neg)
-        else:
-            import torch
-            index_pos, index_neg = torch.nonzero(target).numpy(), torch.nonzero(torch.abs(target-1)).numpy()
-            # print("target:", target)
-            # print("index_pos:", index_pos)
-            # print("index_neg:", index_neg)
+        def rank_loss_ml(output, target):  ## Works only for present and dominant classes
+            if is_tf:
+                import tensorflow as tf
+                target, output = tf.squeeze(output), tf.squeeze(target)
+                index_pos, index_neg = tf.where(target).numpy(), tf.where(tf.math.abs(1-target)).numpy()
+                # print("target:", tf.get_static_value(target))
+                # print("index_pos:", index_pos)
+                # print("index_neg:", index_neg)
+            else:
+                import torch
+                index_pos, index_neg = torch.nonzero(target).numpy(), torch.nonzero(torch.abs(target-1)).numpy()
+                # print("target:", target)
+                # print("index_pos:", index_pos)
+                # print("index_neg:", index_neg)
 
-        loss = 0.
-        index_pos, index_neg = list(index_pos), list(index_neg)
-        # The following line checks if we did not miss any values
-        assert(len(index_pos) + len(index_neg) == target.shape[0]*target.shape[1])
+            loss = 0.
+            index_pos, index_neg = list(index_pos), list(index_neg)
+            # The following line checks if we did not miss any values
+            assert(len(index_pos) + len(index_neg) == target.shape[0]*target.shape[1])
 
-        if len(index_pos) * len(index_neg) != 0:
-            for i_pos_row, i_pos_col in index_pos:
-                for i_neg_row, i_neg_col in index_neg:
-                    output_pos = output[i_pos_row, i_pos_col]
-                    output_neg = output[i_neg_row, i_neg_col]
-                    if output_pos < output_neg:
-                        loss += 1.
-                    if output_pos == output_neg:
-                        loss += 0.5
-            loss = loss / (len(index_pos) * len(index_neg))
+            if len(index_pos) * len(index_neg) != 0:
+                for i_pos_row, i_pos_col in index_pos:
+                    for i_neg_row, i_neg_col in index_neg:
+                        output_pos = output[i_pos_row, i_pos_col]
+                        output_neg = output[i_neg_row, i_neg_col]
+                        if output_pos < output_neg:
+                            loss += 1.
+                        if output_pos == output_neg:
+                            loss += 0.5
+                loss = loss / (len(index_pos) * len(index_neg))
 
-        if is_tf:
-            import tensorflow as tf
-            loss = tf.cast(loss, tf.float32)
-        else:
-            import torch
-            loss = torch.tensor(loss, dtype=torch.float32)
-        return loss
+            if is_tf:
+                import tensorflow as tf
+                loss = tf.cast(loss, tf.float32)
+            else:
+                import torch
+                loss = torch.tensor(loss, dtype=torch.float32)
+            return loss
 
-    def rank_loss_gml(output, target):
-        scores = [0, 1/3, 2/3, 1]
+        def rank_loss_gml(output, target):
+            scores = [0, 1/3, 2/3, 1]
 
-        if is_tf:
-            import tensorflow as tf
-            target, output = tf.squeeze(output), tf.squeeze(target)
-            index_scores = [tf.where(tf.equal(target, sc)).numpy() for sc in scores]
+            if is_tf:
+                import tensorflow as tf
+                target, output = tf.squeeze(output), tf.squeeze(target)
+                index_scores = [tf.where(tf.equal(target, sc)).numpy() for sc in scores]
 
-        else:
-            import torch
-            index_scores = [torch.nonzero(target == sc).numpy() for sc in scores]
+            else:
+                import torch
+                index_scores = [torch.nonzero(target == sc).numpy() for sc in scores]
 
-        index_scores = [list(ind) for ind in index_scores]
-        # The following line checks if we did not miss any values
-        assert(np.sum([len(ind) for ind in index_scores]) == target.shape[0]*target.shape[1])
+            index_scores = [list(ind) for ind in index_scores]
+            # The following line checks if we did not miss any values
+            assert(np.sum([len(ind) for ind in index_scores]) == target.shape[0]*target.shape[1])
 
-        loss, total_values = 0., 0
-        for i in range(len(scores)-1):
-            for j in range(1, len(scores)):
-                if i < j:
-                    index_inf, index_sup = index_scores[i], index_scores[j]
-                    if len(index_inf) * len(index_sup) != 0:
-                        total_values += len(index_inf) * len(index_sup)
-                        for i_sup_row, i_sup_col in index_sup:
-                            for i_inf_row, i_inf_col in index_inf:
-                                output_sup = output[i_sup_row, i_sup_col]
-                                output_inf = output[i_inf_row, i_inf_col]
-                                if output_sup < output_inf:
-                                    loss += 1.
-                                if output_sup == output_inf:
-                                    loss += 0.5
-        loss = loss / total_values
+            loss, total_values = 0., 0
+            for i in range(len(scores)-1):
+                for j in range(1, len(scores)):
+                    if i < j:
+                        index_inf, index_sup = index_scores[i], index_scores[j]
+                        if len(index_inf) * len(index_sup) != 0:
+                            total_values += len(index_inf) * len(index_sup)
+                            for i_sup_row, i_sup_col in index_sup:
+                                for i_inf_row, i_inf_col in index_inf:
+                                    output_sup = output[i_sup_row, i_sup_col]
+                                    output_inf = output[i_inf_row, i_inf_col]
+                                    if output_sup < output_inf:
+                                        loss += 1.
+                                    if output_sup == output_inf:
+                                        loss += 0.5
+            loss = loss / total_values
 
-        if is_tf:
-            import tensorflow as tf
-            loss = tf.cast(loss, tf.float32)
-        else:
-            import torch
-            loss = torch.tensor(loss, dtype=torch.float32)
+            if is_tf:
+                import tensorflow as tf
+                loss = tf.cast(loss, tf.float32)
+            else:
+                import torch
+                loss = torch.tensor(loss, dtype=torch.float32)
 
-        return loss
+            return loss
 
-    val_metrics_dict = {
-        'zero_one_loss': zero_one_loss,
-        'hamming_loss': hamming_loss,
-        'rank_loss_ml': rank_loss_ml,
-        'rank_loss_gml': rank_loss_gml,
-        -1: None
-    }
+        val_metrics_dict = {
+            'zero_one_loss': zero_one_loss,
+            'hamming_loss': hamming_loss,
+            'rank_loss_ml': rank_loss_ml,
+            'rank_loss_gml': rank_loss_gml,
+            -1: None
+        }
 
-    # Add loss functions to val_metrics_dict
-    for loss_fn in possible_loss_fn:
-        val_metrics_dict[loss_fn] = get_loss_function(loss_fn, param_training, is_tf)
+        # Add loss functions to val_metrics_dict
+        for loss_fn in possible_loss_fn:
+            val_metrics_dict[loss_fn] = get_loss_function(loss_fn, label_type, param_training, is_tf)
 
-    if val_metrics_str != -1:
-        if val_metrics_str.lower() in val_metrics_dict.keys():
-            return val_metrics_dict[val_metrics_str]
-        else:
-            raise ValueError("'{}' assigned to key 'val_metrics' in 'param_training_task.json' is invalid."
-                             " Please choose among {}.".format(val_metrics_str, possible_val_metrics))
+        if val_str_i != -1:
+            if type(val_str_i) == dict:
+                return get_loss_function(val_str_i, label_type, param_training, is_tf)
+            elif val_str_i.lower() in val_metrics_dict.keys():
+                return val_metrics_dict[val_str_i]
+            else:
+                raise ValueError("'{}' assigned to key 'val_metrics' in 'param_training_task.json' is invalid."
+                                 " Please choose among {}.".format(val_str_i, possible_val_metrics))
+
+    if type(label_type) == dict and param_training['bilevel_opt']:
+        return {'coarse_task': get_one_val_metric(val_metrics_str['coarse_task']),
+                'fine_task': get_one_val_metric(val_metrics_str['fine_task'])}
+    else:
+        return get_one_val_metric(val_metrics_str)
 
 
-def get_optimizer(optimizer_str, learning_rate, is_tf, model=None):
+def get_optimizer(optimizer_str, learning_rate, is_tf, param_training, model=None):
     """
     Get TensorFlow or PyTorch optimizer from string.
 
     :param optimizer_str: string
     :param learning_rate: float
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model: a Model object from PyTorch. Let it None if is_tf is True
     :return: TensorFlow or Pytorch optimizer
     """
 
-    if is_tf:  # TensorFlow
-        from tensorflow.keras.optimizers import Adam, SGD, Adagrad, Adadelta, RMSprop
-        opt_dict = {
-            'adam': Adam(learning_rate=learning_rate),
-            'sgd': SGD(learning_rate=learning_rate),
-            'adagrad': Adagrad(learning_rate=learning_rate),
-            'adadelta': Adadelta(learning_rate=learning_rate),
-            'rmsprop': RMSprop(learning_rate=learning_rate)
-        }
+    def get_one_optimizer():
 
-    else:  # PyTorch
-        from torch import optim
-        opt_dict = {
-            'adam': optim.Adam(model.parameters(), lr=learning_rate),
-            'sgd': optim.SGD(model.parameters(), lr=learning_rate),
-            'adagrad': optim.Adagrad(model.parameters(), lr=learning_rate),
-            'adadelta': optim.Adadelta(model.parameters(), lr=learning_rate),
-            'rmsprop': optim.RMSprop(model.parameters(), lr=learning_rate)
-        }
+        if is_tf:  # TensorFlow
+            from tensorflow.keras.optimizers import Adam, SGD, Adagrad, Adadelta, RMSprop
+            opt_dict = {
+                'adam': Adam(learning_rate=learning_rate),
+                'sgd': SGD(learning_rate=learning_rate),
+                'adagrad': Adagrad(learning_rate=learning_rate),
+                'adadelta': Adadelta(learning_rate=learning_rate),
+                'rmsprop': RMSprop(learning_rate=learning_rate)
+            }
 
-    if optimizer_str.lower() in opt_dict.keys():
-        return opt_dict[optimizer_str]
+        else:  # PyTorch
+            from torch import optim
+            opt_dict = {
+                'adam': optim.Adam(model.parameters(), lr=learning_rate),
+                'sgd': optim.SGD(model.parameters(), lr=learning_rate),
+                'adagrad': optim.Adagrad(model.parameters(), lr=learning_rate),
+                'adadelta': optim.Adadelta(model.parameters(), lr=learning_rate),
+                'rmsprop': optim.RMSprop(model.parameters(), lr=learning_rate)
+            }
+
+        if optimizer_str.lower() in opt_dict.keys():
+            return opt_dict[optimizer_str]
+        else:
+            raise ValueError("'{}' assigned to key 'optimizer' in 'param_training_task.json' is invalid."
+                             " Please choose among {}.".format(optimizer_str, possible_optimizers))
+
+    if param_training['bilevel_opt']:
+        # For the moment we use the same optimizer for both tasks
+        return {'coarse_task': get_one_optimizer(), 'fine_task': get_one_optimizer()}
     else:
-        raise ValueError("'{}' assigned to key 'optimizer' in 'param_training_task.json' is invalid."
-                         " Please choose among {}.".format(optimizer_str, possible_optimizers))
+        return get_one_optimizer()
+
 
 
 def check_model_name_and_structure(hyperparam_dict, model_name, json_name):

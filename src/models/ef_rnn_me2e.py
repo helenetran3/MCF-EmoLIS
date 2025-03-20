@@ -30,7 +30,7 @@ class MModel(nn.Module):
         self.mods = 'tav'  # we use the three modalities here
 
         label_type = param_task['label_type']
-        self.label_type = create_label_multitask(label_type) if type(label_type) == list else label_type
+        self.label_type, _ = create_label_multitask(label_type) if type(label_type) == list else (label_type, None)
         self.multitask = type(self.label_type) == dict
 
         num_branches = 2 if self.multitask else 1

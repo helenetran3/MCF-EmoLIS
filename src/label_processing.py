@@ -22,10 +22,12 @@ def create_label_multitask(label_type):
         raise ValueError("The elements of the list 'label_type' should not be the same. "
                          "Please change in config/param_training_task.json.")
     if granularity_deg[label_0] > granularity_deg[label_1]:
+        granularity_order = {'coarse_task': 0, 'fine_task': 1}
         y_label = {'coarse_task': label_type[0], 'fine_task': label_type[1]}
     else:
+        granularity_order = {'coarse_task': 1, 'fine_task': 0}
         y_label = {'coarse_task': label_type[1], 'fine_task': label_type[0]}
-    return y_label
+    return y_label, granularity_order
 
 
 def shorten_label(label):

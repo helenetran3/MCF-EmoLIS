@@ -1,8 +1,8 @@
 {
   "task":
   {
-    "model_name": "mult",
-    "label_type": ["all", "present"],
+    "model_name": ["mfn", "mult"],
+    "label_type": "present",
     "set_length": 56,
     "thres_score_pres": 0,
     "predict_neutral_class": 0,
@@ -19,9 +19,10 @@
     "patience": 8,
     "batch_size": 32,
     "optimizer": "adam",
-    "loss_function": "wei_bce_mse_multitask",
-    "val_metrics": "wei_bce_mse_multitask",
-    "coef_coa": 0.2,
+    "loss_function": "wei_bce",
+    "val_metrics": "wei_bce",
+    "coef_coa": 0.6,
+    "bilevel_opt": 1,
     "thres_ml_from_best_metric": 1,
     "learning_rate": 5e-4,
     "cross_val_folds": 5,
