@@ -223,10 +223,10 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch:>3d}")
-        train_loss = 0.0
-        valid_loss = 0.0
-        train_monitor = 0.0
-        valid_monitor = 0.0
+        train_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
+        valid_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
+        train_monitor = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
+        valid_monitor = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
 
         # Model training on training data
         model.train()
@@ -245,7 +245,12 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         pred = model(x_text, x_image, x_audio)
                         batch_loss = loss_fn(pred, y_sample)
                         if val_metrics is not None:
-                            batch_monitor = val_metrics(pred, y_sample).item()
+                            if type(pred) == dict:
+                                batch_monitor = {}
+                                for task_i in ['coarse_task', 'fine_task']:
+                                    batch_monitor[task_i] = val_metrics[task_i](pred[task_i], y_sample[task_i]).item()
+                            else:
+                                batch_monitor = val_metrics(pred, y_sample).item()
                         # pred_train += pred.tolist()
                         # true_train += y_sample.tolist()
 
@@ -264,6 +269,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
                     if param_training['bilevel_opt']:
 
+                        num_steps_bilevel = param_training['num_steps_bilevel']
+
                         param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
                         # the following two lines remove the last layers of 'coarse' task architecture
                         # (these last layers start with 'out_' and contains '.0.')
@@ -275,23 +282,32 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         upper_opt = optimizer['coarse_task'](param_coarse, lr=learning_rate)
                         lower_opt = optimizer['fine_task'](param_fine, lr=learning_rate)
 
-                        for i in range(100):  # 100 and 10 iterations for heuristics
-                            for j in range(10):
-                                if (i, j) != (0, 0):
-                                    pred['fine_task'] = Variable(model(x_text, x_image, x_audio)['fine_task'], requires_grad=True)
-                                lower_opt.zero_grad()
-                                lower_batch_loss = loss_fn['fine_task'](pred['fine_task'], y['fine_task'])
-                                lower_batch_loss.backward()
-                                lower_opt.step()
-                                #print("[Fine, i:", i, ", j:", j, ", after step]\n pred:", pred['fine_task'][0], "\n y:", y['fine_task'][0])
+                        import time
+                        time0 = time.time()
+                        #for i in range(10):  # 100 and 10 iterations for heuristics
+                        for i in range(num_steps_bilevel):
+                            if i != 0:
+                                pred['fine_task'] = Variable(model(x_text, x_image, x_audio)['fine_task'], requires_grad=True)
+                            lower_opt.zero_grad()
+                            lower_batch_loss = loss_fn['fine_task'](pred['fine_task'], y['fine_task'])
+                            print("[i= ", i, "] lower_batch_loss:", lower_batch_loss.item())
+                            lower_batch_loss.backward()
+                            lower_opt.step()
+                            if lower_batch_loss.item() < 1e-4:  # Stop if loss is small enough
+                                break
+                            #print("[Fine, i:", i, ", j:", j, ", after step]\n pred:", pred['fine_task'][0], "\n y:", y['fine_task'][0])
 
-                            pred['fine_task'] = pred['fine_task'].detach()
-                            pred['coarse_task'] = Variable(model(x_text, x_image, x_audio)['coarse_task'], requires_grad=True)
-                            upper_opt.zero_grad()
-                            upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred['coarse_task']*pred['fine_task']), y['coarse_task'])
-                            upper_batch_loss.backward()
-                            upper_opt.step()
-                            #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred:", pred['coarse_task'][0], "\n y:", y['coarse_task'][0], "\n\n")
+                        pred['fine_task'] = pred['fine_task'].detach()
+                        pred['coarse_task'] = Variable(model(x_text, x_image, x_audio)['coarse_task'], requires_grad=True)
+                        upper_opt.zero_grad()
+                        upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred['coarse_task']*pred['fine_task']), y['coarse_task'])
+                        upper_batch_loss.backward()
+                        upper_opt.step()
+                        #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred:", pred['coarse_task'][0], "\n y:", y['coarse_task'][0], "\n\n")
+                        batch_loss = {'fine_task': lower_batch_loss.item(), 'coarse_task': upper_batch_loss.item()}
+                        time1 = time.time()
+                        print("Time for bilevel opt:", time1 - time0, " seconds.")
+
                     else:
                         optimizer.zero_grad()
                         batch_loss = loss_fn(pred, y)
@@ -299,14 +315,16 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
                         batch_loss.backward()
                         optimizer.step()
-
+                        batch_loss = batch_loss.item()
 
                     if val_metrics is not None:
-                        print("val_metrics:", val_metrics)
-                        batch_monitor = val_metrics(pred, y).item()
+                        if type(pred) == dict:
+                            batch_monitor = {}
+                            for task_i in ['coarse_task', 'fine_task']:
+                                batch_monitor[task_i] = val_metrics[task_i](pred[task_i], y[task_i]).item()
+                        else:
+                            batch_monitor = val_metrics(pred, y).item()
 
-
-                batch_loss = batch_loss.item()
                 current = batch_id * batch_size + len(X)
                 # batch_loss_current = batch_loss / len(X)
                 # batch_monitor_current = batch_monitor / len(X)
@@ -316,20 +334,37 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         (batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations - 1):
                     # # Log the current batch loss in Tensorboard
                     # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
-                    writer.add_scalar("Training loss (per batch)", batch_loss, epoch * train_size + batch_id)
+                    # writer.add_scalar("Training loss (per batch)", batch_loss, epoch * train_size + batch_id)
                     # Print every 10 batch losses on the terminal
-                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f}",
-                          f"- {val_metrics_str}: {batch_monitor:>7f}" if val_metrics is not None else "",
+                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f}" if type(batch_loss) != dict else
+                          f"{loss_function_str['coarse_task']} (coarse): {batch_loss['coarse_task']:>7f}, "
+                          f"{loss_function_str['fine_task']} (fine): {batch_loss['fine_task']:>7f}",
+                          f" - {val_metrics_str}: {batch_monitor:>7f}" if type(batch_monitor) != dict else
+                          f" - {val_metrics_str['coarse_task']} (coarse): {batch_monitor['coarse_task']:>7f}, "
+                          f" - {val_metrics_str['fine_task']} (fine): {batch_monitor['fine_task']:>7f}"
+                          if val_metrics is not None else "",
                           f"[{current:>5d}/{train_size:>5d}]")
 
-                train_loss += batch_loss
-                if val_metrics is not None:
-                    train_monitor += batch_monitor
+                if type(label_type) == dict:
+                    for task_i in ['coarse_task', 'fine_task']:
+                        train_loss[task_i] += batch_loss[task_i]
+                        if val_metrics is not None:
+                            train_monitor[task_i] += batch_monitor[task_i]
+                else:
+                    train_loss += batch_loss
+                    if val_metrics is not None:
+                        train_monitor += batch_monitor
                 bar()
 
-        train_loss /= num_iterations
-        if val_metrics is not None:
-            train_monitor /= num_iterations
+        if type(label_type) == dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                train_loss[task_i] /= num_iterations
+                if val_metrics is not None:
+                    train_monitor[task_i] /= num_iterations
+        else:
+            train_loss /= num_iterations
+            if val_metrics is not None:
+                train_monitor /= num_iterations
 
         # # Compute best threshold per emotion for multilabel classification according to F1 score
         # if param_training['thres_ml_from_best_metric'] or val_metrics is None:
@@ -355,16 +390,19 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_text = x_text.bfloat16()
                             x_audio = x_audio.bfloat16()
                             x_image = x_image.bfloat16()
+
                         pred = model(x_text, x_audio, x_image)
-                        valid_loss += loss_fn(pred, y_sample).item()
-                        if val_metrics is not None:
-                            valid_monitor += val_metrics(pred, y_sample).item()
                         if type(label_type) == dict:
-                            pred_valid['coarse_task'] += pred['coarse_task'].tolist()
-                            pred_valid['fine_task'] += pred['fine_task'].tolist()
-                            true_valid['coarse_task'] += y_sample['coarse_task'].tolist()
-                            true_valid['fine_task'] += y_sample['fine_task'].tolist()
+                            for task_i in ['coarse_task', 'fine_task']:
+                                valid_loss[task_i] += loss_fn[task_i](pred[task_i], y_sample[task_i]).item()
+                                if val_metrics is not None:
+                                    valid_monitor[task_i] += val_metrics[task_i](pred[task_i], y_sample[task_i]).item()
+                                pred_valid[task_i] += pred[task_i].tolist()
+                                true_valid[task_i] += y_sample[task_i].tolist()
                         else:
+                            valid_loss += loss_fn(pred, y_sample).item()
+                            if val_metrics is not None:
+                                valid_monitor += val_metrics(pred, y_sample).item()
                             pred_valid += pred.tolist()
                             true_valid += y_sample.tolist()
 
@@ -379,16 +417,19 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             y[task_i] = y[task_i].float()
                     else:
                         y = y.float()
+
                     pred = model(x_text, x_audio, x_image)
-                    valid_loss += loss_fn(pred, y).item()
-                    if val_metrics is not None:
-                        valid_monitor += val_metrics(pred, y).item()
                     if type(label_type) == dict:
-                        pred_valid['coarse_task'] += pred['coarse_task'].tolist()
-                        pred_valid['fine_task'] += pred['fine_task'].tolist()
-                        true_valid['coarse_task'] += y['coarse_task'].tolist()
-                        true_valid['fine_task'] += y['fine_task'].tolist()
+                        for task_i in ['coarse_task', 'fine_task']:
+                            valid_loss[task_i] += loss_fn[task_i](pred[task_i], y[task_i]).item()
+                            if val_metrics is not None:
+                                valid_monitor[task_i] += val_metrics[task_i](pred[task_i], y[task_i]).item()
+                            pred_valid[task_i] += pred[task_i].tolist()
+                            true_valid[task_i] += y[task_i].tolist()
                     else:
+                        valid_loss += loss_fn(pred, y).item()
+                        if val_metrics is not None:
+                            valid_monitor += val_metrics(pred, y).item()
                         pred_valid += pred.tolist()
                         true_valid += y.tolist()
 
@@ -396,9 +437,16 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 # if idx % 100 == 0 or idx == valid_size-1:
                 #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
                 #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
-        valid_loss /= valid_size
-        if val_metrics is not None:
-            valid_monitor /= valid_size
+
+        if type(label_type) == dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                valid_loss[task_i] /= valid_size
+                if val_metrics is not None:
+                    valid_monitor[task_i] /= valid_size
+        else:
+            valid_loss /= valid_size
+            if val_metrics is not None:
+                valid_monitor /= valid_size
 
         # Compute best threshold per emotion for multilabel classification according to F1 score
         if type(label_type) == str:
