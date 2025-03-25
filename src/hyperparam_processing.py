@@ -313,12 +313,11 @@ def get_val_metrics(val_metrics_str, label_type, param_training, is_tf):
     return get_one_val_metric(val_metrics_str)
 
 
-def get_optimizer(optimizer_str, learning_rate, is_tf, param_training, model=None):
+def get_optimizer(optimizer_str, is_tf, param_training):
     """
     Get TensorFlow or PyTorch optimizer from string.
 
     :param optimizer_str: string
-    :param learning_rate: float
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param model: a Model object from PyTorch. Let it None if is_tf is True
@@ -330,21 +329,21 @@ def get_optimizer(optimizer_str, learning_rate, is_tf, param_training, model=Non
         if is_tf:  # TensorFlow
             from tensorflow.keras.optimizers import Adam, SGD, Adagrad, Adadelta, RMSprop
             opt_dict = {
-                'adam': Adam(learning_rate=learning_rate),
-                'sgd': SGD(learning_rate=learning_rate),
-                'adagrad': Adagrad(learning_rate=learning_rate),
-                'adadelta': Adadelta(learning_rate=learning_rate),
-                'rmsprop': RMSprop(learning_rate=learning_rate)
+                'adam': Adam,
+                'sgd': SGD,
+                'adagrad': Adagrad,
+                'adadelta': Adadelta,
+                'rmsprop': RMSprop
             }
 
         else:  # PyTorch
             from torch import optim
             opt_dict = {
-                'adam': optim.Adam(model.parameters(), lr=learning_rate),
-                'sgd': optim.SGD(model.parameters(), lr=learning_rate),
-                'adagrad': optim.Adagrad(model.parameters(), lr=learning_rate),
-                'adadelta': optim.Adadelta(model.parameters(), lr=learning_rate),
-                'rmsprop': optim.RMSprop(model.parameters(), lr=learning_rate)
+                'adam': optim.Adam,
+                'sgd': optim.SGD,
+                'adagrad': optim.Adagrad,
+                'adadelta': optim.Adadelta,
+                'rmsprop': optim.RMSprop
             }
 
         if optimizer_str.lower() in opt_dict.keys():

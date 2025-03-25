@@ -5,10 +5,13 @@ from src.pickle_functions import save_with_pickle
 from src.model_metrics import compute_best_thres_for_monitor_metric
 
 import os
+import re
 import torch
 from torch.utils.data import DataLoader
 from torchinfo import summary
+from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim import Adam
 # from torchviz import make_dot
 # import subprocess
 from torch.utils.tensorboard import SummaryWriter
@@ -200,7 +203,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     # Optimizing the model parameters
     loss_fn = get_loss_function(loss_function_str, label_type, param_training, is_tf=False)
     val_metrics = get_val_metrics(val_metrics_str, label_type, param_training, is_tf=False)
-    optimizer = get_optimizer(optimizer_name, learning_rate, is_tf=False, param_training=param_training, model=model)
+    optimizer = get_optimizer(optimizer_name, is_tf=False, param_training=param_training)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
@@ -260,17 +263,35 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         y = y.float()
 
                     if param_training['bilevel_opt']:
-                        for _ in range(100):  # 100 and 10 iterations for heuristics
-                            for _ in range(10):
-                                optimizer['fine_task'].zero_grad()
+
+                        param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
+                        # the following two lines remove the last layers of 'coarse' task architecture
+                        # (these last layers start with 'out_' and contains '.0.')
+                        regex_coa_final = re.compile(r'out_.*\.0\..*')
+                        param_coa_for_fine = [param for name, param in model.named_parameters()
+                                              if ('.0.' in name and not regex_coa_final.search(name))]
+                        param_fine = param_coa_for_fine + [param for name, param in model.named_parameters()
+                                                           if '.1.' in name]
+                        upper_opt = optimizer['coarse_task'](param_coarse, lr=learning_rate)
+                        lower_opt = optimizer['fine_task'](param_fine, lr=learning_rate)
+
+                        for i in range(100):  # 100 and 10 iterations for heuristics
+                            for j in range(10):
+                                if (i, j) != (0, 0):
+                                    pred['fine_task'] = Variable(model(x_text, x_image, x_audio)['fine_task'], requires_grad=True)
+                                lower_opt.zero_grad()
                                 lower_batch_loss = loss_fn['fine_task'](pred['fine_task'], y['fine_task'])
                                 lower_batch_loss.backward()
-                                optimizer['fine_task'].step()
+                                lower_opt.step()
+                                #print("[Fine, i:", i, ", j:", j, ", after step]\n pred:", pred['fine_task'][0], "\n y:", y['fine_task'][0])
 
-                            optimizer['coarse_task'].zero_grad()
-                            lower_batch_loss = loss_fn['coarse_task'](pred['coarse_task'], y['coarse_task'])
-                            lower_batch_loss.backward()
-                            optimizer['coarse_task'].step()
+                            pred['fine_task'] = pred['fine_task'].detach()
+                            pred['coarse_task'] = Variable(model(x_text, x_image, x_audio)['coarse_task'], requires_grad=True)
+                            upper_opt.zero_grad()
+                            upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred['coarse_task']*pred['fine_task']), y['coarse_task'])
+                            upper_batch_loss.backward()
+                            upper_opt.step()
+                            #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred:", pred['coarse_task'][0], "\n y:", y['coarse_task'][0], "\n\n")
                     else:
                         optimizer.zero_grad()
                         batch_loss = loss_fn(pred, y)
@@ -281,6 +302,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
 
                     if val_metrics is not None:
+                        print("val_metrics:", val_metrics)
                         batch_monitor = val_metrics(pred, y).item()
 
 

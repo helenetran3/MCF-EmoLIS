@@ -107,7 +107,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     num_features_audio = x_train[0][2].shape[1]
     loss_function = get_loss_function(loss_function_str, label_type, param_training, is_tf=True)
     val_metrics = get_val_metrics(val_metrics_str, label_type, param_training, is_tf=True)
-    optimizer_tf = get_optimizer(optimizer_name, learning_rate, is_tf=True, param_training=param_training)
+    optimizer_tf = get_optimizer(optimizer_name, is_tf=True, param_training=param_training)
     model_module = get_model_module(model_name, is_tf=True)
     model_class = model_module.MModel(model_id, param_model, num_features_text, num_features_image, num_features_audio,
                                       num_steps, num_classes)
@@ -119,7 +119,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     model_tf.compile(loss=loss_function,
                      metrics=val_metrics,
-                     optimizer=optimizer_tf, run_eagerly=True)
+                     optimizer=optimizer_tf(learning_rate=learning_rate), run_eagerly=True)
 
     history = model_tf.fit(x=train_dataset,
                            epochs=num_epochs,
