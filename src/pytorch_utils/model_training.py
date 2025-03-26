@@ -1,6 +1,6 @@
 from src.pytorch_utils.dataset_loader import DatasetTorch, collate_fn_for_variable_length
 from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics, get_optimizer
-from src.print_functions import print_training_parameters
+from src.print_functions import print_training_parameters, print_training_progress, print_summary_training_epoch
 from src.pickle_functions import save_with_pickle
 from src.model_metrics import compute_best_thres_for_monitor_metric
 
@@ -217,6 +217,107 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     history_train_monitor = []
     history_valid_monitor = []
 
+    def backprop_batch_loss(pred_batch, y_batch):
+
+        def perform_bilevel_opt():
+
+            num_steps_bilevel = param_training['num_steps_bilevel']
+
+            param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
+            # the following two lines remove the last layers of 'coarse' task architecture
+            # (these last layers start with 'out_' and contains '.0.')
+            regex_coa_final = re.compile(r'out_.*\.0\..*')
+            param_coa_for_fine = [param for name, param in model.named_parameters()
+                                  if ('.0.' in name and not regex_coa_final.search(name))]
+            param_fine = param_coa_for_fine + [param for name, param in model.named_parameters()
+                                               if '.1.' in name]
+            upper_opt = optimizer['coarse_task'](param_coarse, lr=learning_rate)
+            lower_opt = optimizer['fine_task'](param_fine, lr=learning_rate)
+
+            import time
+            time0 = time.time()
+            #for i in range(10):  # 100 and 10 iterations for heuristics
+            for i in range(num_steps_bilevel):
+                if i != 0:
+                    pred['fine_task'] = Variable(model(x_text, x_image, x_audio)['fine_task'], requires_grad=True)
+                lower_opt.zero_grad()
+                lower_batch_loss = loss_fn['fine_task'](pred_batch['fine_task'], y_batch['fine_task'])
+                print("[i= ", i, "] lower_batch_loss:", lower_batch_loss.item())
+                if param_training["clip"] != -1:
+                    torch.nn.utils.clip_grad_norm_(param_fine, param_training["clip"])
+                lower_batch_loss.backward()
+                lower_opt.step()
+                if lower_batch_loss.item() < 1e-4:  # Stop if loss is small enough
+                    break
+                #print("[Fine, i:", i, ", j:", j, ", after step]\n pred_batch:", pred_batch['fine_task'][0], "\n y_batch:", y_batch['fine_task'][0])
+
+            pred_batch['fine_task'] = pred_batch['fine_task'].detach()
+            pred_batch['coarse_task'] = Variable(model(x_text, x_image, x_audio)['coarse_task'], requires_grad=True)
+            upper_opt.zero_grad()
+            upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_batch['coarse_task']*pred_batch['fine_task']), y_batch['coarse_task'])
+            if param_training["clip"] != -1:
+                torch.nn.utils.clip_grad_norm_(param_coarse, param_training["clip"])
+            upper_batch_loss.backward()
+            upper_opt.step()
+            #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred_batch:", pred_batch['coarse_task'][0], "\n y_batch:", y_batch['coarse_task'][0], "\n\n")
+            batch_loss = {'fine_task': lower_batch_loss.item(), 'coarse_task': upper_batch_loss.item()}
+            time1 = time.time()
+            print("Time for bilevel opt:", time1 - time0, " seconds.")
+
+            return batch_loss
+
+        if param_training['bilevel_opt']:
+            batch_loss = perform_bilevel_opt()
+        else:
+            optimizer.zero_grad()
+            batch_loss = loss_fn(pred_batch, y_batch)
+            if param_training["clip"] != -1:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
+            batch_loss.backward()
+            optimizer.step()
+            batch_loss = batch_loss.item()
+
+        return batch_loss
+
+
+    def compute_batch_monitor(pred_batch, y_batch):
+        if type(label_type) == dict:
+            batch_monitor = {}
+            for task_i in ['coarse_task', 'fine_task']:
+                batch_monitor[task_i] = val_metrics[task_i](pred_batch[task_i], y_batch[task_i]).item()
+        else:
+            batch_monitor = val_metrics(pred_batch, y_batch).item()
+        return batch_monitor
+
+
+    def add_to_train_loss_and_monitor(train_loss_i, train_monitor_i, batch_loss_i, batch_monitor_i):
+        if type(label_type) == dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                train_loss_i[task_i] += batch_loss_i[task_i]
+                if val_metrics is not None:
+                    train_monitor_i[task_i] += batch_monitor_i[task_i]
+        else:
+            train_loss_i += batch_loss_i
+            if val_metrics is not None:
+                train_monitor_i += batch_monitor_i
+
+        return train_loss_i, train_monitor_i
+
+
+    def divide_train_loss_and_monitor(train_loss_i, train_monitor_i, num_iter):
+        if type(label_type) == dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                train_loss_i[task_i] /= num_iter
+                if val_metrics is not None:
+                    train_monitor_i[task_i] /= num_iter
+        else:
+            train_loss_i /= num_iter
+            if val_metrics is not None:
+                train_monitor_i /= num_iter
+
+        return train_loss_i, train_monitor_i
+
+
     fold_text = ": Fold {}".format(fold_id) if with_cross_valid else ""
     print("================================= Model Training{} =============================================\n"
           .format(fold_text))
@@ -232,7 +333,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         model.train()
         num_iterations = train_size // batch_size if train_size % batch_size == 0 else train_size // batch_size + 1
         with alive_bar(num_iterations, title='Model training') as bar:
-            # pred_train, true_train = [], []
             for batch_id, (X, y) in enumerate(train_dataloader):
 
                 if num_steps is None:  # Varying sequence length
@@ -242,17 +342,12 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_text = x_text.bfloat16()
                             x_image = x_image.bfloat16()
                             x_audio = x_audio.bfloat16()
+
+                        # Prediction and compute training metrics
                         pred = model(x_text, x_image, x_audio)
-                        batch_loss = loss_fn(pred, y_sample)
+                        batch_loss = backprop_batch_loss(pred, y_sample)
                         if val_metrics is not None:
-                            if type(pred) == dict:
-                                batch_monitor = {}
-                                for task_i in ['coarse_task', 'fine_task']:
-                                    batch_monitor[task_i] = val_metrics[task_i](pred[task_i], y_sample[task_i]).item()
-                            else:
-                                batch_monitor = val_metrics(pred, y_sample).item()
-                        # pred_train += pred.tolist()
-                        # true_train += y_sample.tolist()
+                            batch_monitor = compute_batch_monitor(pred, y_sample)
 
                 else:  # Fixed sequence length
                     x_text, x_image, x_audio = X
@@ -260,111 +355,32 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         x_text = x_text.float()
                         x_image = x_image.float()
                         x_audio = x_audio.float()
-                    pred = model(x_text, x_image, x_audio)
                     if type(y) == dict:
                         for task_i in ['coarse_task', 'fine_task']:
                             y[task_i] = y[task_i].float()
                     else:
                         y = y.float()
 
-                    if param_training['bilevel_opt']:
-
-                        num_steps_bilevel = param_training['num_steps_bilevel']
-
-                        param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
-                        # the following two lines remove the last layers of 'coarse' task architecture
-                        # (these last layers start with 'out_' and contains '.0.')
-                        regex_coa_final = re.compile(r'out_.*\.0\..*')
-                        param_coa_for_fine = [param for name, param in model.named_parameters()
-                                              if ('.0.' in name and not regex_coa_final.search(name))]
-                        param_fine = param_coa_for_fine + [param for name, param in model.named_parameters()
-                                                           if '.1.' in name]
-                        upper_opt = optimizer['coarse_task'](param_coarse, lr=learning_rate)
-                        lower_opt = optimizer['fine_task'](param_fine, lr=learning_rate)
-
-                        import time
-                        time0 = time.time()
-                        #for i in range(10):  # 100 and 10 iterations for heuristics
-                        for i in range(num_steps_bilevel):
-                            if i != 0:
-                                pred['fine_task'] = Variable(model(x_text, x_image, x_audio)['fine_task'], requires_grad=True)
-                            lower_opt.zero_grad()
-                            lower_batch_loss = loss_fn['fine_task'](pred['fine_task'], y['fine_task'])
-                            print("[i= ", i, "] lower_batch_loss:", lower_batch_loss.item())
-                            lower_batch_loss.backward()
-                            lower_opt.step()
-                            if lower_batch_loss.item() < 1e-4:  # Stop if loss is small enough
-                                break
-                            #print("[Fine, i:", i, ", j:", j, ", after step]\n pred:", pred['fine_task'][0], "\n y:", y['fine_task'][0])
-
-                        pred['fine_task'] = pred['fine_task'].detach()
-                        pred['coarse_task'] = Variable(model(x_text, x_image, x_audio)['coarse_task'], requires_grad=True)
-                        upper_opt.zero_grad()
-                        upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred['coarse_task']*pred['fine_task']), y['coarse_task'])
-                        upper_batch_loss.backward()
-                        upper_opt.step()
-                        #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred:", pred['coarse_task'][0], "\n y:", y['coarse_task'][0], "\n\n")
-                        batch_loss = {'fine_task': lower_batch_loss.item(), 'coarse_task': upper_batch_loss.item()}
-                        time1 = time.time()
-                        print("Time for bilevel opt:", time1 - time0, " seconds.")
-
-                    else:
-                        optimizer.zero_grad()
-                        batch_loss = loss_fn(pred, y)
-                        if param_training["clip"] != -1:
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
-                        batch_loss.backward()
-                        optimizer.step()
-                        batch_loss = batch_loss.item()
-
+                    # Prediction and compute training metrics
+                    pred = model(x_text, x_image, x_audio)
+                    batch_loss = backprop_batch_loss(pred, y)
                     if val_metrics is not None:
-                        if type(pred) == dict:
-                            batch_monitor = {}
-                            for task_i in ['coarse_task', 'fine_task']:
-                                batch_monitor[task_i] = val_metrics[task_i](pred[task_i], y[task_i]).item()
-                        else:
-                            batch_monitor = val_metrics(pred, y).item()
+                        batch_monitor = compute_batch_monitor(pred, y)
 
-                current = batch_id * batch_size + len(X)
-                # batch_loss_current = batch_loss / len(X)
-                # batch_monitor_current = batch_monitor / len(X)
-
-                # if batch_id % 10 == 0 or batch_id == num_iterations-1:
                 if (num_training_prints > 0) and \
                         (batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations - 1):
                     # # Log the current batch loss in Tensorboard
-                    # writer.add_scalar("Training loss (per batch)", batch_loss_current, epoch + batch_id/num_iterations)
                     # writer.add_scalar("Training loss (per batch)", batch_loss, epoch * train_size + batch_id)
-                    # Print every 10 batch losses on the terminal
-                    print(f"[Batch] {loss_function_str}: {batch_loss:>7f}" if type(batch_loss) != dict else
-                          f"{loss_function_str['coarse_task']} (coarse): {batch_loss['coarse_task']:>7f}, "
-                          f"{loss_function_str['fine_task']} (fine): {batch_loss['fine_task']:>7f}",
-                          f" - {val_metrics_str}: {batch_monitor:>7f}" if type(batch_monitor) != dict else
-                          f" - {val_metrics_str['coarse_task']} (coarse): {batch_monitor['coarse_task']:>7f}, "
-                          f" - {val_metrics_str['fine_task']} (fine): {batch_monitor['fine_task']:>7f}"
-                          if val_metrics is not None else "",
-                          f"[{current:>5d}/{train_size:>5d}]")
+                    # Print num_iterations batch losses on the terminal
+                    current = batch_id * batch_size + len(X)
+                    print_training_progress(loss_function_str, batch_loss, val_metrics, val_metrics_str, batch_monitor,
+                                            current, train_size)
 
-                if type(label_type) == dict:
-                    for task_i in ['coarse_task', 'fine_task']:
-                        train_loss[task_i] += batch_loss[task_i]
-                        if val_metrics is not None:
-                            train_monitor[task_i] += batch_monitor[task_i]
-                else:
-                    train_loss += batch_loss
-                    if val_metrics is not None:
-                        train_monitor += batch_monitor
+                train_loss, train_monitor = add_to_train_loss_and_monitor(train_loss, train_monitor,
+                                                                          batch_loss, batch_monitor)
                 bar()
 
-        if type(label_type) == dict:
-            for task_i in ['coarse_task', 'fine_task']:
-                train_loss[task_i] /= num_iterations
-                if val_metrics is not None:
-                    train_monitor[task_i] /= num_iterations
-        else:
-            train_loss /= num_iterations
-            if val_metrics is not None:
-                train_monitor /= num_iterations
+        train_loss, train_monitor = divide_train_loss_and_monitor(train_loss, train_monitor, num_iterations)
 
         # # Compute best threshold per emotion for multilabel classification according to F1 score
         # if param_training['thres_ml_from_best_metric'] or val_metrics is None:
@@ -491,48 +507,20 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         #     writer.add_scalar("Training to monitor - {}".format(emotions[cl_i]), train_monitor_all[cl_i], epoch)
         #     writer.add_scalar("Validation to monitor - {}".format(emotions[cl_i]), valid_monitor_all[cl_i], epoch)
 
-        # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
-        writer.add_scalar("Training loss", train_loss, epoch)
-        writer.add_scalar("Validation loss", valid_loss, epoch)
-        if val_metrics is not None:
-            writer.add_scalar("Training to monitor", train_monitor, epoch)
-            writer.add_scalar("Validation to monitor", valid_monitor, epoch)
+        # # Log training and validation losses to Tensorboard  ##TODO Verify if the graphs are correct
+        # writer.add_scalar("Training loss", train_loss, epoch)
+        # writer.add_scalar("Validation loss", valid_loss, epoch)
+        # if val_metrics is not None:
+        #     writer.add_scalar("Training to monitor", train_monitor, epoch)
+        #     writer.add_scalar("Validation to monitor", valid_monitor, epoch)
 
         # Reduce learning rate when valid_monitor stops improving
         if param_training["when"] != -1:
             scheduler.step(valid_monitor)
 
-        print("-------------------------------------------------------------------------------------------------------")
-        print(f"Epoch {epoch:>3d} - Avg train {loss_function_str}: {train_loss:>5f}")
-        print(f"          - Avg valid {loss_function_str}: {valid_loss:>5f}")
-        if val_metrics is None:
-            # print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")
-            print(f"          - Avg valid F1 score: {valid_monitor_avg}")
-            if type(label_type) == dict:
-                for task_i in ['coarse_task', 'fine_task']:
-                    print(f"          - Avg valid F1 score per emo - {label_type[task_i]}: "
-                          f"{valid_monitor_per_emo_i[task_i]}")
-            else:
-                print(f"          - Avg valid F1 score per emo: {valid_monitor_per_emo}")
-        else:
-            print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
-            print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
-        if valid_thres_ml_per_emo is not None:
-            # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
-            print(f"          - Threshold valid per emo (according to F1 score): ", end="")
-            if type(label_type) == dict:
-                for v_id, (k, v) in enumerate(valid_thres_ml_per_emo.items()):
-                    if v_id == 0:
-                        print("{", end="")
-                    print(label_type[k], end="")
-                    print(":", v, end="")
-                    if v_id == len(valid_thres_ml_per_emo.keys()) - 1:
-                        print("}")
-                    else:
-                        print(", ", end="")
-            else:
-                print(valid_thres_ml_per_emo)
-        print("-------------------------------------------------------------------------------------------------------")
+        print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_loss, val_metrics, val_metrics_str,
+                                     valid_thres_ml_per_emo, train_monitor, valid_monitor, valid_monitor_avg,
+                                     valid_monitor_per_emo, valid_monitor_per_emo_i, label_type)
 
         # Display and save history plot
         history_train += [train_loss]

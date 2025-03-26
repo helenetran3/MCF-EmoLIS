@@ -88,6 +88,54 @@ def print_training_parameters(train_list, valid_list, test_list, with_cross_vali
     #             dtypes=[torch.bfloat16, torch.bfloat16, torch.bfloat16])
 
 
+def print_training_progress(loss_function_str, batch_loss, val_metrics, val_metrics_str, batch_monitor,
+                            current, train_size):
+    print(f"[Batch] {loss_function_str}: {batch_loss:>7f}" if type(batch_loss) != dict else
+          f"{loss_function_str['coarse_task']} (coarse): {batch_loss['coarse_task']:>7f}, "
+          f"{loss_function_str['fine_task']} (fine): {batch_loss['fine_task']:>7f}",
+          f" - {val_metrics_str}: {batch_monitor:>7f}" if type(batch_monitor) != dict else
+          f" - {val_metrics_str['coarse_task']} (coarse): {batch_monitor['coarse_task']:>7f}, "
+          f" - {val_metrics_str['fine_task']} (fine): {batch_monitor['fine_task']:>7f}"
+          if val_metrics is not None else "",
+          f"[{current:>5d}/{train_size:>5d}]")
+
+
+def print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_loss, val_metrics, val_metrics_str,
+                                 valid_thres_ml_per_emo, train_monitor, valid_monitor, valid_monitor_avg,
+                                 valid_monitor_per_emo, valid_monitor_per_emo_i, label_type):
+    print("-------------------------------------------------------------------------------------------------------")
+    print(f"Epoch {epoch:>3d} - Avg train {loss_function_str}: {train_loss:>5f}")
+    print(f"          - Avg valid {loss_function_str}: {valid_loss:>5f}")
+    if val_metrics is None:
+        # print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")
+        print(f"          - Avg valid F1 score: {valid_monitor_avg}")
+        if type(label_type) == dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                print(f"          - Avg valid F1 score per emo - {label_type[task_i]}: "
+                      f"{valid_monitor_per_emo_i[task_i]}")
+        else:
+            print(f"          - Avg valid F1 score per emo: {valid_monitor_per_emo}")
+    else:
+        print(f"          - Avg train {val_metrics_str}: {train_monitor:>5f}")
+        print(f"          - Avg valid {val_metrics_str}: {valid_monitor:>5f}")
+    if valid_thres_ml_per_emo is not None:
+        # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
+        print(f"          - Threshold valid per emo (according to F1 score): ", end="")
+        if type(label_type) == dict:
+            for v_id, (k, v) in enumerate(valid_thres_ml_per_emo.items()):
+                if v_id == 0:
+                    print("{", end="")
+                print(label_type[k], end="")
+                print(":", v, end="")
+                if v_id == len(valid_thres_ml_per_emo.keys()) - 1:
+                    print("}")
+                else:
+                    print(", ", end="")
+        else:
+            print(valid_thres_ml_per_emo)
+    print("-------------------------------------------------------------------------------------------------------")
+
+
 def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label_type, num_classes,
                                     thres_score_pres, decimals):
     print("\n======================== Mean and std of folds ========================\n")
