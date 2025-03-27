@@ -163,6 +163,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     one_hot = ("oh" in label_type) if type(label_type) != dict else \
         {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
+    label_type_is_dict = (type(label_type) == dict)
+    do_bilevel_opt = param_training['bilevel_opt']
 
     # Writer for Tensorboard
     writer_path = os.path.join('runs', model_name, 'model_{}'.format(ext_model_name))
@@ -175,7 +177,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     y_valid = valid_list[1]
     seg_valid = valid_list[2]
     # In the following, predict neutral class is already inferred from label preprocessing
-    if type(label_type) == dict:
+    if label_type_is_dict:
         num_classes = y_train['fine_task'][0].shape[1] if not one_hot['fine_task'] else y_train['fine_task'][0].shape[0]
     else:
         num_classes = y_train[0].shape[1] if not one_hot else y_train[0].shape[0]
@@ -266,7 +268,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
             return batch_loss
 
-        if param_training['bilevel_opt']:
+        if do_bilevel_opt:
             batch_loss = perform_bilevel_opt()
         else:
             optimizer.zero_grad()
@@ -281,39 +283,30 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
 
     def compute_batch_monitor(pred_batch, y_batch):
-        if type(label_type) == dict:
-            batch_monitor = {}
-            for task_i in ['coarse_task', 'fine_task']:
-                batch_monitor[task_i] = val_metrics[task_i](pred_batch[task_i], y_batch[task_i]).item()
-        else:
-            batch_monitor = val_metrics(pred_batch, y_batch).item()
+        batch_monitor = val_metrics(pred_batch, y_batch).item()
         return batch_monitor
 
 
     def add_to_train_loss_and_monitor(train_loss_i, train_monitor_i, batch_loss_i, batch_monitor_i):
-        if type(label_type) == dict:
+        if label_type_is_dict and do_bilevel_opt:
             for task_i in ['coarse_task', 'fine_task']:
                 train_loss_i[task_i] += batch_loss_i[task_i]
-                if val_metrics is not None:
-                    train_monitor_i[task_i] += batch_monitor_i[task_i]
         else:
             train_loss_i += batch_loss_i
-            if val_metrics is not None:
-                train_monitor_i += batch_monitor_i
+        if val_metrics is not None:
+            train_monitor_i += batch_monitor_i
 
         return train_loss_i, train_monitor_i
 
 
     def divide_train_loss_and_monitor(train_loss_i, train_monitor_i, num_iter):
-        if type(label_type) == dict:
+        if label_type_is_dict and do_bilevel_opt:
             for task_i in ['coarse_task', 'fine_task']:
                 train_loss_i[task_i] /= num_iter
-                if val_metrics is not None:
-                    train_monitor_i[task_i] /= num_iter
         else:
             train_loss_i /= num_iter
-            if val_metrics is not None:
-                train_monitor_i /= num_iter
+        if val_metrics is not None:
+            train_monitor_i /= num_iter
 
         return train_loss_i, train_monitor_i
 
@@ -324,10 +317,10 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch:>3d}")
-        train_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
-        valid_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
-        train_monitor = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
-        valid_monitor = {'coarse_task': 0.0, 'fine_task': 0.0} if type(label_type) == dict else 0.0
+        train_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if label_type_is_dict and do_bilevel_opt else 0.0
+        valid_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if label_type_is_dict and do_bilevel_opt else 0.0
+        train_monitor = 0.0
+        valid_monitor = 0.0
 
         # Model training on training data
         model.train()
@@ -346,8 +339,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         # Prediction and compute training metrics
                         pred = model(x_text, x_image, x_audio)
                         batch_loss = backprop_batch_loss(pred, y_sample)
-                        if val_metrics is not None:
-                            batch_monitor = compute_batch_monitor(pred, y_sample)
+                        batch_monitor = compute_batch_monitor(pred, y_sample) if val_metrics is not None else None
 
                 else:  # Fixed sequence length
                     x_text, x_image, x_audio = X
@@ -364,8 +356,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     # Prediction and compute training metrics
                     pred = model(x_text, x_image, x_audio)
                     batch_loss = backprop_batch_loss(pred, y)
-                    if val_metrics is not None:
-                        batch_monitor = compute_batch_monitor(pred, y)
+                    batch_monitor = compute_batch_monitor(pred, y) if val_metrics is not None else None
 
                 if (num_training_prints > 0) and \
                         (batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations - 1):
@@ -374,7 +365,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     # Print num_iterations batch losses on the terminal
                     current = batch_id * batch_size + len(X)
                     print_training_progress(loss_function_str, batch_loss, val_metrics, val_metrics_str, batch_monitor,
-                                            current, train_size)
+                                            current, train_size, param_training)
 
                 train_loss, train_monitor = add_to_train_loss_and_monitor(train_loss, train_monitor,
                                                                           batch_loss, batch_monitor)
@@ -395,8 +386,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         # Model evaluation on validation data
         model.eval()
         with alive_bar(valid_size, title='Model validation') as bar:
-            pred_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
-            true_valid = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
+            pred_valid = {'coarse_task': [], 'fine_task': []} if label_type_is_dict else []
+            true_valid = {'coarse_task': [], 'fine_task': []} if label_type_is_dict else []
             for idx, (X, y) in enumerate(valid_dataloader):
 
                 if num_steps is None:  # Varying sequence length
@@ -408,7 +399,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_image = x_image.bfloat16()
 
                         pred = model(x_text, x_audio, x_image)
-                        if type(label_type) == dict:
+                        if label_type_is_dict:
                             for task_i in ['coarse_task', 'fine_task']:
                                 valid_loss[task_i] += loss_fn[task_i](pred[task_i], y_sample[task_i]).item()
                                 if val_metrics is not None:
@@ -435,7 +426,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         y = y.float()
 
                     pred = model(x_text, x_audio, x_image)
-                    if type(label_type) == dict:
+                    if label_type_is_dict:
                         for task_i in ['coarse_task', 'fine_task']:
                             valid_loss[task_i] += loss_fn[task_i](pred[task_i], y[task_i]).item()
                             if val_metrics is not None:
@@ -454,7 +445,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
                 #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
 
-        if type(label_type) == dict:
+        if label_type_is_dict:
             for task_i in ['coarse_task', 'fine_task']:
                 valid_loss[task_i] /= valid_size
                 if val_metrics is not None:
@@ -472,7 +463,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     np.array(true_valid).reshape(-1, num_classes), np.array(pred_valid).reshape(-1, num_classes),
                     round_decimals)
 
-        elif type(label_type) == dict:
+        elif label_type_is_dict:
             valid_thres_ml_per_emo, valid_monitor_per_emo_i = {}, {}
             for task_i in ['coarse_task', 'fine_task']:
                 if val_metrics is None or (param_training['thres_ml_from_best_metric'] and
@@ -487,7 +478,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
         if val_metrics is None:
-            if type(label_type) == dict:
+            if label_type_is_dict:
                 mean_per_task = [np.mean(valid_monitor_per_emo_i[task_i]) for task_i in ['coarse_task', 'fine_task']]
                 valid_monitor_avg = np.round(np.mean(mean_per_task), round_decimals)
                 # The following three lines is to add mean to the list of validation metrics values
@@ -500,6 +491,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
             # We monitor the average for the rest of the code
             valid_monitor = valid_monitor_avg
+        else:
+            valid_monitor_avg, valid_monitor_per_emo, valid_monitor_per_emo_i = None, None, None
 
         # # For Tensorboard
         # emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
@@ -520,7 +513,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_loss, val_metrics, val_metrics_str,
                                      valid_thres_ml_per_emo, train_monitor, valid_monitor, valid_monitor_avg,
-                                     valid_monitor_per_emo, valid_monitor_per_emo_i, label_type)
+                                     valid_monitor_per_emo, valid_monitor_per_emo_i, label_type, param_training)
 
         # Display and save history plot
         history_train += [train_loss]
@@ -558,7 +551,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     if type(label_type) == str:
         if label_type in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
             valid_thres_ml_best = thres_list
-    elif type(label_type) == dict:
+    elif label_type_is_dict:
         for task_i, label_i in zip(label_type.keys(), label_type.values()):
             if label_i in ['present', 'dominant'] and not param_training['thres_ml_from_best_metric']:
                 valid_thres_ml_best[task_i] = thres_list

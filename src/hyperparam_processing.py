@@ -44,7 +44,7 @@ def get_model_module(model_str, is_tf):
         raise ValueError("Model name '{}' not valid. Please choose among {}.".format(model_str, possible_models))
 
 
-def get_loss_function(loss_function_str, label_type, param_training, is_tf):
+def get_loss_function(loss_function_str, label_type, param_training, is_tf, for_training=True):
     """
     Get TensorFlow or PyTorch loss function from string.
 
@@ -55,12 +55,29 @@ def get_loss_function(loss_function_str, label_type, param_training, is_tf):
     :return: TensorFlow or Pytorch loss function
     """
 
-    def get_one_loss_function(loss_str_i):
+    def loss_multitask(output, target):
 
-        # Initialization
-        loss_fn_dict = {}
-        for loss_fn in possible_loss_fn:
-            loss_fn_dict[loss_fn] = None
+        import torch
+        from torch.autograd import Variable
+
+        def check_multitask(output, target):
+            if not isinstance(output, dict) or \
+                    (isinstance(output, dict) and not list(output.keys()) == ['coarse_task', 'fine_task']):
+                raise ValueError("Model output does not return a dictionary with keys ['coarse_task', 'fine_task']")
+            if not isinstance(target, dict) or \
+                    (isinstance(target, dict) and not list(target.keys()) == ['coarse_task', 'fine_task']):
+                raise ValueError("Targeted task is not a list of 2 tasks. Please check 'label_type' in "
+                                 "config/param_training_task.json")
+
+        check_multitask(output, target)
+        coef_coa = param_training['coef_coa']
+        loss_coa = get_one_loss_function(loss_function_str['coarse_task'])(output['coarse_task'], target['coarse_task'])
+        loss_fin = get_one_loss_function(loss_function_str['fine_task'])(output['fine_task'], target['fine_task'])
+        loss = coef_coa * loss_coa + (1 - coef_coa) * loss_fin
+        loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
+        return loss
+
+    def get_one_loss_function(loss_str_i):
 
         # TensorFlow
         if is_tf:
@@ -113,25 +130,6 @@ def get_loss_function(loss_function_str, label_type, param_training, is_tf):
                 loss = Variable(loss, requires_grad=True)
                 return loss
 
-            def check_multitask(output, target):
-                if not isinstance(output, dict) or \
-                        (isinstance(output, dict) and not list(output.keys()) == ['coarse_task', 'fine_task']):
-                    raise ValueError("Model output does not return a dictionary with keys ['coarse_task', 'fine_task']")
-                if not isinstance(target, dict) or \
-                        (isinstance(target, dict) and not list(target.keys()) == ['coarse_task', 'fine_task']):
-                    raise ValueError("Targeted task is not a list of 2 tasks. Please check 'label_type' in "
-                                     "config/param_training_task.json")
-
-            def loss_multitask(output, target):
-                check_multitask(output, target)
-                coef_coa = param_training['coef_coa']
-                loss_coa = get_one_loss_function(loss_str_i['coarse_task'])(output['coarse_task'], target['coarse_task'])
-                loss_fin = get_one_loss_function(loss_str_i['fine_task'])(output['fine_task'], target['fine_task'])
-                loss = coef_coa * loss_coa + (1-coef_coa) * loss_fin
-                loss = Variable(torch.Tensor(loss).type(torch.float32), requires_grad=True)
-                return loss
-
-
             loss_fn_dict = {
                 'mae': nn.L1Loss(),
                 'mse': nn.MSELoss(),
@@ -144,9 +142,7 @@ def get_loss_function(loss_function_str, label_type, param_training, is_tf):
                 'kl_div': nn.KLDivLoss(reduction='batchmean')
             }
 
-        if type(loss_str_i) == dict:
-            return loss_multitask
-        elif loss_str_i.lower() in loss_fn_dict.keys():
+        if loss_str_i.lower() in loss_fn_dict.keys():
             loss_fn = loss_fn_dict[loss_str_i]
             if loss_fn is not None:
                 return loss_fn
@@ -159,9 +155,12 @@ def get_loss_function(loss_function_str, label_type, param_training, is_tf):
             raise ValueError("'{}' assigned to key 'loss_function' in 'param_training_task.json' is invalid."
                              " Please choose among {}.".format(loss_str_i, possible_loss_fn))
 
-    if type(label_type) == dict and param_training['bilevel_opt']:
-        return {'coarse_task': get_one_loss_function(loss_function_str['coarse_task']),
-                'fine_task': get_one_loss_function(loss_function_str['fine_task'])}
+    if type(label_type) == dict:
+        if param_training['bilevel_opt'] and for_training:
+            return {'coarse_task': get_one_loss_function(loss_function_str['coarse_task']),
+                    'fine_task': get_one_loss_function(loss_function_str['fine_task'])}
+        else:
+            return loss_multitask  # use loss_multitask with coef_coa
     else:
         return get_one_loss_function(loss_function_str)
 
@@ -291,7 +290,7 @@ def get_val_metrics(val_metrics_str, label_type, param_training, is_tf):
 
         # Add loss functions to val_metrics_dict
         if type(val_str_i) == dict:
-            return get_loss_function(val_str_i, label_type, param_training, is_tf)
+            return get_loss_function(val_str_i, label_type, param_training, is_tf, for_training=False)
         else:
             val_metrics_dict = {
                 'zero_one_loss': zero_one_loss,
@@ -301,7 +300,8 @@ def get_val_metrics(val_metrics_str, label_type, param_training, is_tf):
                 -1: None
             }
             for loss_fn in possible_loss_fn:
-                val_metrics_dict[loss_fn] = get_loss_function(loss_fn, label_type, param_training, is_tf)
+                val_metrics_dict[loss_fn] = get_loss_function(loss_fn, label_type, param_training, is_tf,
+                                                              for_training=False)
 
             if val_str_i != -1:
                 if val_str_i.lower() in val_metrics_dict.keys():
