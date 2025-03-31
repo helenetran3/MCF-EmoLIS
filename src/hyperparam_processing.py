@@ -1,4 +1,5 @@
 import json
+import re
 import numpy as np
 
 from src.models import ef_from_mfn, ef_rnn_me2e, ef_trans_me2e, ef_williams_tf, ef_williams_torch, \
@@ -313,7 +314,7 @@ def get_val_metrics(val_metrics_str, label_type, param_training, is_tf):
     return get_one_val_metric(val_metrics_str)
 
 
-def get_optimizer(optimizer_str, is_tf, param_training):
+def get_optimizer(optimizer_str, param_training, model, is_tf):
     """
     Get TensorFlow or PyTorch optimizer from string.
 
@@ -324,26 +325,28 @@ def get_optimizer(optimizer_str, is_tf, param_training):
     :return: TensorFlow or Pytorch optimizer
     """
 
-    def get_one_optimizer():
+    def get_one_optimizer(param_model_opt):
+
+        lr = param_training['learning_rate']
 
         if is_tf:  # TensorFlow
             from tensorflow.keras.optimizers import Adam, SGD, Adagrad, Adadelta, RMSprop
             opt_dict = {
-                'adam': Adam,
-                'sgd': SGD,
-                'adagrad': Adagrad,
-                'adadelta': Adadelta,
-                'rmsprop': RMSprop
+                'adam': Adam(learning_rate=lr),
+                'sgd': SGD(learning_rate=lr),
+                'adagrad': Adagrad(learning_rate=lr),
+                'adadelta': Adadelta(learning_rate=lr),
+                'rmsprop': RMSprop(learning_rate=lr)
             }
 
         else:  # PyTorch
             from torch import optim
             opt_dict = {
-                'adam': optim.Adam,
-                'sgd': optim.SGD,
-                'adagrad': optim.Adagrad,
-                'adadelta': optim.Adadelta,
-                'rmsprop': optim.RMSprop
+                'adam': optim.Adam(param_model_opt, lr=lr),
+                'sgd': optim.SGD(param_model_opt, lr=lr),
+                'adagrad': optim.Adagrad(param_model_opt, lr=lr),
+                'adadelta': optim.Adadelta(param_model_opt, lr=lr),
+                'rmsprop': optim.RMSprop(param_model_opt, lr=lr)
             }
 
         if optimizer_str.lower() in opt_dict.keys():
@@ -353,10 +356,20 @@ def get_optimizer(optimizer_str, is_tf, param_training):
                              " Please choose among {}.".format(optimizer_str, possible_optimizers))
 
     if param_training['bilevel_opt']:
+
+        param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
+        # the following two lines remove the last layers of 'coarse' task architecture
+        # (these last layers start with 'out_' and contains '.0.')
+        regex_coa_final = re.compile(r'out_.*\.0\..*')
+        param_coa_for_fine = [param for name, param in model.named_parameters()
+                              if ('.0.' in name and not regex_coa_final.search(name))]
+        param_fine = param_coa_for_fine + [param for name, param in model.named_parameters()
+                                           if '.1.' in name]
         # For the moment we use the same optimizer for both tasks
-        return {'coarse_task': get_one_optimizer(), 'fine_task': get_one_optimizer()}
+        return {'coarse_task': get_one_optimizer(param_coarse), 'fine_task': get_one_optimizer(param_fine),
+                'param_coarse': param_coarse, 'param_fine': param_fine}
     else:
-        return get_one_optimizer()
+        return get_one_optimizer([param for _, param in model.named_parameters()])
 
 
 

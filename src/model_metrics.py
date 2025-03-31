@@ -21,8 +21,7 @@ def round_not_nan(macro_val, round_decimals):
 
 def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals, best_thres_per_emo=None):
     """
-    Return an array of shape (num_classes,) giving the best threshold for each class
-       + the corresponding validation metric from model prediction.
+    Return an array of shape (num_classes,) giving the best threshold for each class + the mean F1 score
     Possible threshold values: [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55, 0.6 , 0.65, 0.7 ,
        0.75, 0.8 , 0.85, 0.9 , 0.95]
 
@@ -30,7 +29,7 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
     :param pred_raw: array of shape (split_set size, 6), values between 0 and 1
     :param round_decimals: number of decimals to be rounded for metrics
     :param best_thres_per_emo: lists of 6 best thresholds
-    :return: best_thres_per_emo, f1_each_rounded
+    :return: best_thres_per_emo, f1_mean
     """
 
     num_classes = true_classes.shape[1]
@@ -68,9 +67,9 @@ def compute_best_thres_for_monitor_metric(true_classes, pred_raw, round_decimals
     assert ((pred_classes == 0) | (pred_classes == 1)).all()  # Check if pred_classes is binary
 
     f1_each = f1_score(true_classes, pred_classes, average=None, zero_division=1)
-    f1_each_rounded = [np.round(val * 100, round_decimals) for val in f1_each]
+    f1_mean = np.mean([np.round(val * 100, round_decimals) for val in f1_each])
 
-    return best_thres_per_emo, f1_each_rounded
+    return best_thres_per_emo, f1_mean # , f1_each_rounded
 
 
 def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_id, model_folder, task_i, task_mt=None,

@@ -110,11 +110,10 @@ def print_training_progress(loss_function_str, batch_loss, val_metrics, val_metr
           f"[{current:>5d}/{train_size:>5d}]")
 
 
-def print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_loss, val_metrics, val_metrics_str,
-                                 valid_thres_ml_per_emo, train_monitor, valid_monitor, valid_monitor_avg,
-                                 valid_monitor_per_emo, valid_monitor_per_emo_i, label_type, param_training):
+def print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_loss, train_monitor, valid_monitor,
+                                 val_metrics, val_metrics_str, valid_thres_ml_per_emo, label_type, param_training):
     print("-------------------------------------------------------------------------------------------------------")
-    if type(label_type) == dict:
+    if type(label_type) == dict and param_training['bilevel_opt']:
         print(f"Epoch {epoch:>3d} - Avg train {loss_function_str['coarse_task']} (coarse): {train_loss['coarse_task']:>5f}, "
               f"Avg train {loss_function_str['fine_task']} (fine): {train_loss['fine_task']:>5f}")
         print(f"          - Avg valid {loss_function_str['coarse_task']} (coarse): {valid_loss['coarse_task']:>5f}, "
@@ -123,21 +122,12 @@ def print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_los
         print(f"Epoch {epoch:>3d} - Avg train {loss_function_str}: {train_loss:>5f}")
         print(f"          - Avg valid {loss_function_str}: {valid_loss:>5f}")
     if val_metrics is None:
-        # print(f"          - Avg train F1 score: {train_monitor_avg}; per emo: {train_monitor_per_emo}")
-        print(f"          - Avg valid F1 score: {valid_monitor_avg}")
-        if type(label_type) == dict:
-            for task_i in ['coarse_task', 'fine_task']:
-                print(f"          - Avg valid F1 score per emo - {label_type[task_i]}: "
-                      f"{valid_monitor_per_emo_i[task_i]}")
-        else:
-            print(f"          - Avg valid F1 score per emo: {valid_monitor_per_emo}")
+        print(f"          - Avg valid F1 score: {valid_monitor}")
     else:
         val_str = print_val_metrics_str(val_metrics_str, param_training)
-        print("val str:", val_str)
         print(f"          - Avg train {val_str}: {train_monitor:>5f}")
         print(f"          - Avg valid {val_str}: {valid_monitor:>5f}")
     if valid_thres_ml_per_emo is not None:
-        # print(f"          - Threshold train per emo (according to F1 score): {train_thres_per_emo}")
         print(f"          - Threshold valid per emo (according to F1 score): ", end="")
         if type(label_type) == dict:
             for v_id, (k, v) in enumerate(valid_thres_ml_per_emo.items()):

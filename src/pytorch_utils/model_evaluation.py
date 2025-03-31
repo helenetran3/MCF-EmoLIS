@@ -140,9 +140,9 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     # This block computes the validation metrics for the test set
     ####################################################################################################################
     def test_validation_metrics(y_test_arr, pred_raw_arr, thres_ml_list):
-        _, test_monitor = compute_best_thres_for_monitor_metric(y_test_arr, pred_raw_arr, round_decimals, thres_ml_list)
-        test_monitor_avg = np.round(np.mean(test_monitor), round_decimals)
-        print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor}")
+        _, test_monitor_avg = compute_best_thres_for_monitor_metric(y_test_arr, pred_raw_arr, round_decimals, thres_ml_list)
+        test_monitor_avg_round = np.round(np.mean(test_monitor_avg), round_decimals)
+        print(f"Avg test F1 score: {test_monitor_avg}; per emo: {test_monitor_avg_round}")
         print(f"Threshold per emo (calculated from validation set if thres_ml_from_best_metric set to 1):",
               f"{thres_multilabel}")
         return test_monitor_avg
