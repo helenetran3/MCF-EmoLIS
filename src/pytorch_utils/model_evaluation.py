@@ -2,6 +2,7 @@ from src.pytorch_utils.dataset_loader import DatasetTorch
 from src.label_processing import compute_pred_labels, from_one_hot_to_plain
 from src.hyperparam_processing import get_model_module, get_loss_function, get_val_metrics
 from src.model_metrics import compute_best_thres_for_monitor_metric
+from src.print_functions import print_val_metrics_str
 
 import os
 import numpy as np
@@ -19,6 +20,8 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
         {'coarse_task': "oh" in label_type['coarse_task'], 'fine_task': "oh" in label_type['fine_task']}
     round_decimals = param_log['round_decimals']
     save_pred = param_log['save_predictions']
+    label_type_is_dict = (type(label_type) == dict)
+    do_bilevel_opt = param_training['bilevel_opt']
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
 
     x_test = test_list[0]  # list of lists of 3 arrays
@@ -43,8 +46,43 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     test_size = len(test_dataloader.dataset)
     loss_fn = get_loss_function(loss_fn_str, label_type, param_training, is_tf=False)
     val_metrics = get_val_metrics(val_met_str, label_type, param_training, is_tf=False)
-    loss_fn_value, val_met_value = 0, 0
+    loss_fn_value = {'coarse_task': 0.0, 'fine_task': 0.0} if label_type_is_dict and do_bilevel_opt else 0.0
+    val_met_value = 0
     pred_raw = {'coarse_task': [], 'fine_task': []} if type(label_type) == dict else []
+
+
+    def add_to_global_test_loss_and_monitor(pred_i, y_i):
+        nonlocal loss_fn, pred_raw, loss_fn_value, val_met_value
+        if label_type_is_dict:
+            for task_i in ['coarse_task', 'fine_task']:
+                pred_raw[task_i] += pred_i[task_i].tolist()
+                if param_training['bilevel_opt']:
+                    loss_fn_value[task_i] += loss_fn[task_i](pred_i[task_i], y_i[task_i]).item()
+                else:
+                    loss_fn_value += loss_fn(pred_i, y_i).item()
+        else:
+            pred_raw += pred_i.tolist()
+            loss_fn_value += loss_fn(pred_i, y_i).item()
+        if val_metrics is not None:
+            val_met_value += val_metrics(pred_i, y_i).item()
+
+
+    def divide_global_loss_and_monitor():
+        nonlocal loss_fn_value, val_met_value
+        if label_type_is_dict and do_bilevel_opt:
+            for task_i in ['coarse_task', 'fine_task']:
+                    loss_fn_value[task_i] /= test_size
+        else:
+            loss_fn_value /= test_size
+        if val_metrics is not None:
+            val_met_value /= test_size
+
+        val_str = print_val_metrics_str(val_met_str, param_training)
+        print(f"Avg test loss ({loss_fn_str}): "
+              f"{loss_fn_value['coarse_task']:.2f} (coa), {loss_fn_value['fine_task']:.2f} (fin)\n"
+              if type(loss_fn_value) == dict else f"{loss_fn_value:.2f}\n",
+              f"Avg test val metrics ({val_str}): {val_met_value:.2f}" if val_metrics is None else f"")
+
 
     # Load best model
     model_folder = os.path.join('results', model_name)
@@ -92,23 +130,11 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                             y = y.float()
 
                 pred = model(x_text, x_audio, x_image)
-                if type(pred) == dict:
-                    pred_raw['coarse_task'] += pred['coarse_task'].tolist()
-                    pred_raw['fine_task'] += pred['fine_task'].tolist()
-                else:
-                    pred_raw += pred.tolist()
-                loss_fn_value += loss_fn(pred, y).item()
-                if val_metrics is not None:
-                    val_met_value += val_metrics(pred, y).item()
+                add_to_global_test_loss_and_monitor(pred, y)
 
                 bar()
-    loss_fn_value /= test_size
-    loss_fn_value = np.round(loss_fn_value, round_decimals)
-    if val_metrics is not None:
-        val_met_value /= test_size
-        val_met_value = np.round(val_met_value, round_decimals)
 
-    print(f"Avg test loss ({loss_fn_str}): {loss_fn_value:>8f}")
+    divide_global_loss_and_monitor()
 
     # # Only for debugging
     # from src.pickle_functions import load_from_pickle

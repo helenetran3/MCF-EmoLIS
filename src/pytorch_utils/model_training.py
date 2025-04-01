@@ -112,12 +112,6 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
     if not os.path.isdir(full_path_folder):
         os.makedirs(full_path_folder)
 
-    print("type history_train: {}".format(type(history_train)))
-    #print("len history_train: {}".format(len(history_train)))
-    #print("type history_train[0]: {}".format(type(history_train[0])))
-    print("type history_train['coarse_task']: {}".format(type(history_train['coarse_task'])))
-    #print("history_train[0]['coarse_task']: {}".format(history_train[0]['coarse_task']))
-
     # summarize history for training and validation metric used to monitor
     emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
     splits = ['_train', '_val'] if history_train is not None else ['_val']
@@ -274,11 +268,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         return batch_loss
 
 
-    def compute_batch_monitor(pred_batch, y_batch):
-        batch_monitor = val_metrics(pred_batch, y_batch).item()
-        return batch_monitor
-
-
     def add_to_train_loss_and_monitor(train_loss_i, train_monitor_i, batch_loss_i, batch_monitor_i):
         if label_type_is_dict and do_bilevel_opt:
             for task_i in ['coarse_task', 'fine_task']:
@@ -315,6 +304,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         if label_type_is_dict and do_bilevel_opt:
             for task_i in ['coarse_task', 'fine_task']:
                 epoch_loss_i[task_i] /= num_iter
+        else:
+            epoch_loss_i /= num_iter
         if val_metrics is not None:
             epoch_monitor_i /= num_iter
 
@@ -396,7 +387,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         # Prediction and compute training metrics
                         pred = model(x_text, x_image, x_audio)
                         batch_loss = backprop_batch_loss(pred, y_sample)
-                        batch_monitor = compute_batch_monitor(pred, y_sample) if val_metrics is not None else None
+                        batch_monitor = val_metrics(pred, y_sample).item() if val_metrics is not None else None
 
                 else:  # Fixed sequence length
                     x_text, x_image, x_audio = X
@@ -413,7 +404,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     # Prediction and compute training metrics
                     pred = model(x_text, x_image, x_audio)
                     batch_loss = backprop_batch_loss(pred, y)
-                    batch_monitor = compute_batch_monitor(pred, y) if val_metrics is not None else None
+                    batch_monitor = val_metrics(pred, y).item() if val_metrics is not None else None
 
                 if (num_training_prints > 0) and \
                         (batch_id % (num_iterations // num_training_prints) == 0 or batch_id == num_iterations - 1):
@@ -429,8 +420,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 bar()
 
         train_loss, train_monitor = divide_epoch_loss_and_monitor(train_loss, train_monitor, num_iterations)
-        train_loss, train_monitor = save_epoch_loss_and_monitor(train_loss, train_monitor, history_train_loss,
-                                                                history_train_monitor, is_train=True)
+        history_train_loss, history_train_monitor = save_epoch_loss_and_monitor(train_loss, train_monitor,
+                                                                                history_train_loss,
+                                                                                history_train_monitor, is_train=True)
 
         # # Compute best threshold per emotion for multilabel classification according to F1 score
         # if param_training['thres_ml_from_best_metric'] or val_metrics is None:
@@ -483,8 +475,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
 
         valid_loss, valid_monitor = divide_epoch_loss_and_monitor(valid_loss, valid_monitor, valid_size)
-        valid_loss, valid_monitor = save_epoch_loss_and_monitor(valid_loss, valid_monitor, history_valid_loss,
-                                                                history_valid_monitor, is_train=False)
+        history_valid_loss, history_valid_monitor = save_epoch_loss_and_monitor(valid_loss, valid_monitor,
+                                                                                history_valid_loss,
+                                                                                history_valid_monitor, is_train=False)
 
         # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
         valid_thres_ml_per_emo, f1_avg_per_task = compute_best_threshold_per_class(true_valid, pred_valid)
