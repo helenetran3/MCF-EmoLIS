@@ -78,10 +78,10 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
             val_met_value /= test_size
 
         val_str = print_val_metrics_str(val_met_str, param_training)
-        print(f"Avg test loss ({loss_fn_str}): "
-              f"{loss_fn_value['coarse_task']:.2f} (coa), {loss_fn_value['fine_task']:.2f} (fin)\n"
-              if type(loss_fn_value) == dict else f"{loss_fn_value:.2f}\n",
-              f"Avg test val metrics ({val_str}): {val_met_value:.2f}" if val_metrics is None else f"")
+        print(f"Avg test loss {loss_fn_str['coarse_task']} (coa): {loss_fn_value['coarse_task']:.2f}\n"
+              f"Avg test loss {loss_fn_str['fine_task']} (fin): {loss_fn_value['fine_task']:.2f}\n"
+              if type(loss_fn_value) == dict else f"Avg test loss ({loss_fn_str}): {loss_fn_value:.2f}",
+              f"Avg test val metrics {val_str}: {val_met_value:.2f}" if val_metrics is not None else f"")
 
 
     # Load best model
@@ -183,8 +183,6 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
                 val_met_value += [test_met_avg]
         else:
             val_met_value = test_validation_metrics(y_test_array, pred_raw_array, thres_multilabel)
-    else:
-        print(f"Avg test valid. metric ({val_met_str}): {val_met_value:>8f}")
 
     ####################################################################################################################
     # This block computes the prediction vectors for the four tasks 'all', 'coarse', 'present', 'dominant"

@@ -178,7 +178,7 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
 
     def RRMSE(t, p, t_mean):
         num = math.sqrt(mean_squared_error(t, p))
-        den = math.sqrt(mean_squared_error(t_mean, p))
+        den = math.sqrt(mean_squared_error(np.full(t.shape, t_mean), p))
         return num / den
 
 

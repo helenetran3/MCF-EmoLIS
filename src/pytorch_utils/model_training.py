@@ -113,9 +113,7 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
         os.makedirs(full_path_folder)
 
     # summarize history for training and validation metric used to monitor
-    emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear', 'avg']
-    splits = ['_train', '_val'] if history_train is not None else ['_val']
-    legend_text = [emo + sp for emo in emotions for sp in splits]
+    legend_text = ['train', 'val'] if history_train is not None else ['val']
     if type(history_valid) == dict:
         for task_j in ['coarse_task', 'fine_task']:
             if history_train is not None:
@@ -129,8 +127,8 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
             plt.savefig(history_plot_path, bbox_inches='tight')
             if display_fig:
                 plt.show()
+            plt.clf()
     else:
-        legend_text = ['train', 'val'] if history_train is not None else ['val']
         if history_train is not None:
             plt.plot(history_train)
         plt.plot(history_valid)
@@ -150,7 +148,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     batch_size = param_training['batch_size']
     optimizer_name = param_training['optimizer']
-    learning_rate = param_training['learning_rate']
     num_epochs = param_training['num_epochs']
     patience = param_training['patience']
     num_training_prints = param_log['num_training_prints']
@@ -230,7 +227,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     pred['fine_task'] = Variable(model(x_text, x_image, x_audio)['fine_task'], requires_grad=True)
                 optimizer['fine_task'].zero_grad()
                 lower_batch_loss = loss_fn['fine_task'](pred_batch['fine_task'], y_batch['fine_task'])
-                print("[i= ", i, "] lower_batch_loss:", lower_batch_loss.item())
+                #print("[i= ", i, "] lower_batch_loss:", lower_batch_loss.item())
                 if param_training["clip"] != -1:
                     torch.nn.utils.clip_grad_norm_(optimizer['param_fine'], param_training["clip"])
                 lower_batch_loss.backward()
@@ -248,24 +245,22 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             upper_batch_loss.backward()
             optimizer['coarse_task'].step()
             #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred_batch:", pred_batch['coarse_task'][0], "\n y_batch:", y_batch['coarse_task'][0], "\n\n")
-            batch_loss = {'fine_task': lower_batch_loss.item(), 'coarse_task': upper_batch_loss.item()}
+            batch_loss_i = {'fine_task': lower_batch_loss.item(), 'coarse_task': upper_batch_loss.item()}
             time1 = time.time()
             print("Time for bilevel opt:", time1 - time0, " seconds.")
 
-            return batch_loss
+            return batch_loss_i
 
         if do_bilevel_opt:
-            batch_loss = perform_bilevel_opt()
+            return perform_bilevel_opt()
         else:
             optimizer.zero_grad()
-            batch_loss = loss_fn(pred_batch, y_batch)
+            batch_loss_i = loss_fn(pred_batch, y_batch)
             if param_training["clip"] != -1:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
-            batch_loss.backward()
+            batch_loss_i.backward()
             optimizer.step()
-            batch_loss = batch_loss.item()
-
-        return batch_loss
+            return batch_loss_i.item()
 
 
     def add_to_train_loss_and_monitor(train_loss_i, train_monitor_i, batch_loss_i, batch_monitor_i):
