@@ -154,9 +154,13 @@ def save_results_in_csv_file(model_name, model_id, model_eval_output,
 
         # Regression metrics
         if met_reg is not None:
-            header_id_reg = header_id + ['loss_function', 'val_metrics']
+            header_id_reg = header_id + ['loss_function', 'loss_coa', 'loss_fin', 'val_metrics']
             data_id_reg = [model_id_str] if not with_cross_val else [model_id_str, fold_id]
-            data_id_reg = data_id_reg + eval_out  # eval_out contains loss function and validation metric values
+            if type(eval_out[0]) == dict:
+                data_losses = [None, eval_out[0]['coarse_task'], eval_out[0]['fine_task'], eval_out[1]]
+            else:
+                data_losses = [eval_out[0], None, None, eval_out[1]]
+            data_id_reg = data_id_reg + data_losses  # data_losses contains loss function and validation metric values
             header_regression, data_regression = get_header_and_data_metrics(met_reg, header_id_reg, data_id_reg,
                                                                              predict_neutral_class,
                                                                              is_classification=False)
@@ -308,7 +312,8 @@ def csv_summary(with_cross_val, param_log):
                     all_csv_files += [filename_without_extension]
 
         # This section creates and fills model data in one single file (in summary/ folder)
-        for csv_file in all_csv_files:   # Loop on each task
+        for csv_file in all_csv_files:   # Loop on each task (classif_score, classif_dom, classif_pres and/or regression)
+
             df = pd.DataFrame()
             csv_path_summary = create_csv_path("summary", csv_file, with_cross_val=with_cross_val, is_summary=True)
             if os.path.exists(csv_path_summary):

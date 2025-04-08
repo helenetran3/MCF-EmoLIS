@@ -6,6 +6,7 @@ from src.model_metrics import compute_best_thres_for_monitor_metric
 
 import os
 import torch
+import time
 from torch.utils.data import DataLoader
 from torchinfo import summary
 from torch.autograd import Variable
@@ -219,8 +220,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
             num_steps_bilevel = param_training['num_steps_bilevel']
 
-            import time
-            time0 = time.time()
             #for i in range(10):  # 100 and 10 iterations for heuristics
             for i in range(num_steps_bilevel):
                 if i != 0:
@@ -246,8 +245,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             optimizer['coarse_task'].step()
             #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred_batch:", pred_batch['coarse_task'][0], "\n y_batch:", y_batch['coarse_task'][0], "\n\n")
             batch_loss_i = {'fine_task': lower_batch_loss.item(), 'coarse_task': upper_batch_loss.item()}
-            time1 = time.time()
-            print("Time for bilevel opt:", time1 - time0, " seconds.")
 
             return batch_loss_i
 
@@ -359,6 +356,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
           .format(fold_text))
 
     for epoch in range(num_epochs):
+        time0 = time.time()
         print(f"Epoch {epoch:>3d}")
         train_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if label_type_is_dict and do_bilevel_opt else 0.0
         valid_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if label_type_is_dict and do_bilevel_opt else 0.0
@@ -513,6 +511,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                                                                   num_epochs_without_improvement, patience)
             if patience == num_epochs_without_improvement:
                 break
+
+        time1 = time.time()
+        print("Time for epoch completion:", round(time1 - time0, 2), " seconds.\n\n")
 
     model_folder = os.path.join('results', model_name)
     save_and_plot_history(history_train_loss, history_valid_loss, ext_model_name, history_folder="history_loss",
