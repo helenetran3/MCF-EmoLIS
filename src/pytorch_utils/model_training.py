@@ -238,7 +238,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             pred_batch['fine_task'] = pred_batch['fine_task'].detach()
             pred_batch['coarse_task'] = Variable(model(x_text, x_image, x_audio)['coarse_task'], requires_grad=True)
             optimizer['coarse_task'].zero_grad()
-            upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_batch['coarse_task']*pred_batch['fine_task']), y_batch['coarse_task'])
+            pred_batch_bin = (pred_batch['coarse_task'].detach() >= param_task['thres_score_pres']).float()
+            upper_batch_loss = loss_fn['coarse_task'](pred_batch['coarse_task'], pred_batch_bin)
+            # upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_batch['coarse_task']*pred_batch['fine_task']), y_batch['coarse_task'])
             if param_training["clip"] != -1:
                 torch.nn.utils.clip_grad_norm_(optimizer['param_coarse'], param_training["clip"])
             upper_batch_loss.backward()
