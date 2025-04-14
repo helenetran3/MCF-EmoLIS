@@ -147,6 +147,10 @@ def main():
                                        param_task, param_training, param_log, model_name, model_id, label_type,
                                        loss_function, val_metrics, all_scores)
 
+        # Summary files
+        if param_log['save_csv']:
+            csv_summary(with_cross_validation, param_log)
+
     # Loop over the list of models, loss functions and validation metrics
     model = param_task['model_name']
 
@@ -199,10 +203,6 @@ def main():
         else:
             for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
                 run_one_experiment(model, lf_i, vm_i, param_model)
-
-    # Summary files
-    if param_log['save_csv']:
-        csv_summary(with_cross_validation, param_log)
 
 
 if __name__ == "__main__":

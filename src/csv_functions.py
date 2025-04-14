@@ -311,6 +311,46 @@ def csv_summary(with_cross_val, param_log):
                 if filename_without_extension not in all_csv_files:
                     all_csv_files += [filename_without_extension]
 
+                # if cn == "regression.csv":
+                #     # df = pd.DataFrame()
+                #     csv_reg_new = os.path.join("results/", model, "csv", metric_folder_name, "new_"+cn)
+                #     csv_reg = os.path.join("results/", model, "csv", metric_folder_name, cn)
+                #     # data_reg = pd.read_csv(csv_reg)
+                #     # import ast
+                #     # loss_dict = ast.literal_eval(data_reg['loss_function'].iloc[0])
+                #     # if type(loss_dict) == dict:
+                #     #     print(data_reg['loss_function'])
+                #
+                #     import json
+                #     # Function to parse the loss_function column
+                #     def parse_loss_function(loss_function_str):
+                #         # Replace single quotes with double quotes for valid JSON
+                #         loss_function_str = loss_function_str.replace("'", '"')
+                #         # Parse the JSON string into a dictionary
+                #         loss_function_dict = json.loads(loss_function_str)
+                #         return loss_function_dict['coarse_task'], loss_function_dict['fine_task']
+                #
+                #     df = pd.read_csv(csv_reg)
+                #     # Apply the function to create new columns
+                #     df['loss_coa'], df['loss_fin'] = zip(*df['loss_function'].apply(parse_loss_function))
+                #
+                #     # Create a new loss_function column with None values
+                #     df['loss_function'] = None
+                #
+                #     # Reorder the columns if necessary
+                #     df = df[
+                #         ['model_id', 'fold_id', 'loss_function', 'loss_coa', 'loss_fin'] + [col for col in df.columns if
+                #                                                                             col not in ['model_id',
+                #                                                                                         'fold_id',
+                #                                                                                         'loss_function',
+                #                                                                                         'loss_coa',
+                #                                                                                         'loss_fin']]]
+                #
+                #     # Save the transformed DataFrame to a new CSV file
+                #     df.to_csv(csv_reg_new, index=False)
+
+
+
         # This section creates and fills model data in one single file (in summary/ folder)
         for csv_file in all_csv_files:   # Loop on each task (classif_score, classif_dom, classif_pres and/or regression)
 
