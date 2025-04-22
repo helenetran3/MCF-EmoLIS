@@ -358,16 +358,23 @@ def get_optimizer(optimizer_str, param_training, model, is_tf):
     if param_training['bilevel_opt']:
 
         param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
+        param_coarse_names = [name for name, _ in model.named_parameters() if '.0.' in name]
         # the following two lines remove the last layers of 'coarse' task architecture
         # (these last layers start with 'out_' and contains '.0.')
         regex_coa_final = re.compile(r'out_.*\.0\..*')
         param_coa_for_fine = [param for name, param in model.named_parameters()
                               if ('.0.' in name and not regex_coa_final.search(name))]
+        param_coa_for_fine_name = [name for name, _ in model.named_parameters()
+                                   if ('.0.' in name and not regex_coa_final.search(name))]
         param_fine = param_coa_for_fine + [param for name, param in model.named_parameters()
                                            if '.1.' in name]
+        param_fine_names = param_coa_for_fine_name + [name for name, _ in model.named_parameters()
+                                                      if '.1.' in name]
+
         # For the moment we use the same optimizer for both tasks
         return {'coarse_task': get_one_optimizer(param_coarse), 'fine_task': get_one_optimizer(param_fine),
-                'param_coarse': param_coarse, 'param_fine': param_fine}
+                'param_coarse': param_coarse, 'param_fine': param_fine,
+                'param_coarse_names': param_coarse_names, 'param_fine_names': param_fine_names}
     else:
         return get_one_optimizer([param for _, param in model.named_parameters()])
 

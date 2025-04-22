@@ -219,6 +219,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         def perform_bilevel_opt():
 
             param_model_coa, param_model_fin = optimizer['param_coarse'], optimizer['param_fine']
+            param_model_coa_names = optimizer['param_coarse_names']
 
             def solve_lower_pb(for_grad_approx=False):
 
@@ -230,23 +231,24 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                     model_copy.train()
 
                 for i_lower in range(param_training['num_steps_bilevel_fin']):
-                    pred_fine = model_copy(x_text, x_image, x_audio)['fine_task'] if for_grad_approx \
-                        else model(x_text, x_image, x_audio)['fine_task']
+                    pred_fine = model(x_text, x_image, x_audio)['fine_task'] # \
+                        #if not for_grad_approx else model_copy(x_text, x_image, x_audio)['fine_task']
                     pred_fine = Variable(pred_fine, requires_grad=True)
                     lower_batch_loss = loss_fn['fine_task'](pred_fine, y_batch['fine_task'])
+                    pred_fine = None  # To free memory
                     #print("[i= ", i, "] lower_batch_loss:", lower_batch_loss.item())
                     if param_training["clip"] != -1:
                         torch.nn.utils.clip_grad_norm_(param_model_fin, param_training["clip"])
                     optimizer['fine_task'].zero_grad()
-                    lower_batch_loss.backward()  # TODO no approximation for lower level
+                    lower_batch_loss.backward()
                     optimizer['fine_task'].step()
                     # if lower_batch_loss.item() < 1e-4:  # Stop if loss is small enough
                     #     break
                     #print("[Fine, i:", i, ", j:", j, ", after step]\n pred_batch:", pred_fine[0], "\n y_batch:", y_batch['fine_task'][0])
 
                 # Compute pred_fine at the end after lower-level model parameter update
-                pred_fine = model_copy(x_text, x_image, x_audio)['fine_task'] if for_grad_approx \
-                        else model(x_text, x_image, x_audio)['fine_task']
+                pred_fine = model(x_text, x_image, x_audio)['fine_task'] # \
+                    # if not for_grad_approx else model_copy(x_text, x_image, x_audio)['fine_task']
                 return pred_fine.detach(), lower_batch_loss
 
             def approximate_gradient(epsilon=1e-4):
@@ -255,29 +257,29 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 parameters using finite differences.
                 """
                 grads_res = []
-                for param_i, param_name_i in model.named_parameters():
-                    if param_name_i in param_model_coa:  # we only update the parameters linked to the coarse task
+                for param_name_i, param_i in model.named_parameters():
+                    if param_name_i in param_model_coa_names:  # we only update the parameters linked to the coarse task
                         original_value = param_i.data.clone()
 
                         # Compute upper-level loss with a small positive perturbation
                         param_i.data += epsilon
                         # Compute lower solution prediction and binarisation for multilabel classification
                         lower_solution_plus, _ = solve_lower_pb(for_grad_approx=True)
-                        lower_solution_plus_bin = (lower_solution_plus >= param_task['thres_score_pres']).float()
+                        #lower_solution_plus_bin = (lower_solution_plus >= param_task['thres_score_pres']).float()
                         # Compute upper solution prediction
                         pred_upper_model = model(x_text, x_image, x_audio)['coarse_task']
-                        loss_plus = loss_fn['coarse_task'](pred_upper_model, lower_solution_plus_bin)
-                        # loss_plus = loss_fn['coarse_task'](torch.sigmoid(pred_upper_model*lower_solution_plus), y_batch['coarse_task'])
+                        #loss_plus = loss_fn['coarse_task'](pred_upper_model, lower_solution_plus_bin)
+                        loss_plus = loss_fn['coarse_task'](torch.sigmoid(pred_upper_model*lower_solution_plus), y_batch['coarse_task'])
 
                         # Compute upper-level loss with a small negative perturbation
                         param_i.data -= 2 * epsilon
                         # Compute lower solution prediction and binarisation for multilabel classification
                         lower_solution_minus, _ = solve_lower_pb(for_grad_approx=True)
-                        lower_solution_minus_bin = (lower_solution_minus >= param_task['thres_score_pres']).float()
+                        #lower_solution_minus_bin = (lower_solution_minus >= param_task['thres_score_pres']).float()
                         # Compute upper solution prediction
                         pred_upper_model = model(x_text, x_image, x_audio)['coarse_task']
-                        loss_minus = loss_fn['coarse_task'](pred_upper_model, lower_solution_minus_bin)
-                        # loss_minus = loss_fn['coarse_task'](torch.sigmoid(pred_upper_model*lower_solution_minus), y_batch['coarse_task'])
+                        #loss_minus = loss_fn['coarse_task'](pred_upper_model, lower_solution_minus_bin)
+                        loss_minus = loss_fn['coarse_task'](torch.sigmoid(pred_upper_model*lower_solution_minus), y_batch['coarse_task'])
 
                         # Restore the original parameter value
                         param_i.data = original_value
@@ -292,23 +294,28 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
                 # The following line computes heuristically the prediction and loss for fine task
                 pred_fine_best, lower_batch_loss = solve_lower_pb()
-                pred_fine_best_bin = (pred_fine_best.detach() >= param_task['thres_score_pres']).float()
+                #pred_fine_best_bin = (pred_fine_best.detach() >= param_task['thres_score_pres']).float()
                 pred_coarse = Variable(model(x_text, x_image, x_audio)['coarse_task'], requires_grad=True)
 
                 optimizer['coarse_task'].zero_grad()
                 if param_training['clip'] != -1:
                     torch.nn.utils.clip_grad_norm_(optimizer['param_coarse'], param_training["clip"])
-                if param_training['approx_grad']:
-                    # approximation of the gradient
-                    grads = approximate_gradient()
-                    param_model_coa_grads = [param_i for param_i, param_name_i in model.named_parameters() if param_name_i in param_model_coa]
-                    for param_i, grad in zip(param_model_coa_grads, grads):
-                        param_i.grad = grad
-                else:
-                    # Compute exact gradient
-                    upper_batch_loss = loss_fn['coarse_task'](pred_coarse, pred_fine_best_bin)  # update here and outside loop if necessary
-                    # upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_coarse*pred_batch['fine_task']), y_batch['coarse_task'])
-                    upper_batch_loss.backward()
+                # # if param_training['approx_grad']:
+                # #     # approximation of the gradient
+                # time_grad = time.time()
+                # grads = approximate_gradient()
+                # param_model_coa_grads = [param_i for param_name_i, param_i in model.named_parameters()
+                #                          if param_name_i in param_model_coa_names]
+                # for param_i, grad in zip(param_model_coa_grads, grads):
+                #     param_i.grad = grad
+                # time_grad2 = time.time()
+                # print("Time for approx grad:", round(time_grad2 - time_grad, 2), " seconds.\n\n")
+
+                # # else:
+                # Compute exact gradient
+                #upper_batch_loss = loss_fn['coarse_task'](pred_coarse, pred_fine_best_bin)
+                upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_coarse*pred_batch['fine_task']), y_batch['coarse_task'])
+                upper_batch_loss.backward()
                 optimizer['coarse_task'].step()
 
             #print("[Coarse, i:", i, ", j:", j, ", after step]\n pred_batch:", pred_coarse[0], "\n y_batch:", y_batch['coarse_task'][0], "\n\n")
