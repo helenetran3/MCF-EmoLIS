@@ -125,7 +125,11 @@ def print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_los
         print(f"          - Avg valid F1 score: {valid_monitor}")
     else:
         val_str = print_val_metrics_str(val_metrics_str, param_training)
-        print(f"          - Avg train {val_str}: {train_monitor:>5f}")
+        if type(train_monitor) == dict:  # only in the case where we perform functional bilevel optimization
+            print(f"          - Avg train {val_str}: (first, fin) {train_monitor['fine_task']:>5f}, "
+                  f"(then, coa) {train_monitor['coarse_task']:>5f}")
+        else:
+            print(f"          - Avg train {val_str}: {train_monitor:>5f}")
         print(f"          - Avg valid {val_str}: {valid_monitor:>5f}")
     if valid_thres_ml_per_emo is not None:
         print(f"          - Threshold valid per emo (according to F1 score): ", end="")

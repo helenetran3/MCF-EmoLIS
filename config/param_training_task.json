@@ -23,7 +23,7 @@
     "val_metrics": ["mse", "wei_bce"],
     "coef_coa": 0.6,
     "bilevel_opt": 1,
-    "approx_grad": 0,
+    "func_bilevel": 0,
     "num_steps_bilevel_coa": 1,
     "num_steps_bilevel_fin": 10,
     "thres_ml_from_best_metric": 1,

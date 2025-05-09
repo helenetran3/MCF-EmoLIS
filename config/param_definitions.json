@@ -34,7 +34,7 @@
         "val_metrics": "Validation metric used for monitoring (callbacks like EarlyStopping, ReduceLROnPlateau), -1 if using F1 as validation metrics for 'present' and 'dominant' tasks",
         "coef_coa": "Weight of the coarse task (when use multitask-specific loss_function/val_metric)",
         "bilevel_opt": "Whether we use bilevel optimization",
-        "approx_grad": "Whether we use an approximation of gradient for bilevel optimization (if 0, it computes exact gradient)",
+        "func_bilevel": "Whether we perform functional bilevel optimization",
         "num_steps_bilevel_fin": "Number of iterations for computing approximate optimal solution for lower-level problem",
         "num_steps_bilevel_coa": "Number of iterations for computing approximate optimal solution for upper-level problem",
         "thres_ml_from_best_metric": "For multilabel classification ('present', 'dominant'), 1 if take the class-wise threshold that gives the best F1 score on validation set, 0 to set all thresholds to 0.5. No effect for the other task types.",

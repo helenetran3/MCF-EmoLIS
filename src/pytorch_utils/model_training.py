@@ -130,7 +130,12 @@ def save_and_plot_history(history_train, history_valid, ext_name, history_folder
             plt.clf()
     else:
         if history_train is not None:
-            plt.plot(history_train)
+            if type(history_train) == dict:  # In the case of functional bilevel optimization
+                legend_text = ['train_fin', 'train_coa', 'val']
+                plt.plot(history_train['fine_task'])
+                plt.plot(history_train['coarse_task'])
+            else:
+                plt.plot(history_train)
         plt.plot(history_valid)
         plt.title('Model loss')
         plt.ylabel('loss')
@@ -158,6 +163,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     ext_model_name = "{}_fold_{}".format(model_id, fold_id) if with_cross_valid else model_id
     label_type_is_dict = (type(label_type) == dict)
     do_bilevel_opt = param_training['bilevel_opt']
+    do_func_bilevel = param_training['func_bilevel']
 
     # Writer for Tensorboard
     writer_path = os.path.join('runs', model_name, 'model_{}'.format(ext_model_name))
@@ -210,14 +216,14 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     # Parameters for history
     history_train_loss = {'coarse_task': [], 'fine_task': []} if label_type_is_dict and do_bilevel_opt else []
     history_valid_loss = {'coarse_task': [], 'fine_task': []} if label_type_is_dict and do_bilevel_opt else []
-    history_train_monitor = []
+    history_train_monitor = {'coarse_task': [], 'fine_task': []} if label_type_is_dict and (do_bilevel_opt and do_func_bilevel) else []
     history_valid_monitor = []
 
-    def train_batch(x_text, x_image, x_audio, y_batch):
+    def train_batch(x_text, x_image, x_audio, y_batch, func_bilevel_coa):
 
-        def perform_bilevel_opt():
+        param_model_coa, param_model_fin = optimizer['param_coarse'], optimizer['param_fine']
 
-            param_model_coa, param_model_fin = optimizer['param_coarse'], optimizer['param_fine']
+        def perform_param_bilevel():
             param_model_coa_names = optimizer['param_coarse_names']
 
             def solve_lower_pb(for_grad_approx=False):
@@ -236,9 +242,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         #if not for_grad_approx else model_copy(x_text, x_image, x_audio)['fine_task']
                     #print("[Fine, i:", i_lower, ", after step]\n pred_fine:", pred_fine[0], "\n y_batch:", y_batch['fine_task'][0])
                     lower_batch_loss = loss_fn['fine_task'](pred_fine, y_batch['fine_task'])
-                    lower_batch_loss.backward()
                     if param_training["clip"] != -1:
                         torch.nn.utils.clip_grad_norm_(param_model_fin, param_training["clip"])
+                    lower_batch_loss.backward()
                     # Verify that it's actually training
                     #for param_name, param in model.named_parameters():
                     #    print(param_name, ", param.grad:", param.grad)
@@ -319,11 +325,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
             return batch_loss_i, pred_batch_i
 
-        if do_bilevel_opt:
-            return perform_bilevel_opt()
-        else:
+        def perform_optimization():
             optimizer.zero_grad()
-            pred_batch = Variable(model(x_text, x_image, x_audio), requires_grad=True)
+            pred_batch = model(x_text, x_image, x_audio)
             batch_loss_i = loss_fn(pred_batch, y_batch)
             if param_training["clip"] != -1:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
@@ -331,15 +335,48 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             optimizer.step()
             return batch_loss_i.item(), pred_batch
 
+        def perform_functional_bilevel():
+            task_type = 'coarse_task' if func_bilevel_coa else 'fine_task'
+            param_model_func = param_model_coa if func_bilevel_coa else param_model_fin
+            optimizer[task_type].zero_grad()
+            pred_batch = model(x_text, x_image, x_audio)
+            batch_loss_i = loss_fn[task_type](pred_batch[task_type], y_batch[task_type])
+            if param_training["clip"] != -1:
+                torch.nn.utils.clip_grad_norm_(param_model_func, param_training["clip"])
+            batch_loss_i.backward()
+            optimizer[task_type].step()
+            return batch_loss_i.item(), pred_batch
 
-    def add_to_train_loss_and_monitor(train_loss_i, train_monitor_i, batch_loss_i, batch_monitor_i):
+
+        if do_bilevel_opt:
+            if do_func_bilevel:
+                return perform_functional_bilevel()
+            else:
+                return perform_param_bilevel()
+        else:
+            # classic optimization (no bilevel)
+            return perform_optimization()
+
+
+    def add_to_train_loss_and_monitor(train_loss_i, train_monitor_i, batch_loss_i, batch_monitor_i, func_bilevel_coa):
+        # Compute training loss
         if label_type_is_dict and do_bilevel_opt:
-            for task_i in ['coarse_task', 'fine_task']:
-                train_loss_i[task_i] += batch_loss_i[task_i]
+            if func_bilevel_coa is not None:
+                task_i = 'coarse_task' if func_bilevel_coa else 'fine_task'
+                train_loss_i[task_i] += batch_loss_i
+            else:
+                for task_i in ['coarse_task', 'fine_task']:
+                    train_loss_i[task_i] += batch_loss_i[task_i]
         else:
             train_loss_i += batch_loss_i
+
+        # Compute training monitor metric
         if val_metrics is not None:
-            train_monitor_i += batch_monitor_i
+            if label_type_is_dict and do_bilevel_opt and func_bilevel_coa is not None:
+                task_i = 'coarse_task' if func_bilevel_coa else 'fine_task'
+                train_monitor_i[task_i] += batch_monitor_i
+            else:
+                train_monitor_i += batch_monitor_i
 
         return train_loss_i, train_monitor_i
 
@@ -367,27 +404,49 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         return valid_loss_i, valid_monitor_i, pred_valid_i, true_valid_i
 
 
-    def divide_epoch_loss_and_monitor(epoch_loss_i, epoch_monitor_i, num_iter):
+    def divide_epoch_loss_and_monitor(epoch_loss_i, epoch_monitor_i, num_iter, func_bilevel_coa):
+        # Compute training loss
         if label_type_is_dict and do_bilevel_opt:
-            for task_i in ['coarse_task', 'fine_task']:
+            task_list = ['coarse_task', 'fine_task'] if func_bilevel_coa is None else \
+                ['coarse_task'] if func_bilevel_coa else ['fine_task']
+            for task_i in task_list:
                 epoch_loss_i[task_i] /= num_iter
         else:
             epoch_loss_i /= num_iter
+
+        # Compute training monitor metric
         if val_metrics is not None:
-            epoch_monitor_i /= num_iter
+            if label_type_is_dict and do_bilevel_opt and func_bilevel_coa is not None:
+                task_i = 'coarse_task' if func_bilevel_coa else 'fine_task'
+                epoch_monitor_i[task_i] /= num_iter
+            else:
+                epoch_monitor_i /= num_iter
 
         return epoch_loss_i, epoch_monitor_i
 
-    def save_epoch_loss_and_monitor(epoch_loss_i, epoch_monitor_i, history_loss_i, history_monitor_i, is_train):
+
+    def save_epoch_loss_and_monitor(epoch_loss_i, epoch_monitor_i, history_loss_i, history_monitor_i, func_bilevel_coa,
+                                    is_train):
+        # Compute training loss
         if label_type_is_dict:
-            for task_i in ['coarse_task', 'fine_task']:
+            if func_bilevel_coa is not None:
+                task_i = 'coarse_task' if func_bilevel_coa else 'fine_task'
                 history_loss_i[task_i] += [epoch_loss_i[task_i]]
+            else:
+                for task_i in ['coarse_task', 'fine_task']:
+                    history_loss_i[task_i] += [epoch_loss_i[task_i]]
         else:
             history_loss_i += [epoch_loss_i]
+
+        # Compute training monitor metric
         if val_metrics_is_none and is_train:
             history_monitor_i = None
         else:
-            history_monitor_i += [epoch_monitor_i]
+            if func_bilevel_coa is not None:
+                task_i = 'coarse_task' if func_bilevel_coa else 'fine_task'
+                history_monitor_i[task_i] += [epoch_monitor_i[task_i]]
+            else:
+                history_monitor_i += [epoch_monitor_i]
 
         return history_loss_i, history_monitor_i
 
@@ -425,10 +484,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         return valid_thres_ml_per_emo_res, valid_monitor_mean_res
 
-    def train_model(history_train_loss_i, history_train_monitor_i):
 
-        train_loss_i = {'coarse_task': 0.0, 'fine_task': 0.0} if label_type_is_dict and do_bilevel_opt else 0.0
-        train_monitor_i = 0.0
+    def train_model(history_train_loss_i, history_train_monitor_i, train_loss_i, train_monitor_i, func_bilevel_coa=None):
 
         num_iterations = train_size // batch_size if train_size % batch_size == 0 else train_size // batch_size + 1
         with alive_bar(num_iterations, title='Model training') as bar:
@@ -443,7 +500,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                             x_audio = x_audio.bfloat16()
 
                         # Prediction and compute training metrics
-                        batch_loss, pred = train_batch(x_text, x_image, x_audio, y_sample)
+                        batch_loss, pred = train_batch(x_text, x_image, x_audio, y_sample, func_bilevel_coa)
                         batch_monitor = val_metrics(pred, y_sample).item() if val_metrics is not None else None
 
                 else:  # Fixed sequence length
@@ -459,7 +516,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         y = y.float()
 
                     # Prediction and compute training metrics
-                    batch_loss, pred = train_batch(x_text, x_image, x_audio, y)
+                    batch_loss, pred = train_batch(x_text, x_image, x_audio, y, func_bilevel_coa)
                     batch_monitor = val_metrics(pred, y).item() if val_metrics is not None else None
 
                 if (num_training_prints > 0) and \
@@ -472,13 +529,15 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                                             current, train_size, param_training)
 
                 train_loss_i, train_monitor_i = add_to_train_loss_and_monitor(train_loss_i, train_monitor_i,
-                                                                              batch_loss, batch_monitor)
+                                                                              batch_loss, batch_monitor, func_bilevel_coa)
                 bar()
 
-        train_loss_i, train_monitor_i = divide_epoch_loss_and_monitor(train_loss_i, train_monitor_i, num_iterations)
+        train_loss_i, train_monitor_i = divide_epoch_loss_and_monitor(train_loss_i, train_monitor_i, num_iterations,
+                                                                      func_bilevel_coa)
         history_train_loss_i, history_train_monitor_i = save_epoch_loss_and_monitor(train_loss_i, train_monitor_i,
                                                                                     history_train_loss_i,
                                                                                     history_train_monitor_i,
+                                                                                    func_bilevel_coa,
                                                                                     is_train=True)
 
         # # Compute best threshold per emotion for multilabel classification according to F1 score
@@ -535,10 +594,12 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 #     current_valid_loss = valid_loss / idx if idx != 0 else valid_loss
                 #     print(f"Validation loss: {current_valid_loss:>7f} [{idx:>5d}/{valid_size:>5d}]")
 
-        valid_loss_i, valid_monitor_i = divide_epoch_loss_and_monitor(valid_loss_i, valid_monitor_i, valid_size)
+        valid_loss_i, valid_monitor_i = divide_epoch_loss_and_monitor(valid_loss_i, valid_monitor_i, valid_size,
+                                                                      func_bilevel_coa=None)
         history_valid_loss_i, history_valid_monitor_i = save_epoch_loss_and_monitor(valid_loss_i, valid_monitor_i,
                                                                                     history_valid_loss_i,
                                                                                     history_valid_monitor_i,
+                                                                                    func_bilevel_coa=None,
                                                                                     is_train=False)
 
         # If validation metric not specified, take F1 score as validation metric to monitor based on previous code block
@@ -550,6 +611,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         return history_valid_loss_i, history_valid_monitor_i, valid_loss_i, valid_monitor_i, valid_thres_ml_per_emo_i
 
+
     fold_text = ": Fold {}".format(fold_id) if with_cross_valid else ""
     print("================================= Model Training{} =============================================\n"
           .format(fold_text))
@@ -560,8 +622,19 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         # Model training on training data
         model.train()
-        history_train_loss, history_train_monitor, train_loss, train_monitor = \
-            train_model(history_train_loss, history_train_monitor)
+        if do_bilevel_opt and do_func_bilevel:
+            train_loss, train_monitor = {'coarse_task': 0.0, 'fine_task': 0.0}, {'coarse_task': 0.0, 'fine_task': 0.0}
+            print("\n\nOptimizing for fine task:", label_type['fine_task'])
+            history_train_loss, history_train_monitor, train_loss, train_monitor = \
+                train_model(history_train_loss, history_train_monitor, train_loss, train_monitor, func_bilevel_coa=False)
+            print("\n\nOptimizing for coarse task:", label_type['coarse_task'])
+            history_train_loss, history_train_monitor, train_loss, train_monitor = \
+                train_model(history_train_loss, history_train_monitor, train_loss, train_monitor, func_bilevel_coa=True)
+        else:
+            train_loss = {'coarse_task': 0.0, 'fine_task': 0.0} if label_type_is_dict and do_bilevel_opt else 0.0
+            train_monitor = 0.0
+            history_train_loss, history_train_monitor, train_loss, train_monitor = \
+                    train_model(history_train_loss, history_train_monitor, train_loss, train_monitor)
 
         # Model evaluation on validation data
         model.eval()
