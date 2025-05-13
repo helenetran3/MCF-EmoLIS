@@ -244,9 +244,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                         #if not for_grad_approx else model_copy(x_text, x_image, x_audio)['fine_task']
                     #print("[Fine, i:", i_lower, ", after step]\n pred_fine:", pred_fine[0], "\n y_batch:", y_batch['fine_task'][0])
                     lower_batch_loss = loss_fn['fine_task'](pred_fine, y_batch['fine_task'])
+                    lower_batch_loss.backward()
                     if param_training["clip"] != -1:
                         torch.nn.utils.clip_grad_norm_(param_model_fin, param_training["clip"])
-                    lower_batch_loss.backward()
                     # Verify that it's actually training
                     #for param_name, param in model.named_parameters():
                     #    print(param_name, ", param.grad:", param.grad)
@@ -305,8 +305,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 pred_coarse = model(x_text, x_image, x_audio)['coarse_task']
 
                 optimizer['coarse_task'].zero_grad()
-                if param_training['clip'] != -1:
-                    torch.nn.utils.clip_grad_norm_(optimizer['param_coarse'], param_training["clip"])
                 # # if param_training['approx_grad']:
                 # #     # approximation of the gradient
                 # grads = approximate_gradient()
@@ -319,6 +317,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                 # Compute exact gradient
                 upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_coarse*pred_fine_best), y_batch['coarse_task'])
                 upper_batch_loss.backward()
+                if param_training['clip'] != -1:
+                    torch.nn.utils.clip_grad_norm_(optimizer['param_coarse'], param_training["clip"])
                 optimizer['coarse_task'].step()
 
                 #print("[Coarse, i_upper:", i_upper, ", after step]\n pred_coarse:", torch.sigmoid(pred_coarse*pred_fine_best)[0], "\n y_batch:", y_batch['coarse_task'][0], "\n\n")
@@ -331,9 +331,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             optimizer.zero_grad()
             pred_batch = model(x_text, x_image, x_audio)
             batch_loss_i = loss_fn(pred_batch, y_batch)
+            batch_loss_i.backward()
             if param_training["clip"] != -1:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), param_training["clip"])
-            batch_loss_i.backward()
             optimizer.step()
             return batch_loss_i.item(), pred_batch
 
@@ -343,9 +343,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             optimizer[task_type].zero_grad()
             pred_batch = model(x_text, x_image, x_audio)
             batch_loss_i = loss_fn[task_type](pred_batch[task_type], y_batch[task_type])
+            batch_loss_i.backward()
             if param_training["clip"] != -1:
                 torch.nn.utils.clip_grad_norm_(param_model_func, param_training["clip"])
-            batch_loss_i.backward()
             optimizer[task_type].step()
             return batch_loss_i.item(), pred_batch
 
