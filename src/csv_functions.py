@@ -378,5 +378,8 @@ def csv_summary(with_cross_val, param_log):
                     data_metrics.insert(2, 'task', task_column, allow_duplicates=True)
                     df = pd.concat([df, data_metrics], axis=0)
             df.to_csv(csv_path_summary, index=False)
+
+        print("Summary results folder updated.")
+
     else:
         print("No results to summarize.")
