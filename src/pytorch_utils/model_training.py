@@ -657,8 +657,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
                                                                  model_name, ext_model_name)
 
         time1 = time.time()
-        time_list.append(time1)
-        print("Time for epoch completion:", round(time1 - time0, 2), " seconds.\n\n")
+        duration = round(time1 - time0, 2)
+        time_list.append(duration)
+        print("Time for epoch completion:", duration, " seconds.\n\n")
 
         # For early stopping
         if patience != -1:
@@ -667,7 +668,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             if patience == num_epochs_without_improvement:
                 break
 
-    print("Total time training:", np.sum(time_list))
+    print("Total time training:", np.sum(time_list), " seconds.")
     model_folder = os.path.join('results', model_name)
     save_and_plot_history(history_train_loss, history_valid_loss, ext_model_name, history_folder="history_loss",
                           root_folder=model_folder, display_fig=display_fig)
