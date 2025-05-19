@@ -23,14 +23,14 @@
     "val_metrics": ["mse", "wei_bce"],
     "coef_coa": 0.6,
     "bilevel_opt": 1,
-    "func_bilevel": 0,
-    "num_steps_bilevel_coa": 1,
-    "num_steps_bilevel_fin": 10,
+    "func_bilevel": 1,
+    "num_steps_bilevel_coa": 0,
+    "num_steps_bilevel_fin": 0,
     "thres_ml_from_best_metric": 1,
     "learning_rate": 5e-4,
     "cross_val_folds": 5,
     "random_state": 42,
-    "clip": 2,
+    "clip": -1,
     "when": -1
   }
 }

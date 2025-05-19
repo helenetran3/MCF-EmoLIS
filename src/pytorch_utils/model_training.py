@@ -302,6 +302,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
                 # The following line computes heuristically the prediction and loss for fine task
                 pred_fine_best, lower_batch_loss = solve_lower_pb()
+                pred_fine_best_bin = (pred_fine_best >= param_task['thres_score_pres']).float()
                 pred_coarse = model(x_text, x_image, x_audio)['coarse_task']
 
                 optimizer['coarse_task'].zero_grad()
@@ -315,7 +316,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
                 # # else:
                 # Compute exact gradient
-                upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_coarse*pred_fine_best), y_batch['coarse_task'])
+                upper_batch_loss = loss_fn['coarse_task'](pred_coarse, pred_fine_best_bin)
+                #upper_batch_loss = loss_fn['coarse_task'](torch.sigmoid(pred_coarse*pred_fine_best), y_batch['coarse_task'])
                 upper_batch_loss.backward()
                 if param_training['clip'] != -1:
                     torch.nn.utils.clip_grad_norm_(optimizer['param_coarse'], param_training["clip"])
