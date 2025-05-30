@@ -536,7 +536,7 @@ def compute_multilabel_confusion_matrix(true_scores_all, true_scores_coa, true_c
             if scores is not None:
                 conf_mat = []
                 for sc_i in scores:
-                    tc_i, pc_i = (tc > sc_i).astype(int), (pc > sc_i).astype(int)
+                    tc_i, pc_i = (tc >= sc_i).astype(int), (pc >= sc_i).astype(int)
                     # print("[conf matrix] sc_i:", sc_i)
                     # print("[conf matrix] tc_i unique:", np.unique(tc_i, return_counts=True))
                     conf_mat += [multilabel_confusion_matrix(tc_i, pc_i, labels=list(range(num_classes)))]

@@ -89,7 +89,11 @@
             "gamma2_activation": "relu",
             "gamma2_drop": 0.5,
             "out_shapes": 64,
-            "out_drop": 0.2
+            "out_drop": 0.2,
+
+            "mt_proj_size": 64,
+            "mt_num_layers": 1,
+            "mt_dropout": 0.1
         },
 
         "mme2e":
