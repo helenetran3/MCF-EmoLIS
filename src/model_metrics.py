@@ -637,7 +637,8 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         if 'coarse' in label_t or label_t == 'all':
             print(f"\n------- Presence score classification -------\n")
             coarse = ('coarse' in label_t)
-            metrics_score = get_classification_metrics_score(true_all_i, pred_raw_i, num_classes, round_decimals,
+            true_sc = true_all_i if label_t == 'all' else true_coa_i
+            metrics_score = get_classification_metrics_score(true_sc, pred_raw_i, num_classes, round_decimals,
                                                              model_id, model_folder, with_cross_val, task_mt, fold_id,
                                                              coarse)
 

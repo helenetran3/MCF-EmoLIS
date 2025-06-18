@@ -60,7 +60,7 @@ class MModel(nn.Module):
                                      for i in range(num_branches)])
 
     def final_activation(self, output, label_i):
-        if label_i in ['present', 'dominant']:
+        if label_i in ['present', 'dominant', 'coarse_prob']:
             return torch.sigmoid(output)
         elif 'oh' in label_i:
             return torch.softmax(output.view(-1, self.num_classes, self.num_scores), dim=2)
