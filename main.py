@@ -56,6 +56,10 @@ def main():
             valid_list_task = load_from_pickle("valid_" + ho_filename, "processed_folds", root_data_folder)
             test_list_task = load_from_pickle("test_" + ho_filename, "processed_folds", root_data_folder)
             if with_cross_validation:
+                train_list_orig = load_from_pickle("train_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                valid_list_orig = load_from_pickle("valid_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                test_list_orig = load_from_pickle("test_" + data_ext_name_raw,  "raw_folds", root_data_folder)
+                no_split_list_orig = load_from_pickle("no_split_" + data_ext_name_raw,  "raw_folds", root_data_folder)
                 no_split_list_task = load_from_pickle("no_split_" + ho_filename, "processed_folds", root_data_folder)
             split_str = "with_no_split_" if with_cross_validation else "split_only_"
             all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name_raw, "raw_folds", root_data_folder)
@@ -78,7 +82,7 @@ def main():
                 train_ids, valid_ids, test_ids = get_fold_ids(param_task)
                 train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, all_scores = \
                     process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log,
-                                              with_cross_validation, data_ext_name_raw)
+                                              with_cross_validation)
 
             # Update labels so that it matches with the targeted task given by label_type (all, coarse, coarse_prob,
             # coarse_oh, present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
@@ -91,8 +95,11 @@ def main():
         # Cross-validation
         if with_cross_validation:
             train_list_task, valid_list_task, test_list_task = \
-                split_for_cross_validation(train_list_task, valid_list_task, test_list_task, no_split_list_task,
+                split_for_cross_validation(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig,
+                                           train_list_task, valid_list_task, test_list_task, no_split_list_task,
                                            param_training, param_task, param_log, label_type, data_ext_name_proc)
+
+        del train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig
 
     # Data normalization: we perform it after cross-validation (or hold-out) because it uses values from training set
     train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,

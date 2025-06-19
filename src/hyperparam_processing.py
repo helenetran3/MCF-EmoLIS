@@ -314,13 +314,14 @@ def get_val_metrics(val_metrics_str, label_type, param_training, is_tf):
     return get_one_val_metric(val_metrics_str)
 
 
-def get_optimizer(optimizer_str, param_training, model, is_tf):
+def get_optimizer(optimizer_str, param_training, model, label_type_is_dict, is_tf):
     """
     Get TensorFlow or PyTorch optimizer from string.
 
     :param optimizer_str: string
     :param is_tf: bool (whether it is TensorFlow or PyTorch)
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
+    :param label_type_is_dict: Whether label type is dict (multitask or not)
     :param model: a Model object from PyTorch. Let it None if is_tf is True
     :return: TensorFlow or Pytorch optimizer
     """
@@ -355,7 +356,7 @@ def get_optimizer(optimizer_str, param_training, model, is_tf):
             raise ValueError("'{}' assigned to key 'optimizer' in 'param_training_task.json' is invalid."
                              " Please choose among {}.".format(optimizer_str, possible_optimizers))
 
-    if param_training['bilevel_opt']:
+    if label_type_is_dict and param_training['bilevel_opt']:
 
         param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
         param_coarse_names = [name for name, _ in model.named_parameters() if '.0.' in name]

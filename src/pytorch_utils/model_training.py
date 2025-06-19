@@ -207,7 +207,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     loss_fn = get_loss_function(loss_function_str, label_type, param_training, is_tf=False)
     val_metrics = get_val_metrics(val_metrics_str, label_type, param_training, is_tf=False)
     val_metrics_is_none = val_metrics is None
-    optimizer = get_optimizer(optimizer_name, param_training, model, is_tf=False)
+    optimizer = get_optimizer(optimizer_name, param_training, model, label_type_is_dict, is_tf=False)
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
@@ -223,10 +223,9 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
     def train_batch(x_text, x_image, x_audio, y_batch, func_bilevel_coa):
 
-        param_model_coa, param_model_fin = optimizer['param_coarse'], optimizer['param_fine']
-
         def perform_param_bilevel():
             param_model_coa_names = optimizer['param_coarse_names']
+            param_model_fin =  optimizer['param_fine']
 
             def solve_lower_pb(for_grad_approx=False):
 
@@ -341,6 +340,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         def perform_functional_bilevel():
             task_type = 'coarse_task' if func_bilevel_coa else 'fine_task'
+            param_model_coa, param_model_fin = optimizer['param_coarse'], optimizer['param_fine']
             param_model_func = param_model_coa if func_bilevel_coa else param_model_fin
             optimizer[task_type].zero_grad()
             pred_batch = model(x_text, x_image, x_audio)
@@ -352,7 +352,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             return batch_loss_i.item(), pred_batch
 
 
-        if do_bilevel_opt:
+        if label_type_is_dict and do_bilevel_opt:
             if do_func_bilevel:
                 return perform_functional_bilevel()
             else:
@@ -626,7 +626,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
 
         # Model training on training data
         model.train()
-        if do_bilevel_opt and do_func_bilevel:
+        if label_type_is_dict and do_bilevel_opt and do_func_bilevel:
             train_loss, train_monitor = {'coarse_task': 0.0, 'fine_task': 0.0}, {'coarse_task': 0.0, 'fine_task': 0.0}
             print("\n\nOptimizing for fine task:", label_type['fine_task'])
             history_train_loss, history_train_monitor, train_loss, train_monitor = \

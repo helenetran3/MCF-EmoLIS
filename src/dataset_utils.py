@@ -375,42 +375,26 @@ def process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_tas
     return train_res, valid_res, test_res, no_split_res, all_scores
 
 
-def split_for_cross_validation(train_list, valid_list, test_list, no_split_list, param_training, param_task, param_log,
-                               label_type, data_ext_name):
+def get_indexes_for_cross_validation(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig,
+                                     param_training, param_task, param_log, data_ext_name):
     """
-    Generate three lists of num_folds elements, with each element being a list in the form [x, y, seg],
-     with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
-    It also saves the indexes from raw folds, in the form [training_index_l, train_index_l, valid_index_l, test_index_l]
+    Return the indexes from raw folds, in the form [training_index_l, train_index_l, valid_index_l, test_index_l]
      where each of the four lists have num_folds sub-elements, and each sub-element contains the list of indexes for the
      split.
 
-    :param train_list: [x_train, y_train, seg_train] where x_train is a list of 3 lists of arrays of shape
+    :param train_list_orig: [x_train, y_train, seg_train] where x_train is a list of 3 lists of arrays of shape
     (num_steps, num_features), y_train a list arrays of shape (1, 6 or 7), and seg_train a list of segment ids
     (ex: 'zk2jTlAtvSU[1]')
-    :param valid_list: [x_valid, y_valid, seg_valid]
-    :param test_list: [x_test, y_test, seg_test]
-    :param no_split_list: [x_no_split, y_no_split, seg_no_split] (do not belong to any of the splits givne by the
+    :param valid_list_orig: [x_valid, y_valid, seg_valid]
+    :param test_list_orig: [x_test, y_test, seg_test]
+    :param no_split_list_orig: [x_no_split, y_no_split, seg_no_split] (do not belong to any of the splits given by the
     authors of CMU-MOSEI)
     :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
     :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
     :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
-    :param label_type: Type of labels used for model training and evaluation
     :param data_ext_name: Contains information on NaN values and length sequences (used for file saving)
     :return: [train_res, valid_res, test_res]
     """
-
-    def create_split_for_one_fold(x_data, y_data, seg_data, index):
-        l_res = []
-        x_new_fold = [x_data[i] for i in index]
-        if type(label_type) == dict:
-            y_new_fold = {}
-            for task_i in ['coarse_task', 'fine_task']:
-                y_new_fold[task_i] = [y_data[task_i][i] for i in index]
-        else:
-            y_new_fold = [y_data[i] for i in index]
-        seg_new_fold = [seg_data[i] for i in index]
-        l_res += [x_new_fold, y_new_fold, seg_new_fold]
-        return l_res
 
     def deal_with_single_class_strat(y_strat):
         """
@@ -448,62 +432,28 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
         return y_strat
 
     num_folds = param_training['cross_val_folds']
-    label_type_str = create_label_filename(label_type)
-    predict_neutral_class = param_task['predict_neutral_class']
-    cv_filename = "cv_" + str(num_folds)
-    cv_filename += "_true_" + label_type_str + "_" + data_ext_name
-    cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
 
-    print("Compute folds for stratified cross-validation...")
-    ################################################################################
-    # Merge all splits to a unified dataset (X_dataset, y_dataset, seg_dataset
-    ################################################################################
-    X_dataset = train_list[0] + valid_list[0] + test_list[0] + no_split_list[0]
-    if type(label_type) == dict:
-        y_dataset = {}
-        for task_i in ['coarse_task', 'fine_task']:
-            y_dataset[task_i] = train_list[1][task_i] + valid_list[1][task_i] + test_list[1][task_i] + \
-                                no_split_list[1][task_i]
-    else:
-        y_dataset = train_list[1] + valid_list[1] + test_list[1] + no_split_list[1]
-    seg_dataset = train_list[2] + valid_list[2] + test_list[2] + no_split_list[2]
-
-    ################################################################################
-    # Get training, train, valid and test indexes for splitting
-    ################################################################################
-    train_res, valid_res, test_res = [], [], []
     root_data_folder = param_log['root_data_folder']
-    cv_fine_task_filename = "cv_" + str(num_folds)
-    fine_task_name = shorten_label(label_type['fine_task']) if type(label_type) == dict else shorten_label(label_type)
-    cv_fine_task_filename += "_true_" + fine_task_name + "_" + data_ext_name
-    cv_fine_task_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
+    cv_ind_filename = "ind_cv_" + str(num_folds) +  "_true_all_" + data_ext_name
+    cv_ind_filename += "_pred-neu" if param_task['predict_neutral_class'] else "_rm-neu"
+    X_dataset = train_list_orig[0] + valid_list_orig[0] + test_list_orig[0] + no_split_list_orig[0]
+    y_dataset = train_list_orig[1] + valid_list_orig[1] + test_list_orig[1] + no_split_list_orig[1]
 
-    # If the split indexes of the fine task are available locally
-    if pickle_file_exists("ind_" + cv_fine_task_filename, "processed_folds", root_data_folder):
-        training_index_l, train_index_l, valid_index_l, test_index_l = \
-            load_from_pickle("ind_" + cv_fine_task_filename, "processed_folds", root_data_folder)
-        for training_index, train_index, valid_index, test_index in zip(training_index_l, train_index_l, valid_index_l,
-                                                                        test_index_l):
-            X_training, y_training, seg_training = create_split_for_one_fold(X_dataset, y_dataset, seg_dataset,
-                                                                             training_index)
-            train_res += [create_split_for_one_fold(X_training, y_training, seg_training, train_index)]
-            valid_res += [create_split_for_one_fold(X_training, y_training, seg_training, valid_index)]
-            test_res += [create_split_for_one_fold(X_dataset, y_dataset, seg_dataset, test_index)]
+    # If the split indexes obtained from the original scores are available locally
+    if pickle_file_exists(cv_ind_filename, "processed_folds", root_data_folder):
+        print("Load indexes for stratified cross-validation. Filename:", cv_ind_filename)
+        return load_from_pickle(cv_ind_filename, "processed_folds", root_data_folder)
 
     else:
+        print("Compute indexes for stratified cross-validation...")
         random_state = param_training['random_state']
         training_index_l, train_index_l, valid_index_l, test_index_l = [], [], [], []
         ################################################################################
         # Create one-hot encoding label y_strat_dataset (e.g. [0, 1, 0, 1, 1, 1]) for stratification
-        # If multitask, use label of fine task
+        # Based on the original presence score, and using score threshold to binarize
         ################################################################################
-        label_strat = label_type['fine_task'] if type(label_type) == dict else label_type
-        y_strat_dataset = y_dataset['fine_task'] if type(label_type) == dict else y_dataset
-        if label_strat in ['present', 'dominant']:
-            y_strat_dataset = [list(y.flatten()) for y in y_strat_dataset]
-        else:
-            thres_score_pres = param_task['thres_score_pres']
-            y_strat_dataset = [list((y.flatten() > thres_score_pres).astype(int)) for y in y_strat_dataset]
+        thres_score_pres = param_task['thres_score_pres']
+        y_strat_dataset = [list((y.flatten() > thres_score_pres).astype(int)) for y in y_dataset]
         # From one-hot labels (equivalent as number in base 2), generate class numbers in base 10
         y_strat_dataset = [int("".join(str(y_char) for y_char in y), 2) for y in y_strat_dataset]
         y_strat_dataset = deal_with_single_class_strat(y_strat_dataset)
@@ -514,26 +464,111 @@ def split_for_cross_validation(train_list, valid_list, test_list, no_split_list,
             skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
             for training_index, test_index in skf.split(X_dataset, y_strat_dataset):
                 # Train and valid split, take 10% of training set for validation
-                X_training, y_training, seg_training = create_split_for_one_fold(X_dataset, y_dataset, seg_dataset,
-                                                                                 training_index)
+                X_training = [X_dataset[i] for i in training_index]
                 y_training_strat = deal_with_single_class_strat([y_strat_dataset[i] for i in training_index])
                 sss = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=random_state)
                 train_index, valid_index = next(sss.split(X_training, y_training_strat))
-                train_res += [create_split_for_one_fold(X_training, y_training, seg_training, train_index)]
-                valid_res += [create_split_for_one_fold(X_training, y_training, seg_training, valid_index)]
-                test_res += [create_split_for_one_fold(X_dataset, y_dataset, seg_dataset, test_index)]
                 training_index_l += [training_index]
                 train_index_l += [train_index]
                 valid_index_l += [valid_index]
                 test_index_l += [test_index]
-        save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], "ind_" + cv_fine_task_filename,
+        save_with_pickle([training_index_l, train_index_l, valid_index_l, test_index_l], cv_ind_filename,
                          "processed_folds", root_data_folder)
+
+    print("Complete calculation of indexes for cross-validation.")
+
+    return training_index_l, train_index_l, valid_index_l, test_index_l
+
+
+def split_for_cross_validation(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig,
+                               train_list_task, valid_list_task, test_list_task, no_split_list_task,
+                               param_training, param_task, param_log, label_type, data_ext_name):
+    """
+    Generate three lists of num_folds elements, with each element being a list in the form [x, y, seg],
+     with x a list of arrays of shape (nb_steps, nb_features), y a list of arrays of shape (1, 6), seg a list of strings
+    It also saves the indexes from raw folds, in the form [training_index_l, train_index_l, valid_index_l, test_index_l]
+     where each of the four lists have num_folds sub-elements, and each sub-element contains the list of indexes for the
+     split.
+
+    :param train_list_orig: original [x_train, y_train, seg_train] after process_and_split_dataset
+     where x_train is a list of 3 lists of arrays of shape (num_steps, num_features), y_train a list arrays of shape
+     (1, 6 or 7), and seg_train a list of segment ids (ex: 'zk2jTlAtvSU[1]')
+    :param valid_list_orig: original [x_valid, y_valid, seg_valid]
+    :param test_list_orig: original [x_test, y_test, seg_test]
+    :param no_split_list_orig: original [x_no_split, y_no_split, seg_no_split] that do not belong to any of the splits
+    given by the authors of CMU-MOSEI
+    :param train_list_task: train_list_orig with updated labels corresponding to the targeted task
+    :param valid_list_task: valid_list_orig with updated labels corresponding to the targeted task
+    :param test_list_task: test_list_orig with updated labels corresponding to the targeted task
+    :param no_split_list_task: no_split_list_orig with updated labels corresponding to the targeted task
+    :param param_training: dictionary of 'training' hyperparameters (cf. param_training_task.json)
+    :param param_task: dictionary of 'task' hyperparameters (cf. param_training_task.json)
+    :param param_log: dictionary of 'logistics' hyperparameters (cf. param_logistics.json)
+    :param label_type: Type of labels used for model training and evaluation
+    :param data_ext_name: Contains information on NaN values and length sequences (used for file saving)
+    :return: [train_res, valid_res, test_res]
+    """
+
+    def create_split_for_one_fold(x_data, y_data, seg_data, index):
+        l_res = []
+        x_new_fold = [x_data[i] for i in index]
+        if type(label_type) == dict:
+            y_new_fold = {}
+            for task_i in ['coarse_task', 'fine_task']:
+                y_new_fold[task_i] = [y_data[task_i][i] for i in index]
+        else:
+            y_new_fold = [y_data[i] for i in index]
+        seg_new_fold = [seg_data[i] for i in index]
+        l_res += [x_new_fold, y_new_fold, seg_new_fold]
+        return l_res
+
+    num_folds = param_training['cross_val_folds']
+    label_type_str = create_label_filename(label_type)
+    predict_neutral_class = param_task['predict_neutral_class']
+    cv_filename = "cv_" + str(num_folds)
+    cv_filename += "_true_" + label_type_str + "_" + data_ext_name
+    cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
+
+    ################################################################################
+    # Merge all splits to a unified dataset (X_dataset, y_dataset, seg_dataset)
+    ################################################################################
+    X_dataset = train_list_task[0] + valid_list_task[0] + test_list_task[0] + no_split_list_task[0]
+    if type(label_type) == dict:
+        y_dataset = {}
+        for task_i in ['coarse_task', 'fine_task']:
+            y_dataset[task_i] = train_list_task[1][task_i] + valid_list_task[1][task_i] + test_list_task[1][task_i] + \
+                                no_split_list_task[1][task_i]
+    else:
+        y_dataset = train_list_task[1] + valid_list_task[1] + test_list_task[1] + no_split_list_task[1]
+    seg_dataset = train_list_task[2] + valid_list_task[2] + test_list_task[2] + no_split_list_task[2]
+
+    ################################################################################
+    # Get training, train, valid and test indexes for splitting
+    ################################################################################
+    training_index_l, train_index_l, valid_index_l, test_index_l = get_indexes_for_cross_validation(
+        train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig,
+        param_training, param_task, param_log, data_ext_name)
+
+    ################################################################################
+    # Split datasets based on training, train, valid and test indexes
+    ################################################################################
+    train_res, valid_res, test_res = [], [], []
+    root_data_folder = param_log['root_data_folder']
+
+    # If the split indexes obtained from the original scores are available locally
+    for training_index, train_index, valid_index, test_index in zip(training_index_l, train_index_l, valid_index_l,
+                                                                    test_index_l):
+        X_training, y_training, seg_training = create_split_for_one_fold(X_dataset, y_dataset, seg_dataset,
+                                                                         training_index)
+        train_res += [create_split_for_one_fold(X_training, y_training, seg_training, train_index)]
+        valid_res += [create_split_for_one_fold(X_training, y_training, seg_training, valid_index)]
+        test_res += [create_split_for_one_fold(X_dataset, y_dataset, seg_dataset, test_index)]
 
     save_with_pickle(train_res, "train_" + cv_filename, "processed_folds", root_data_folder)
     save_with_pickle(valid_res, "valid_" + cv_filename, "processed_folds", root_data_folder)
     save_with_pickle(test_res, "test_" + cv_filename, "processed_folds", root_data_folder)
 
-    print("Complete cross-validation.")
+    print("Complete cross-validation split.")
 
     return train_res, valid_res, test_res
 
