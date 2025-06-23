@@ -19,7 +19,7 @@
         {
             "is_TensorFlow": 0,
             "trans_nlayers": 2,
-            "gml": 0
+            "mt_proj_size": 60
         },
 
         "ef_williams":

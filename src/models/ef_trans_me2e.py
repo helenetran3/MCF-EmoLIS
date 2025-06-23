@@ -3,6 +3,8 @@ import torch
 from torch import nn
 from src.models.me2e.modules.transformer_encoder import WrappedTransformerEncoder
 
+from src.label_processing import create_label_multitask
+
 
 class MModel(nn.Module):
     def __init__(self, model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
@@ -17,46 +19,68 @@ class MModel(nn.Module):
         self.num_classes = num_classes
         self.num_scores = 4
         self.mods = 'tav'  # we use the three modalities here
-        self.gml = param_model['gml']
-        self.label_type = param_task['label_type']
+        label_type = param_task['label_type']
+        self.label_type, _ = create_label_multitask(label_type) if type(label_type) == list else (label_type, None)
+        self.multitask = type(self.label_type) == dict
 
         nlayers = param_model['trans_nlayers']
         num_features_tav_incr = num_features_text + num_features_image + num_features_audio + 1 # 409+1 for div by 5
-        num_outputs = self.num_classes * self.num_scores if self.gml else self.num_classes
+        compute_dim = lambda l: self.num_classes * self.num_scores if 'oh' in l else self.num_classes
+        output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
+            if self.multitask else [compute_dim(self.label_type)]
 
-        self.concatenate = torch.cat
+        # Multitask parameters
+        num_branches = 2 if self.multitask else 1
+        proj_size_mt = param_model['mt_proj_size']  # set to 60 for a multiple of 5
+        num_features_for_trans_and_aff = [num_features_tav_incr, proj_size_mt]
 
-        self.transformer = WrappedTransformerEncoder(dim=num_features_tav_incr,
-                                                     num_layers=nlayers,
-                                                     num_heads=5)
+        self.transformer = nn.ModuleList([WrappedTransformerEncoder(dim=num_features_for_trans_and_aff[i],
+                                                                    num_layers=nlayers,
+                                                                    num_heads=5) for i in range(num_branches)])
 
-        self.affine = nn.Sequential(nn.Linear(num_features_tav_incr, num_features_tav_incr // 2),
-                                    nn.ReLU(),
-                                    nn.Linear(num_features_tav_incr // 2, num_outputs))
+        self.affine = nn.ModuleList([nn.Sequential(nn.Linear(num_features_for_trans_and_aff[i],
+                                                             num_features_for_trans_and_aff[i] // 2),
+                                                   nn.ReLU(),
+                                                   nn.Linear(num_features_for_trans_and_aff[i] // 2, output_dim[i]))
+                                     for i in range(num_branches)])
+
+        if self.multitask:
+            self.proj = nn.Conv1d(2*num_features_tav_incr, proj_size_mt, kernel_size=1, padding=0, bias=False)
+
+    def final_activation(self, output, label_i):
+        if label_i in ['present', 'dominant']:
+            return torch.sigmoid(output)
+        elif 'oh' in label_i:
+            return torch.softmax(output.view(-1, self.num_classes, self.num_scores), dim=2)
+        else:
+            return torch.relu(output)
 
     def forward(self, x_text, x_image, x_audio):
 
-        max_all_lens = x_text.size(1)
+        max_all_lens = x_text.size(1)  # is set_length parameter in config/param_training_task.json
         assert max_all_lens == x_image.size(1) == x_audio.size(1)
         num_samples = x_text.size(0)
         assert num_samples == x_image.size(0) == x_audio.size(0)
 
-        zero_vector = torch.zeros(num_samples, max_all_lens, 1)
-        x = self.concatenate((x_text, x_image, x_audio, zero_vector), 2)
-        feat_lens = self.get_len_samples(x)
-        x_trans = self.transformer(x, feat_lens, max_all_lens, get_cls=True)
-        x_aff = self.affine(x_trans)
-        
-        if self.gml:
-            x_aff = x_aff.view(-1, self.num_classes, self.num_scores)
-            x_aff = torch.softmax(x_aff, dim=2)
-        else:
-            if self.label_type in ['present', 'dominant']:
-                x_aff = torch.sigmoid(x_aff)
-            else:
-                x_aff = torch.relu(x_aff)
+        zero_vector = torch.zeros(num_samples, max_all_lens, 1)  # for division by 5 in transformer for num_features
+        x = torch.cat((x_text, x_image, x_audio, zero_vector), 2) # (num_samples, t, num_features)
+        all_lens = self.get_len_samples(x)  # list of sequence lengths in the training batch
+        x_cls, x_trans_main = self.transformer[0](x, all_lens, max_all_lens, get_cls=True) # (num_samples, num_features)
+        output_main = self.affine[0](x_cls)
 
-        return x_aff
+        if self.multitask:
+            x_multi = torch.cat([x, x_trans_main], dim=2)  # (num_samples, t, num_features*2)
+            x_multi = x_multi.permute(0, 2, 1)  # (num_samples, num_features*2, t)
+            x_multi = self.proj(x_multi)  # (num_samples, proj_size, t)
+            x_multi = x_multi.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            x_cls_multi, _ = self.transformer[1](x_multi, all_lens, max_all_lens, get_cls=True)
+            output_multi = self.affine[1](x_cls_multi)
+            output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
+                      "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
+        else:
+            output = self.final_activation(output_main, self.label_type)
+
+        return output
 
     @staticmethod
     def get_len_samples(x_feat):

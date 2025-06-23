@@ -42,7 +42,7 @@ class WrappedTransformerEncoder(nn.Module):
         # inputs = self.pos_encoder(inputs)
         inputs = self.encoder(src=inputs, src_key_padding_mask=mask) # (seq_len, bs, dim)
 
-        if get_cls:
-            return inputs[0]
+        cls = inputs[0]
+        output = inputs[1:].permute(1, 0, 2)
 
-        return inputs[1:].permute(1, 0, 2)
+        return cls, output
