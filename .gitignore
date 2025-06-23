@@ -20,3 +20,4 @@ label_statistics_old.ipynb
 config/default_parameters.json
 results*
 slurm*
+exp*

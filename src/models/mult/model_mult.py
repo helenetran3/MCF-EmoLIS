@@ -82,31 +82,31 @@ class MModel(nn.Module):
 
         # 2. Crossmodal Attentions
         if self.lonly and not self.dominant_mod:
-            self.trans_l_with_a = nn.ModuleList([self.get_network(self_type='la') for _ in range(num_branches)])
-            self.trans_l_with_v = nn.ModuleList([self.get_network(self_type='lv') for _ in range(num_branches)])
+            self.trans_l_with_a = self.get_network(self_type='la')
+            self.trans_l_with_v = self.get_network(self_type='lv')
         if self.aonly:
-            self.trans_a_with_l = nn.ModuleList([self.get_network(self_type='al') for _ in range(num_branches)])
-            self.trans_a_with_v = nn.ModuleList([self.get_network(self_type='av') for _ in range(num_branches)])
+            self.trans_a_with_l = self.get_network(self_type='al')
+            self.trans_a_with_v = self.get_network(self_type='av')
         if self.vonly:
-            self.trans_v_with_l = nn.ModuleList([self.get_network(self_type='vl') for _ in range(num_branches)])
-            self.trans_v_with_a = nn.ModuleList([self.get_network(self_type='va') for _ in range(num_branches)])
+            self.trans_v_with_l = self.get_network(self_type='vl')
+            self.trans_v_with_a = self.get_network(self_type='va')
         if self.lav_as_modality:
-            self.trans_l_with_lav = nn.ModuleList([self.get_network(self_type='llav') for _ in range(num_branches)])
-            self.trans_a_with_lav = nn.ModuleList([self.get_network(self_type='alav') for _ in range(num_branches)])
-            self.trans_v_with_lav = nn.ModuleList([self.get_network(self_type='vlav') for _ in range(num_branches)])
-            self.trans_lav_with_l = nn.ModuleList([self.get_network(self_type='lavl') for _ in range(num_branches)])
-            self.trans_lav_with_a = nn.ModuleList([self.get_network(self_type='lava') for _ in range(num_branches)])
-            self.trans_lav_with_v = nn.ModuleList([self.get_network(self_type='lavv') for _ in range(num_branches)])
+            self.trans_l_with_lav = self.get_network(self_type='llav')
+            self.trans_a_with_lav = self.get_network(self_type='alav')
+            self.trans_v_with_lav = self.get_network(self_type='vlav')
+            self.trans_lav_with_l = self.get_network(self_type='lavl')
+            self.trans_lav_with_a = self.get_network(self_type='lava')
+            self.trans_lav_with_v = self.get_network(self_type='lavv')
 
         # 3. Self Attentions (Could be replaced by LSTMs, GRUs, etc.)
         #    [e.g., self.trans_x_mem = nn.LSTM(self.d_x, self.d_x, 1)
-        self.trans_l_mem = nn.ModuleList([self.get_network(self_type='l_mem', layers=3) for _ in range(num_branches)])
-        self.trans_a_mem = nn.ModuleList([self.get_network(self_type='a_mem', layers=3) for _ in range(num_branches)])
-        self.trans_v_mem = nn.ModuleList([self.get_network(self_type='v_mem', layers=3) for _ in range(num_branches)])
+        self.trans_l_mem = self.get_network(self_type='l_mem', layers=3)
+        self.trans_a_mem = self.get_network(self_type='a_mem', layers=3)
+        self.trans_v_mem = self.get_network(self_type='v_mem', layers=3)
         if self.lav_as_modality:
-            self.trans_lav_mem = nn.ModuleList([self.get_network(self_type='lav_mem', layers=3) for _ in range(num_branches)])
+            self.trans_lav_mem = self.get_network(self_type='lav_mem', layers=3)
         if self.cross_module:
-            self.trans_all_mem = nn.ModuleList([self.get_network(self_type='all_mem', layers=3) for _ in range(num_branches)])
+            self.trans_all_mem = self.get_network(self_type='all_mem', layers=3)
         if self.multitask:
             mod_id = ['l', 'a', 'v']
             self.trans_mem_multi = nn.ModuleList([self.get_network(self_type=mod_id[i]+'_mem_multi', layers=3)
@@ -115,9 +115,30 @@ class MModel(nn.Module):
         # Projection layers
         combined_dim = combined_dim*4 if int(self.cross_module + self.lav_as_modality) == 2 else \
             combined_dim*2 if self.lav_as_modality or self.cross_module else combined_dim
-        self.proj1 = nn.ModuleList([nn.Linear(combined_dim, combined_dim) for _ in range(num_branches)])
-        self.proj2 = nn.ModuleList([nn.Linear(combined_dim, combined_dim) for _ in range(num_branches)])
-        self.out_layer = nn.ModuleList([nn.Linear(combined_dim, output_dim[i]) for i in range(num_branches)])
+        self.proj1 = nn.Linear(combined_dim, combined_dim)
+        self.proj2 = nn.Linear(combined_dim, combined_dim)
+        self.out_layer = nn.Linear(combined_dim, output_dim[0])
+
+        # Multitask
+        if self.multitask:
+            num_layers = param_model['mt_num_layers']
+            dropout = param_model['mt_dropout']
+            proj_size = param_model['mt_proj_size']
+            num_feat = self.d_l + self.d_a + self.d_v + 3 * proj_size
+            self.proj_l_mt = nn.Conv1d(self.d_a + self.d_v, proj_size, kernel_size=1, padding=0, bias=False)
+            self.proj_a_mt = nn.Conv1d(self.d_l + self.d_v, proj_size, kernel_size=1, padding=0, bias=False)
+            self.proj_v_mt = nn.Conv1d(self.d_l + self.d_a, proj_size, kernel_size=1, padding=0, bias=False)
+
+            self.rnn = nn.LSTM(input_size=num_feat,
+                                hidden_size=num_feat,
+                                num_layers=num_layers,
+                                dropout=(dropout if num_layers > 1 else 0),
+                                bidirectional=True)
+
+            self.affine = nn.Sequential(nn.Linear(2*num_feat, num_feat),
+                                        nn.ReLU(),
+                                        nn.Linear(num_feat, output_dim[1]))
+
 
     def get_network(self, self_type='l', layers=-1):
         if self_type in ['l', 'al', 'vl', 'lavl']:
@@ -162,16 +183,16 @@ class MModel(nn.Module):
                                   embed_dropout=self.embed_dropout,
                                   attn_mask=self.attn_mask)
 
-    def mult_backbone(self, x_l, x_a, x_v, ind):
+    def mult_backbone(self, x_l, x_a, x_v):
 
         x_l = torch.dropout(x_l.transpose(1, 2), p=self.embed_dropout, train=self.training)
         x_a = x_a.transpose(1, 2)
         x_v = x_v.transpose(1, 2)
 
         # Project the textual/visual/audio features
-        proj_x_l = x_l if self.orig_d_l == self.d_l or ind == 1 else self.proj_l(x_l)
-        proj_x_a = x_a if self.orig_d_a == self.d_a or ind == 1 else self.proj_a(x_a)
-        proj_x_v = x_v if self.orig_d_v == self.d_v or ind == 1 else self.proj_v(x_v)
+        proj_x_l = x_l if self.orig_d_l == self.d_l else self.proj_l(x_l)
+        proj_x_a = x_a if self.orig_d_a == self.d_a else self.proj_a(x_a)
+        proj_x_v = x_v if self.orig_d_v == self.d_v else self.proj_v(x_v)
         proj_x_a = proj_x_a.permute(2, 0, 1)
         proj_x_v = proj_x_v.permute(2, 0, 1)
         proj_x_l = proj_x_l.permute(2, 0, 1)
@@ -182,14 +203,14 @@ class MModel(nn.Module):
             proj_x_lav = self.proj_lav(x_lav)
             proj_x_lav = proj_x_lav.permute(2, 0, 1)
             # proj_x_concat = torch.cat([proj_x_l, proj_x_a, proj_x_v, proj_x_lav], dim=2)
-            h_lav_with_ls = self.trans_lav_with_l[ind](proj_x_lav, proj_x_l, proj_x_l)    # Dimension (L, N, d_lav)
-            h_lav_with_as = self.trans_lav_with_a[ind](proj_x_lav, proj_x_a, proj_x_a)    # Dimension (L, N, d_lav)
-            h_lav_with_vs = self.trans_lav_with_v[ind](proj_x_lav, proj_x_v, proj_x_v)    # Dimension (L, N, d_lav)
+            h_lav_with_ls = self.trans_lav_with_l(proj_x_lav, proj_x_l, proj_x_l)    # Dimension (L, N, d_lav)
+            h_lav_with_as = self.trans_lav_with_a(proj_x_lav, proj_x_a, proj_x_a)    # Dimension (L, N, d_lav)
+            h_lav_with_vs = self.trans_lav_with_v(proj_x_lav, proj_x_v, proj_x_v)    # Dimension (L, N, d_lav)
             h_lavs = [h_lav_with_ls, h_lav_with_as, h_lav_with_vs]
             if self.cross_module:
                 h_all_s += h_lavs
             h_lavs = torch.cat(h_lavs, dim=2)
-            h_lavs = self.trans_lav_mem[ind](h_lavs)
+            h_lavs = self.trans_lav_mem(h_lavs)
 
             if type(h_lavs) == tuple:
                 h_lavs = h_lavs[0]
@@ -200,18 +221,18 @@ class MModel(nn.Module):
             if self.dominant_mod:
                 if self.cross_module:
                     h_all_s += [proj_x_l]
-                h_ls = self.trans_l_mem[ind](proj_x_l)
+                h_ls = self.trans_l_mem(proj_x_l)
             else:
-                h_l_with_as = self.trans_l_with_a[ind](proj_x_l, proj_x_a, proj_x_a)    # Dimension (L, N, d_l)
-                h_l_with_vs = self.trans_l_with_v[ind](proj_x_l, proj_x_v, proj_x_v)    # Dimension (L, N, d_l)
+                h_l_with_as = self.trans_l_with_a(proj_x_l, proj_x_a, proj_x_a)    # Dimension (L, N, d_l)
+                h_l_with_vs = self.trans_l_with_v(proj_x_l, proj_x_v, proj_x_v)    # Dimension (L, N, d_l)
                 if self.cross_module:
                     h_all_s += [h_l_with_as, h_l_with_vs]
                 if self.lav_as_modality:
-                    h_l_with_lavs = self.trans_l_with_lav[ind](proj_x_l, proj_x_lav, proj_x_lav)
+                    h_l_with_lavs = self.trans_l_with_lav(proj_x_l, proj_x_lav, proj_x_lav)
                     h_all_s += [h_l_with_lavs]
                 h_ls = [h_l_with_as, h_l_with_vs, h_l_with_lavs] if self.lav_as_modality else [h_l_with_as, h_l_with_vs]
                 h_ls = torch.cat(h_ls, dim=2)
-                h_ls = self.trans_l_mem[ind](h_ls)
+                h_ls = self.trans_l_mem(h_ls)
 
             if type(h_ls) == tuple:
                 h_ls = h_ls[0]
@@ -219,39 +240,39 @@ class MModel(nn.Module):
 
         if self.aonly:
             # (L,V) --> A
-            h_a_with_ls = self.trans_a_with_l[ind](proj_x_a, proj_x_l, proj_x_l)
-            h_a_with_vs = self.trans_a_with_v[ind](proj_x_a, proj_x_v, proj_x_v)
+            h_a_with_ls = self.trans_a_with_l(proj_x_a, proj_x_l, proj_x_l)
+            h_a_with_vs = self.trans_a_with_v(proj_x_a, proj_x_v, proj_x_v)
             if self.cross_module:
                 h_all_s += [h_a_with_ls, h_a_with_vs]
             if self.lav_as_modality:
-                h_a_with_lavs = self.trans_a_with_lav[ind](proj_x_a, proj_x_lav, proj_x_lav)
+                h_a_with_lavs = self.trans_a_with_lav(proj_x_a, proj_x_lav, proj_x_lav)
                 h_all_s += [h_a_with_lavs]
             h_as = [h_a_with_ls, h_a_with_vs, h_a_with_lavs] if self.lav_as_modality else [h_a_with_ls, h_a_with_vs]
             h_as = torch.cat(h_as, dim=2)
-            h_as = self.trans_a_mem[ind](h_as)
+            h_as = self.trans_a_mem(h_as)
             if type(h_as) == tuple:
                 h_as = h_as[0]
             last_h_a = last_hs = h_as[-1]
 
         if self.vonly:
             # (L,A) --> V
-            h_v_with_ls = self.trans_v_with_l[ind](proj_x_v, proj_x_l, proj_x_l)
-            h_v_with_as = self.trans_v_with_a[ind](proj_x_v, proj_x_a, proj_x_a)
+            h_v_with_ls = self.trans_v_with_l(proj_x_v, proj_x_l, proj_x_l)
+            h_v_with_as = self.trans_v_with_a(proj_x_v, proj_x_a, proj_x_a)
             if self.cross_module:
                 h_all_s += [h_v_with_ls, h_v_with_as]
             if self.lav_as_modality:
-                h_v_with_lavs = self.trans_v_with_lav[ind](proj_x_v, proj_x_lav, proj_x_lav)
+                h_v_with_lavs = self.trans_v_with_lav(proj_x_v, proj_x_lav, proj_x_lav)
                 h_all_s += [h_v_with_lavs]
             h_vs = [h_v_with_ls, h_v_with_as, h_v_with_lavs] if self.lav_as_modality else [h_v_with_ls, h_v_with_as]
             h_vs = torch.cat(h_vs, dim=2)
-            h_vs = self.trans_v_mem[ind](h_vs)
+            h_vs = self.trans_v_mem(h_vs)
             if type(h_vs) == tuple:
                 h_vs = h_vs[0]
             last_h_v = last_hs = h_vs[-1]
 
         if self.cross_module:
             h_all_s = torch.cat(h_all_s, dim=2)
-            h_all_s = self.trans_all_mem[ind](h_all_s)
+            h_all_s = self.trans_all_mem(h_all_s)
             if type(h_all_s) == tuple:
                 h_all_s = h_all_s[0]
             last_h_all = last_hs = h_all_s[-1]
@@ -262,14 +283,16 @@ class MModel(nn.Module):
                 last_h_list += [last_h_lav]
             if self.cross_module:
                 last_h_list += [last_h_all]
-            last_hs = torch.cat(last_h_list, dim=1)
+            last_hs = last_h_list
+            #last_hs = torch.cat(last_h_list, dim=1)
 
         proj_x = [proj_x_l, proj_x_a, proj_x_v]
+        hs_full_seq = [h_ls, h_as, h_vs]
 
-        return proj_x, last_hs
+        return proj_x, last_hs, hs_full_seq
 
     def final_activation(self, output, label_i):
-        if label_i in ['present', 'dominant']:
+        if label_i in ['present', 'dominant', 'coarse_prob']:
             return torch.sigmoid(output)
         elif 'oh' in label_i:
             return torch.softmax(output.view(-1, self.num_classes, self.num_scores), dim=2)
@@ -281,32 +304,41 @@ class MModel(nn.Module):
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
 
-        proj_x, last_hs = self.mult_backbone(x_l, x_a, x_v, ind=0)
+        proj_x, last_hs, hs_full_seq = self.mult_backbone(x_l, x_a, x_v)
+        last_hs = torch.cat(last_hs, dim=1)
 
         # Residual block for main task
-        last_hs_proj = self.proj2[0](torch.dropout(torch.relu(self.proj1[0](last_hs)),
-                                                   p=self.out_dropout, train=self.training))
+        last_hs_proj = self.proj2(torch.dropout(torch.relu(self.proj1(last_hs)),
+                                                p=self.out_dropout, train=self.training))
         last_hs_proj += last_hs
-        output_main = self.out_layer[0](last_hs_proj)
+        output_main = self.out_layer(last_hs_proj)
 
         if self.multitask:
-            # Output of the self-attention transformer of the Multi-label (ML) branch
-            last_hs = last_hs.unsqueeze(2)
-            last_hs = last_hs if last_hs.size(2) == self.d_last_hs else self.proj_last_hs(last_hs)
-            last_hs = last_hs.permute(2, 0, 1)  # (1, batch_size, d_last_hs)
             # Apply self-attention transformers to all projected vectors
             proj_mem = [self.trans_mem_multi[i](proj_x[i]) for i in range(3)]
-            # Fusion between projection of inputs & self-attention outputs of the main task
-            x_l_multi = torch.concat([proj_mem[0], last_hs], dim=0).transpose(0, 1)
-            x_a_multi = torch.concat([proj_mem[1], last_hs], dim=0).transpose(0, 1)
-            x_v_multi = torch.concat([proj_mem[2], last_hs], dim=0).transpose(0, 1)
-            _, last_hs_multi = self.mult_backbone(x_l_multi, x_a_multi, x_v_multi, ind=1)
 
-            # Residual block for the second task (usually the finer grained one)
-            last_hs_proj_multi = self.proj2[1](torch.dropout(
-                torch.relu(self.proj1[1](last_hs_multi)), p=self.out_dropout, train=self.training))
-            last_hs_proj_multi += last_hs_multi
-            output_multi = self.out_layer[1](last_hs_proj_multi)
+            # Reduce the full hidden sequence of each modality to proj_size along the num_features axis
+            h_full_l_multi = hs_full_seq[0].permute(1, 2, 0)  # (num_samples, num_features_concat, t)
+            h_full_a_multi = hs_full_seq[1].permute(1, 2, 0)  # (num_samples, num_features_concat, t)
+            h_full_v_multi = hs_full_seq[2].permute(1, 2, 0)  # (num_samples, num_features_concat, t)
+            h_full_l_multi = self.proj_l_mt(h_full_l_multi)  # (num_samples, proj_size, t)
+            h_full_a_multi = self.proj_a_mt(h_full_a_multi)  # (num_samples, proj_size, t)
+            h_full_v_multi = self.proj_v_mt(h_full_v_multi)  # (num_samples, proj_size, t)
+            h_full_l_multi = h_full_l_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            h_full_a_multi = h_full_a_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            h_full_v_multi = h_full_v_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+
+            # Concatenate the resulting hidden sequences and the output of the self-attention transformer of the
+            # projected input vectors
+            x_l_multi = torch.cat((proj_mem[0], h_full_l_multi), 2)
+            x_a_multi = torch.cat((proj_mem[1], h_full_a_multi), 2)
+            x_v_multi = torch.cat((proj_mem[2], h_full_v_multi), 2)
+            x_multi = torch.cat((x_l_multi, x_a_multi, x_v_multi), 2)
+
+            # Apply RNN + FC layers to the concatenated vectors
+            _, (x_hn_multi, _) = self.rnn(x_multi)
+            x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
+            output_multi = self.affine(x_hn_multi)
             output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
                       "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:

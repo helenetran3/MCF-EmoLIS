@@ -128,7 +128,11 @@
 
             "nlevels": 4,
             "num_heads": 10,
-            "attn_mask": 1
+            "attn_mask": 1,
+
+            "mt_proj_size": 30,
+            "mt_num_layers": 1,
+            "mt_dropout": 0.1
         },
 
         "mult_gml_2":
