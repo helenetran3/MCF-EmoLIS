@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from src.label_processing import create_label_multitask
 
 class MModel(nn.Module):
     """
@@ -27,9 +28,18 @@ class MModel(nn.Module):
         self.num_features_audio = num_features_audio
         self.num_classes = num_classes
         self.num_scores = 4
-        self.mods = 'tav'  # we use the three modalities here
-        self.gml = param_model['gml']
-        self.label_type = param_task['label_type']
+
+        # Label type
+        label_type = param_task['label_type']
+        self.label_type, _ = create_label_multitask(label_type) if type(label_type) == list else (label_type, None)
+        self.multitask = type(self.label_type) == dict
+
+        # Compute dimensions
+        feature_sizes = np.array([num_features_text, num_features_audio, num_features_image])
+        linear_in_sizes = feature_sizes if not bi else feature_sizes * 2
+        compute_dim = lambda l: self.num_classes * self.num_scores if 'oh' in l else self.num_classes
+        output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
+            if self.multitask else [compute_dim(self.label_type)]
 
         self.rnns = nn.ModuleDict({
             't': nn.LSTM(
@@ -55,86 +65,99 @@ class MModel(nn.Module):
             )
         })
 
-        feature_sizes = np.array([num_features_text, num_features_audio, num_features_image])
-        linear_in_sizes = feature_sizes if not bi else feature_sizes * 2
-        num_outputs = self.num_classes * self.num_scores if self.gml else self.num_classes
-
         self.affines = nn.ModuleDict({
             't': nn.Sequential(
                 nn.Linear(linear_in_sizes[0], linear_in_sizes[0] // 2),
                 nn.ReLU(),
-                nn.Linear(linear_in_sizes[0] // 2, num_outputs)
+                nn.Linear(linear_in_sizes[0] // 2, output_dim[0])
             ),
             'a': nn.Sequential(
                 nn.Linear(linear_in_sizes[1], linear_in_sizes[1] // 2),
                 nn.ReLU(),
-                nn.Linear(linear_in_sizes[1] // 2, num_outputs)
+                nn.Linear(linear_in_sizes[1] // 2, output_dim[0])
             ),
             'v': nn.Sequential(
                 nn.Linear(linear_in_sizes[2], linear_in_sizes[2] // 2),
                 nn.ReLU(),
-                nn.Linear(linear_in_sizes[2] // 2, num_outputs)
+                nn.Linear(linear_in_sizes[2] // 2, output_dim[0])
             )
         })
 
-        self.weighted_fusion = nn.Linear(len(self.mods), 1, bias=False)
+        if self.multitask:
+            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']  # set to 60 for a multiple of 5
+            proj_size_total = proj_size_mt_per_mod * 3
+            self.proj_t = nn.Conv1d(3 * num_features_text, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_a = nn.Conv1d(3 * num_features_audio, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_v = nn.Conv1d(3 * num_features_image, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.rnn_multi = nn.LSTM(input_size=proj_size_total,
+                                     hidden_size=proj_size_total,
+                                     num_layers=num_layers,
+                                     dropout=(dropout if num_layers > 1 else 0),
+                                     bidirectional=bi)
+            self.affine_multi = nn.Sequential(
+                nn.Linear(2 * proj_size_total, proj_size_total),
+                nn.ReLU(),
+                nn.Linear(proj_size_total, output_dim[1]))
+
+        self.weighted_fusion = nn.Linear(3, 1, bias=False)  # 3 modalities to fuse into 1
+
+    def final_activation(self, output, label_i):
+        if label_i in ['present', 'dominant']:
+            return torch.sigmoid(output)
+        elif 'oh' in label_i:
+            return torch.softmax(output.view(-1, self.num_classes, self.num_scores), dim=2)
+        else:
+            return torch.relu(output)
 
     def forward(self, x_text, x_image, x_audio):
 
         all_logits = []
 
-        if 't' in self.mods:
-            output_t, _ = self.rnns['t'](x_text.transpose(0, 1))
-            output_t = output_t[-1, :, :]
-            output_t = self.affines['t'](output_t)
-            if self.gml:
-                output_t = output_t.view(-1, self.num_classes, self.num_scores)
-                output_t = torch.softmax(output_t, dim=2)
-            else:
-                output_t = torch.sigmoid(output_t)
-            all_logits.append(output_t)
+        # Apply RNN to text modality
+        output_t, _ = self.rnns['t'](x_text.transpose(0, 1))
+        output_t_logits = output_t[-1, :, :]
+        output_t_logits = self.affines['t'](output_t_logits)
+        all_logits.append(output_t_logits)
 
-        if 'a' in self.mods:
-            # max_len = max(audio_features_lens)
-            # audio_features = audio_features.split(audio_features_lens, dim=0)
-            # audio_features = [padTensor(s, max_len) for s in audio_features]
-            # audio_features = torch.stack(audio_features, dim=1)  # (seq_len, batch, dim)
-            x_audio = x_audio.transpose(0, 1)
-            _, (audio_hn, _) = self.rnns['a'](x_audio)
-            audio_hn = audio_hn.transpose(0, 1).flatten(start_dim=1)  # (batch, hid_dim * 2)
-            audio_hn = self.affines['a'](audio_hn)
-            if self.gml:
-                audio_hn = audio_hn.view(-1, self.num_classes, self.num_scores)
-                audio_hn = torch.softmax(audio_hn, dim=2)
-            else:
-                audio_hn = torch.sigmoid(audio_hn)
-            all_logits.append(audio_hn)
+        # Apply RNN to audio modality
+        output_a, (audio_hn, _) = self.rnns['a'](x_audio.transpose(0, 1))
+        audio_hn = audio_hn.transpose(0, 1).flatten(start_dim=1)  # (batch, hid_dim * 2)
+        audio_hn = self.affines['a'](audio_hn)
+        all_logits.append(audio_hn)
 
-        if 'v' in self.mods:
-            # max_len = max(img_features_lens)
-            # img_features = img_features.split(img_features_lens, dim=0)
-            # img_features = [padTensor(s, max_len) for s in img_features]
-            # img_features = torch.stack(img_features, dim=1)  # (seq_len, batch, dim)
-            x_image = x_image.transpose(0, 1)
-            _, (img_hn, _) = self.rnns['v'](x_image)
-            img_hn = img_hn.transpose(0, 1).flatten(start_dim=1)  # (batch, hid_dim * 2)
-            img_hn = self.affines['v'](img_hn)
-            if self.gml:
-                img_hn = img_hn.view(-1, self.num_classes, self.num_scores)
-                img_hn = torch.softmax(img_hn, dim=2)
-            else:
-                img_hn = torch.sigmoid(img_hn)
-            all_logits.append(img_hn)
+        # Apply RNN to image modality
+        output_v, (img_hn, _) = self.rnns['v'](x_image.transpose(0, 1))
+        img_hn = img_hn.transpose(0, 1).flatten(start_dim=1)  # (batch, hid_dim * 2)
+        img_hn = self.affines['v'](img_hn)
+        all_logits.append(img_hn)
 
-        if len(self.mods) == 1:
-            return all_logits[0]
+        # Weighted fusion
+        output_main = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
 
-        wei_fus = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
+        if self.multitask:
+            output_t = output_t.transpose(0, 1)
+            output_a = output_a.transpose(0, 1)
+            output_v = output_v.transpose(0, 1)
+            x_multi_t = torch.cat([x_text, output_t], dim=2)  # (num_samples, t, 3*num_features_text)
+            x_multi_a = torch.cat([x_audio, output_a], dim=2)  # (num_samples, t, 3*num_features_audio)
+            x_multi_v = torch.cat([x_image, output_v], dim=2)  # (num_samples, t, 3*num_features_image)
+            x_multi_t = x_multi_t.transpose(1, 2)  # (num_samples, num_features_text*3, t)
+            x_multi_a = x_multi_a.transpose(1, 2)  # (num_samples, num_features_audio*3, t)
+            x_multi_v = x_multi_v.transpose(1, 2)  # (num_samples, num_features_mage*3, t)
+            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size_per_mod, t)
+            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size_per_mod, t)
+            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size_per_mod, t)
+            x_multi_t = x_multi_t.transpose(1, 2)  # (num_samples, t, proj_size_per_mod)
+            x_multi_a = x_multi_a.transpose(1, 2)  # (num_samples, t, proj_size_per_mod)
+            x_multi_v = x_multi_v.transpose(1, 2)  # (num_samples, t, proj_size_per_mod)
+            x_multi = torch.cat([x_multi_t, x_multi_a, x_multi_v], dim=2) # (num_samples, t, 3*proj_size_per_mod)
+            _, (x_hn_multi, _) = self.rnn_multi(x_multi.transpose(0, 1)) # (2, num_samples, 3*proj_size_per_mod)
+            x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1) # (num_samples, 2*3*proj_size_per_mod)
+            output_multi = self.affine_multi(x_hn_multi) # (num_samples, num_output)
+            output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
+                      "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
 
-        if self.gml:
-            return torch.softmax(wei_fus, dim=2)
         else:
-            if self.label_type in ['present', 'dominant']:
-                return torch.sigmoid(wei_fus)
-            else:
-                return torch.relu(wei_fus)
+            output = self.final_activation(output_main, self.label_type)
+
+        return output

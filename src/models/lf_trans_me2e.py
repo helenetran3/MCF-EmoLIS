@@ -4,6 +4,8 @@ from torch import nn
 from typing import List
 from src.models.me2e.modules.transformer_encoder import WrappedTransformerEncoder
 
+from src.label_processing import create_label_multitask
+
 
 class MModel(nn.Module):
     def __init__(self, model_id, param_model, param_task, num_features_text, num_features_image, num_features_audio,
@@ -17,9 +19,16 @@ class MModel(nn.Module):
         self.num_features_audio = num_features_audio
         self.num_classes = num_classes
         self.num_scores = 4
-        self.mods = 'tav'  # we use the three modalities here
-        self.gml = param_model['gml']
-        self.label_type = param_task['label_type']
+
+        # Label type
+        label_type = param_task['label_type']
+        self.label_type, _ = create_label_multitask(label_type) if type(label_type) == list else (label_type, None)
+        self.multitask = type(self.label_type) == dict
+
+        # Compute output dimensions
+        compute_dim = lambda l: self.num_classes * self.num_scores if 'oh' in l else self.num_classes
+        output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
+            if self.multitask else [compute_dim(self.label_type)]
 
         nlayers = param_model['trans_nlayers']
         # nheads = args['trans_nheads']
@@ -43,27 +52,48 @@ class MModel(nn.Module):
             )
         })
 
-        num_outputs = self.num_classes * self.num_scores if self.gml else self.num_classes
-
-        self.affines = nn.ModuleDict({
+        self.affines_main = nn.ModuleDict({
             't': nn.Sequential(
                 nn.Linear(num_features_text, num_features_text // 2),
                 nn.ReLU(),
-                nn.Linear(num_features_text // 2, num_outputs)
+                nn.Linear(num_features_text // 2, output_dim[0])
             ),
             'a': nn.Sequential(
                 nn.Linear(num_features_audio, num_features_audio // 2),
                 nn.ReLU(),
-                nn.Linear(num_features_audio // 2, num_outputs)
+                nn.Linear(num_features_audio // 2, output_dim[0])
             ),
             'v': nn.Sequential(
                 nn.Linear(num_features_image, num_features_image // 2),
                 nn.ReLU(),
-                nn.Linear(num_features_image // 2, num_outputs)
+                nn.Linear(num_features_image // 2, output_dim[0])
             )
         })
 
-        self.weighted_fusion = nn.Linear(len(self.mods), 1, bias=False)
+        if self.multitask:
+            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']  # set to 60 for a multiple of 5
+            proj_size_total = proj_size_mt_per_mod * 3
+            self.proj_t = nn.Conv1d(2 * num_features_text, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_a = nn.Conv1d(2 * num_features_audio, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_v = nn.Conv1d(2 * num_features_image, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.transformer_multi = WrappedTransformerEncoder(
+                dim=proj_size_total,
+                num_layers=nlayers,
+                num_heads=4)
+            self.affine_multi = nn.Sequential(
+                nn.Linear(proj_size_total, proj_size_total // 2),
+                nn.ReLU(),
+                nn.Linear(proj_size_total // 2, output_dim[1]))
+
+        self.weighted_fusion = nn.Linear(3, 1, bias=False)  # 3 modalities to fuse into 1
+
+    def final_activation(self, output, label_i):
+        if label_i in ['present', 'dominant']:
+            return torch.sigmoid(output)
+        elif 'oh' in label_i:
+            return torch.softmax(output.view(-1, self.num_classes, self.num_scores), dim=2)
+        else:
+            return torch.relu(output)
 
     def forward(self, x_text, x_image, x_audio):
 
@@ -76,49 +106,47 @@ class MModel(nn.Module):
         audio_features_lens = self.get_len_samples(x_audio, 'audio')
         img_features_lens = self.get_len_samples(x_image, 'image')
 
-        if 't' in self.mods:
-            # Added text_features_lens from original code
-            texts = self.transformers['t'](x_text, text_features_lens, max_all_lens, get_cls=True)
-            texts = self.affines['t'](texts)
-            if self.gml:
-                texts = texts.view(-1, self.num_classes, self.num_scores)
-                texts = torch.softmax(texts, dim=2)
-            else:
-                texts = torch.sigmoid(texts)
-            all_logits.append(texts)
+        # Apply transformer to text modality
+        texts_cls, x_trans_main_t = self.transformers['t'](x_text, text_features_lens, max_all_lens, get_cls=True)
+        texts = self.affines_main['t'](texts_cls)
+        all_logits.append(texts)
 
-        if 'a' in self.mods:
-            audio_features = self.transformers['a'](x_audio, audio_features_lens, max_all_lens, get_cls=True)
-            audio_features = self.affines['a'](audio_features)
-            if self.gml:
-                audio_features = audio_features.view(-1, self.num_classes, self.num_scores)
-                audio_features = torch.softmax(audio_features, dim=2)
-            else:
-                audio_features = torch.sigmoid(audio_features)
-            all_logits.append(audio_features)
+        # Apply transformer to acoustic modality
+        audio_features_cls, x_trans_main_a = self.transformers['a'](x_audio, audio_features_lens, max_all_lens, get_cls=True)
+        audio_features = self.affines_main['a'](audio_features_cls)
+        all_logits.append(audio_features)
 
-        if 'v' in self.mods:
-            img_features = self.transformers['v'](x_image, img_features_lens, max_all_lens, get_cls=True)
-            img_features = self.affines['v'](img_features)
-            if self.gml:
-                img_features = img_features.view(-1, self.num_classes, self.num_scores)
-                img_features = torch.softmax(img_features, dim=2)
-            else:
-                img_features = torch.sigmoid(img_features)
-            all_logits.append(img_features)
+        # Apply transformer to visual modality
+        img_features_cls, x_trans_main_v = self.transformers['v'](x_image, img_features_lens, max_all_lens, get_cls=True)
+        img_features = self.affines_main['v'](img_features_cls)
+        all_logits.append(img_features)
 
-        if len(self.mods) == 1:
-            return all_logits[0]
+        output_main = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
 
-        wei_fus = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
-
-        if self.gml:
-            return torch.softmax(wei_fus, dim=2)
+        if self.multitask:
+            x_multi_t = torch.cat([x_text, x_trans_main_t], dim=2)  # (num_samples, t, num_features_text*2)
+            x_multi_a = torch.cat([x_audio, x_trans_main_a], dim=2)  # (num_samples, t, num_features_audio*2)
+            x_multi_v = torch.cat([x_image, x_trans_main_v], dim=2)  # (num_samples, t, num_features_image*2)
+            x_multi_t = x_multi_t.permute(0, 2, 1)  # (num_samples, num_features_text*2, t)
+            x_multi_a = x_multi_a.permute(0, 2, 1)  # (num_samples, num_features_audio*2, t)
+            x_multi_v = x_multi_v.permute(0, 2, 1)  # (num_samples, num_features_mage*2, t)
+            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size, t)
+            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size, t)
+            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size, t)
+            x_multi_t = x_multi_t.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            x_multi_a = x_multi_a.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            x_multi_v = x_multi_v.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            x_multi = torch.cat([x_multi_t, x_multi_a, x_multi_v], dim=2)
+            max_list_lens = [max(i, j, k) for i, j, k in zip(text_features_lens, audio_features_lens, img_features_lens)]
+            x_cls_multi, _ = self.transformer_multi(x_multi, max_list_lens, max_all_lens, get_cls=True)
+            output_multi = self.affine_multi(x_cls_multi)
+            output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
+                      "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:
-            if self.label_type in ['present', 'dominant']:
-                return torch.sigmoid(wei_fus)
-            else:
-                return torch.relu(wei_fus)
+            output = self.final_activation(output_main, self.label_type)
+
+        return output
+
 
     @staticmethod
     def get_len_samples(x_feat, mod_name):
