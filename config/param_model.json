@@ -52,7 +52,7 @@
         "lf_rnn_me2e":
         {
             "is_TensorFlow": 0,
-            "mt_proj_size_per_mod": 20
+            "mt_proj_size_per_mod": 64
         },
 
         "lf_trans_me2e":
@@ -91,7 +91,7 @@
             "out_shapes": 64,
             "out_drop": 0.2,
 
-            "mt_proj_size": 64,
+            "mt_proj_size_per_mod": 64,
             "mt_num_layers": 1,
             "mt_dropout": 0.1
         },
@@ -130,7 +130,7 @@
             "num_heads": 10,
             "attn_mask": 1,
 
-            "mt_proj_size": 30,
+            "mt_proj_size_per_mod": 64,
             "mt_num_layers": 1,
             "mt_dropout": 0.1
         },

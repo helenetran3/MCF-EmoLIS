@@ -78,21 +78,21 @@ class MModel(nn.Module):
         if self.multitask:
             num_layers = param_model['mt_num_layers']
             dropout = param_model['mt_dropout']
-            proj_size = param_model['mt_proj_size']
-            num_feat = 3*proj_size + self.mem_dim
-            self.proj_l = nn.Conv1d(num_features_text + self.dh_l, proj_size, kernel_size=1, padding=0, bias=False)
-            self.proj_a = nn.Conv1d(num_features_audio + self.dh_a, proj_size, kernel_size=1, padding=0, bias=False)
-            self.proj_v = nn.Conv1d(num_features_image + self.dh_v, proj_size, kernel_size=1, padding=0, bias=False)
+            proj_size_per_mod = param_model['mt_proj_size_per_mod']
+            proj_total = 3*proj_size_per_mod  # + self.mem_dim
+            self.proj_l = nn.Conv1d(num_features_text + self.dh_l, proj_size_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_a = nn.Conv1d(num_features_audio + self.dh_a, proj_size_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_v = nn.Conv1d(num_features_image + self.dh_v, proj_size_per_mod, kernel_size=1, padding=0, bias=False)
 
-            self.rnn = nn.LSTM(input_size=num_feat,
-                                hidden_size=num_feat,
+            self.rnn = nn.LSTM(input_size=proj_total,
+                                hidden_size=proj_total,
                                 num_layers=num_layers,
                                 dropout=(dropout if num_layers > 1 else 0),
                                 bidirectional=True)
 
-            self.affine = nn.Sequential(nn.Linear(2*num_feat, num_feat),
+            self.affine = nn.Sequential(nn.Linear(2*proj_total, proj_total),
                                         nn.ReLU(),
-                                        nn.Linear(num_feat, output_dim[1]))
+                                        nn.Linear(proj_total, output_dim[1]))
 
     def mfn_backbone(self, x_l, x_v, x_a, n, t):
         self.h_l = torch.zeros(n, self.dh_l)#.cuda()
@@ -187,7 +187,7 @@ class MModel(nn.Module):
             x_l_multi = x_l_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
             x_a_multi = x_a_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
             x_v_multi = x_v_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
-            x_multi = torch.cat((x_l_multi, x_a_multi, x_v_multi, torch.stack(all_mems)), 2)
+            x_multi = torch.cat((x_l_multi, x_a_multi, x_v_multi), 2)  #, torch.stack(all_mems)), 2)
             _, (x_hn_multi, _) = self.rnn(x_multi)
             x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
             output_multi = self.affine(x_hn_multi)
