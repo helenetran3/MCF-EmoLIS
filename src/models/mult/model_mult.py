@@ -122,21 +122,21 @@ class MModel(nn.Module):
         if self.multitask:
             num_layers = param_model['mt_num_layers']
             dropout = param_model['mt_dropout']
-            proj_size = param_model['mt_proj_size']
-            num_feat = self.d_l + self.d_a + self.d_v + 3 * proj_size
-            self.proj_l_mt = nn.Conv1d(self.d_a + self.d_v, proj_size, kernel_size=1, padding=0, bias=False)
-            self.proj_a_mt = nn.Conv1d(self.d_l + self.d_v, proj_size, kernel_size=1, padding=0, bias=False)
-            self.proj_v_mt = nn.Conv1d(self.d_l + self.d_a, proj_size, kernel_size=1, padding=0, bias=False)
+            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']
+            proj_size_total = 3 * proj_size_mt_per_mod
+            self.proj_l_mt = nn.Conv1d((self.d_a + self.d_v) + self.d_l, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_a_mt = nn.Conv1d((self.d_l + self.d_v) + self.d_a, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_v_mt = nn.Conv1d((self.d_l + self.d_a) + self.d_v, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
 
-            self.rnn = nn.LSTM(input_size=num_feat,
-                                hidden_size=num_feat,
-                                num_layers=num_layers,
-                                dropout=(dropout if num_layers > 1 else 0),
-                                bidirectional=True)
+            self.rnn = nn.LSTM(input_size=proj_size_total,
+                               hidden_size=proj_size_total,
+                               num_layers=num_layers,
+                               dropout=(dropout if num_layers > 1 else 0),
+                               bidirectional=True)
 
-            self.affine = nn.Sequential(nn.Linear(2*num_feat, num_feat),
+            self.affine = nn.Sequential(nn.Linear(2*proj_size_total, proj_size_total),
                                         nn.ReLU(),
-                                        nn.Linear(num_feat, output_dim[1]))
+                                        nn.Linear(proj_size_total, output_dim[1]))
 
 
     def get_network(self, self_type='l', layers=-1):
@@ -313,25 +313,22 @@ class MModel(nn.Module):
         output_main = self.out_layer(last_hs_proj)
 
         if self.multitask:
-            # Apply self-attention transformers to all projected vectors
-            proj_mem = [self.trans_mem_multi[i](proj_x[i]) for i in range(3)]
+            # # Apply self-attention transformers to all projected vectors
+            # proj_mem = [self.trans_mem_multi[i](proj_x[i]) for i in range(3)]
 
             # Reduce the full hidden sequence of each modality to proj_size along the num_features axis
-            h_full_l_multi = hs_full_seq[0].permute(1, 2, 0)  # (num_samples, num_features_concat, t)
-            h_full_a_multi = hs_full_seq[1].permute(1, 2, 0)  # (num_samples, num_features_concat, t)
-            h_full_v_multi = hs_full_seq[2].permute(1, 2, 0)  # (num_samples, num_features_concat, t)
-            h_full_l_multi = self.proj_l_mt(h_full_l_multi)  # (num_samples, proj_size, t)
-            h_full_a_multi = self.proj_a_mt(h_full_a_multi)  # (num_samples, proj_size, t)
-            h_full_v_multi = self.proj_v_mt(h_full_v_multi)  # (num_samples, proj_size, t)
-            h_full_l_multi = h_full_l_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
-            h_full_a_multi = h_full_a_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
-            h_full_v_multi = h_full_v_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
-
-            # Concatenate the resulting hidden sequences and the output of the self-attention transformer of the
-            # projected input vectors
-            x_l_multi = torch.cat((proj_mem[0], h_full_l_multi), 2)
-            x_a_multi = torch.cat((proj_mem[1], h_full_a_multi), 2)
-            x_v_multi = torch.cat((proj_mem[2], h_full_v_multi), 2)
+            x_l_multi = torch.cat((proj_x[0], hs_full_seq[0]), 2)
+            x_a_multi = torch.cat((proj_x[1], hs_full_seq[1]), 2)
+            x_v_multi = torch.cat((proj_x[2], hs_full_seq[2]), 2)
+            x_l_multi = x_l_multi.permute(1, 2, 0)  # (num_samples, num_features, t)
+            x_a_multi = x_a_multi.permute(1, 2, 0)  # (num_samples, num_features, t)
+            x_v_multi = x_v_multi.permute(1, 2, 0)  # (num_samples, num_features, t)
+            x_l_multi = self.proj_l_mt(x_l_multi)  # (num_samples, proj_size, t)
+            x_a_multi = self.proj_a_mt(x_a_multi)  # (num_samples, proj_size, t)
+            x_v_multi = self.proj_v_mt(x_v_multi)  # (num_samples, proj_size, t)
+            x_l_multi = x_l_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            x_a_multi = x_a_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            x_v_multi = x_v_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
             x_multi = torch.cat((x_l_multi, x_a_multi, x_v_multi), 2)
 
             # Apply RNN + FC layers to the concatenated vectors
