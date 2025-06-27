@@ -71,19 +71,30 @@ class MModel(nn.Module):
         })
 
         if self.multitask:
+            num_layers_rnn = 1
+            dropout = 0.1
+            bi = True
+
             proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']  # set to 60 for a multiple of 5
             proj_size_total = proj_size_mt_per_mod * 3
             self.proj_t = nn.Conv1d(2 * num_features_text, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
             self.proj_a = nn.Conv1d(2 * num_features_audio, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
             self.proj_v = nn.Conv1d(2 * num_features_image, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
-            self.transformer_multi = WrappedTransformerEncoder(
-                dim=proj_size_total,
-                num_layers=nlayers,
-                num_heads=4)
+
+            # self.transformer_multi = WrappedTransformerEncoder(
+            #     dim=proj_size_total,
+            #     num_layers=nlayers,
+            #     num_heads=4)
+            self.rnn_multi = nn.LSTM(input_size=proj_size_total,
+                                     hidden_size=proj_size_total,
+                                     num_layers=num_layers_rnn,
+                                     dropout=(dropout if num_layers_rnn > 1 else 0),
+                                     bidirectional=bi)
+
             self.affine_multi = nn.Sequential(
-                nn.Linear(proj_size_total, proj_size_total // 2),
+                nn.Linear(2*proj_size_total, proj_size_total),
                 nn.ReLU(),
-                nn.Linear(proj_size_total // 2, output_dim[1]))
+                nn.Linear(proj_size_total, output_dim[1]))
 
         self.weighted_fusion = nn.Linear(3, 1, bias=False)  # 3 modalities to fuse into 1
 
@@ -130,16 +141,22 @@ class MModel(nn.Module):
             x_multi_t = x_multi_t.permute(0, 2, 1)  # (num_samples, num_features_text*2, t)
             x_multi_a = x_multi_a.permute(0, 2, 1)  # (num_samples, num_features_audio*2, t)
             x_multi_v = x_multi_v.permute(0, 2, 1)  # (num_samples, num_features_mage*2, t)
-            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size, t)
-            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size, t)
-            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size, t)
-            x_multi_t = x_multi_t.permute(0, 2, 1)  # (num_samples, t, proj_size)
-            x_multi_a = x_multi_a.permute(0, 2, 1)  # (num_samples, t, proj_size)
-            x_multi_v = x_multi_v.permute(0, 2, 1)  # (num_samples, t, proj_size)
-            x_multi = torch.cat([x_multi_t, x_multi_a, x_multi_v], dim=2)
-            max_list_lens = [max(i, j, k) for i, j, k in zip(text_features_lens, audio_features_lens, img_features_lens)]
-            x_cls_multi, _ = self.transformer_multi(x_multi, max_list_lens, max_all_lens, get_cls=True)
-            output_multi = self.affine_multi(x_cls_multi)
+            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size_per_mod, t)
+            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size_per_mod, t)
+            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size_per_mod, t)
+            x_multi_t = x_multi_t.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            x_multi_a = x_multi_a.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            x_multi_v = x_multi_v.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            x_multi = torch.cat([x_multi_t, x_multi_a, x_multi_v], dim=2)  # (t, num_samples, 3*proj_size)
+            # x_multi_t = x_multi_t.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            # x_multi_a = x_multi_a.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            # x_multi_v = x_multi_v.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            # x_multi = torch.cat([x_multi_t, x_multi_a, x_multi_v], dim=2)  # (num_samples, t, 3*proj_size)
+            # max_list_lens = [max(i, j, k) for i, j, k in zip(text_features_lens, audio_features_lens, img_features_lens)]
+            # x_cls_multi, _ = self.transformer_multi(x_multi, max_list_lens, max_all_lens, get_cls=True)
+            _, (x_hn_multi, _) = self.rnn_multi(x_multi)
+            x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
+            output_multi = self.affine_multi(x_hn_multi)
             output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
                       "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:

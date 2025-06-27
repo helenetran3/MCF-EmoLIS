@@ -12,14 +12,14 @@
         "ef_rnn_me2e":
         {
             "is_TensorFlow": 0,
-            "gml": 0
+            "mt_proj_size_per_mod": 64
         },
 
         "ef_trans_me2e":
         {
             "is_TensorFlow": 0,
             "trans_nlayers": 2,
-            "mt_proj_size": 60
+            "mt_proj_size_per_mod": 64
         },
 
         "ef_williams":
@@ -59,7 +59,7 @@
         {
             "is_TensorFlow": 0,
             "trans_nlayers": 2,
-            "mt_proj_size_per_mod": 20
+            "mt_proj_size_per_mod": 64
         },
 
         "mfn":

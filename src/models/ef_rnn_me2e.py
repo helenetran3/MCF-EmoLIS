@@ -42,22 +42,34 @@ class MModel(nn.Module):
         output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
             if self.multitask else [compute_dim(self.label_type)]
 
-        if self.multitask:
-            self.proj = nn.Conv1d(3*self.num_features_tav, self.num_features_tav, kernel_size=1, padding=0, bias=False)
-
-        self.rnn = nn.ModuleList([nn.LSTM(input_size=self.num_features_tav,
-                                          hidden_size=self.num_features_tav,
-                                          num_layers=num_layers,
-                                          dropout=(dropout if num_layers > 1 else 0),
-                                          bidirectional=bi) for i in range(num_branches)])
+        self.rnn_main = nn.LSTM(input_size=self.num_features_tav,
+                                hidden_size=self.num_features_tav,
+                                num_layers=num_layers,
+                                dropout=(dropout if num_layers > 1 else 0),
+                                bidirectional=bi)
 
         linear_in_size = self.num_features_tav if not bi else self.num_features_tav * 2
+        self.affine_main = nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
+                                         nn.ReLU(),
+                                         nn.Linear(linear_in_size // 2, output_dim[0]))
+
+        if self.multitask:
+            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']
+            proj_size_total = 3 * proj_size_mt_per_mod
+            self.proj = nn.Conv1d(3*self.num_features_tav, proj_size_total, kernel_size=1, padding=0, bias=False)
+
+            self.rnn_multi = nn.LSTM(input_size=proj_size_total,
+                                     hidden_size=proj_size_total,
+                                     num_layers=num_layers,
+                                     dropout=(dropout if num_layers > 1 else 0),
+                                     bidirectional=bi)
+
+            self.affine_multi = nn.Sequential(nn.Linear(2 * proj_size_total, proj_size_total),
+                                              nn.ReLU(),
+                                              nn.Linear(proj_size_total, output_dim[1]))
 
 
-        self.affine = nn.ModuleList([nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
-                                                   nn.ReLU(),
-                                                   nn.Linear(linear_in_size // 2, output_dim[i]))
-                                     for i in range(num_branches)])
+
 
     def final_activation(self, output, label_i):
         if label_i in ['present', 'dominant', 'coarse_prob']:
@@ -73,18 +85,18 @@ class MModel(nn.Module):
         x = x.transpose(0, 1)  # (t, num_samples, num_features)
         # below, out_rnn of size (t, num_samples, 2*num_features)
         #        x_hnn of size (2, num_samples, num_features), 2 for bidirectional
-        out_rnn, (x_hn_main, _) = self.rnn[0](x)
+        out_rnn, (x_hn_main, _) = self.rnn_main(x)
         x_hn_main = x_hn_main.transpose(0, 1).flatten(start_dim=1)  # (num_samples, 2 * num_features)
-        output_main = self.affine[0](x_hn_main)  # (num_samples, num_classes)
+        output_main = self.affine_main(x_hn_main)  # (num_samples, num_classes)
 
         if self.multitask:
             x_multi = torch.cat([x, out_rnn], dim=2)  # (t, num_samples, 3*num_features)
             x_multi = x_multi.permute(1, 2, 0)  # (num_samples, 3*num_features, t)
-            x_multi = self.proj(x_multi)  # (num_samples, num_features, t)
-            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, num_features)
-            _, (x_hn_multi, _) = self.rnn[1](x_multi)
+            x_multi = self.proj(x_multi)  # (num_samples, proj_size, t)
+            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            _, (x_hn_multi, _) = self.rnn_multi(x_multi)
             x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
-            output_multi = self.affine[1](x_hn_multi)
+            output_multi = self.affine_multi(x_hn_multi)
             output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
                       "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:

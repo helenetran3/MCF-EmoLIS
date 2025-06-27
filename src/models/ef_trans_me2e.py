@@ -29,23 +29,38 @@ class MModel(nn.Module):
         output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
             if self.multitask else [compute_dim(self.label_type)]
 
-        # Multitask parameters
-        num_branches = 2 if self.multitask else 1
-        proj_size_mt = param_model['mt_proj_size']  # set to 60 for a multiple of 5
-        num_features_for_trans_and_aff = [num_features_tav_incr, proj_size_mt]
+        # num_branches = 2 if self.multitask else 1
+        # num_features_for_trans_and_aff = [num_features_tav_incr, proj_size_mt]
+        # self.transformer = nn.ModuleList([WrappedTransformerEncoder(dim=num_features_for_trans_and_aff[i],
+        #                                                             num_layers=nlayers,
+        #                                                             num_heads=5) for i in range(num_branches)])
 
-        self.transformer = nn.ModuleList([WrappedTransformerEncoder(dim=num_features_for_trans_and_aff[i],
-                                                                    num_layers=nlayers,
-                                                                    num_heads=5) for i in range(num_branches)])
+        self.transformer = WrappedTransformerEncoder(dim=num_features_tav_incr,
+                                                     num_layers=nlayers,
+                                                     num_heads=5)
 
-        self.affine = nn.ModuleList([nn.Sequential(nn.Linear(num_features_for_trans_and_aff[i],
-                                                             num_features_for_trans_and_aff[i] // 2),
-                                                   nn.ReLU(),
-                                                   nn.Linear(num_features_for_trans_and_aff[i] // 2, output_dim[i]))
-                                     for i in range(num_branches)])
+        self.affine_main = nn.Sequential(nn.Linear(num_features_tav_incr,
+                                                   num_features_tav_incr // 2),
+                                         nn.ReLU(),
+                                         nn.Linear(num_features_tav_incr // 2, output_dim[0]))
 
         if self.multitask:
-            self.proj = nn.Conv1d(2*num_features_tav_incr, proj_size_mt, kernel_size=1, padding=0, bias=False)
+            num_layers_rnn = 1
+            dropout = 0.1
+            bi = True
+            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']
+            proj_size_total = 3 * proj_size_mt_per_mod
+            self.proj = nn.Conv1d(2*num_features_tav_incr, proj_size_total, kernel_size=1, padding=0, bias=False)
+
+            self.rnn_multi = nn.LSTM(input_size=proj_size_total,
+                                     hidden_size=proj_size_total,
+                                     num_layers=num_layers_rnn,
+                                     dropout=(dropout if num_layers_rnn > 1 else 0),
+                                     bidirectional=bi)
+
+            self.affine_multi = nn.Sequential(nn.Linear(2 * proj_size_total, proj_size_total),
+                                              nn.ReLU(),
+                                              nn.Linear(proj_size_total, output_dim[1]))
 
     def final_activation(self, output, label_i):
         if label_i in ['present', 'dominant']:
@@ -65,16 +80,19 @@ class MModel(nn.Module):
         zero_vector = torch.zeros(num_samples, max_all_lens, 1)  # for division by 5 in transformer for num_features
         x = torch.cat((x_text, x_image, x_audio, zero_vector), 2) # (num_samples, t, num_features)
         all_lens = self.get_len_samples(x)  # list of sequence lengths in the training batch
-        x_cls, x_trans_main = self.transformer[0](x, all_lens, max_all_lens, get_cls=True) # (num_samples, num_features)
-        output_main = self.affine[0](x_cls)
+        x_cls, x_trans_main = self.transformer(x, all_lens, max_all_lens, get_cls=True) # (num_samples, num_features)
+        output_main = self.affine_main(x_cls)
 
         if self.multitask:
             x_multi = torch.cat([x, x_trans_main], dim=2)  # (num_samples, t, num_features*2)
             x_multi = x_multi.permute(0, 2, 1)  # (num_samples, num_features*2, t)
             x_multi = self.proj(x_multi)  # (num_samples, proj_size, t)
-            x_multi = x_multi.permute(0, 2, 1)  # (num_samples, t, proj_size)
-            x_cls_multi, _ = self.transformer[1](x_multi, all_lens, max_all_lens, get_cls=True)
-            output_multi = self.affine[1](x_cls_multi)
+            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            # x_multi = x_multi.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            # x_cls_multi, _ = self.transformer[1](x_multi, all_lens, max_all_lens, get_cls=True)
+            _, (x_hn_multi, _) = self.rnn_multi(x_multi)
+            x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
+            output_multi = self.affine_multi(x_hn_multi)
             output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
                       "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:
