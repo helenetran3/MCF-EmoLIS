@@ -57,7 +57,7 @@ class MModel(nn.Module):
             proj_size_mt = param_model['mt_proj_size']
             proj_size_total = self.num_features_total if proj_size_mt == 0 else proj_size_mt
 
-            self.proj = nn.Conv1d(3 * self.num_features_total, proj_size_total, kernel_size=1, padding=0, bias=False)
+            self.proj_multi = nn.Conv1d(3 * self.num_features_total, proj_size_total, kernel_size=1, padding=0, bias=False)
 
             self.rnn_multi = nn.LSTM(input_size=proj_size_total,
                                      hidden_size=proj_size_total,
@@ -93,7 +93,7 @@ class MModel(nn.Module):
         if self.multitask:
             x_multi = torch.cat([x, out_rnn], dim=2)  # (t, num_samples, 3*num_features)
             x_multi = x_multi.permute(1, 2, 0)  # (num_samples, 3*num_features, t)
-            x_multi = self.proj(x_multi)  # (num_samples, proj_size_total, t)
+            x_multi = self.proj_multi(x_multi)  # (num_samples, proj_size_total, t)
             x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_total)
             _, (x_hn_multi, _) = self.rnn_multi(x_multi)
             x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)

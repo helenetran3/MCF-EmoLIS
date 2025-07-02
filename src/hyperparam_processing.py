@@ -1,6 +1,7 @@
 import json
 import re
 import numpy as np
+import sys
 
 from src.models import ef_from_mfn, ef_rnn_me2e, ef_trans_me2e, ef_williams_tf, ef_williams_torch, \
     lf_williams_tf, lf_rnn_me2e, lf_trans_me2e, mfn
@@ -357,19 +358,26 @@ def get_optimizer(optimizer_str, param_training, model, label_type_is_dict, is_t
 
     if label_type_is_dict and param_training['bilevel_opt']:
 
-        param_coarse = [param for name, param in model.named_parameters() if '.0.' in name]
-        param_coarse_names = [name for name, _ in model.named_parameters() if '.0.' in name]
-        # the following two lines remove the last layers of 'coarse' task architecture
-        # (these last layers start with 'out_' and contains '.0.')
-        regex_coa_final = re.compile(r'out_.*\.0\..*')
+        param_model_names = [name for name, param in model.named_parameters()]
+        param_coarse = [param for name, param in model.named_parameters() if 'main' in name]
+        param_coarse_names = [name for name, _ in model.named_parameters() if 'main' in name]
         param_coa_for_fine = [param for name, param in model.named_parameters()
-                              if ('.0.' in name and not regex_coa_final.search(name))]
+                              if ('main' in name and not 'affine_main' in name)]
         param_coa_for_fine_name = [name for name, _ in model.named_parameters()
-                                   if ('.0.' in name and not regex_coa_final.search(name))]
-        param_fine = param_coa_for_fine + [param for name, param in model.named_parameters()
-                                           if '.1.' in name]
-        param_fine_names = param_coa_for_fine_name + [name for name, _ in model.named_parameters()
-                                                      if '.1.' in name]
+                                   if ('main' in name and not 'affine_main' in name)]
+        param_fine = param_coa_for_fine + [param for name, param in model.named_parameters() if 'multi' in name]
+        param_fine_names = param_coa_for_fine_name + [name for name, _ in model.named_parameters() if 'multi' in name]
+
+        param_missed_to_optimize = list(set(param_model_names) - set(param_coarse_names) - set(param_fine_names))
+        if len(param_missed_to_optimize) != 0:
+            user_choice = input(
+                "The following list of model parameters will not be updated in the multitask setting due to their names: {} "
+                "they must either include 'main' (coarse_task) or 'multi' (fine task) to be updated. "
+                "Continue? (y/n) ".format(param_missed_to_optimize))
+            while user_choice.lower() not in ['y', 'n']:
+                user_choice = input("Please choose among y and n: ")
+            if user_choice.lower() == 'n':
+                sys.exit(0)
 
         # For the moment we use the same optimizer for both tasks
         return {'coarse_task': get_one_optimizer(param_coarse), 'fine_task': get_one_optimizer(param_fine),
