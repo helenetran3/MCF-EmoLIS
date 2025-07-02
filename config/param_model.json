@@ -31,15 +31,6 @@
             "final_activ": "linear"
         },
 
-        "ef_williams_debug":
-        {
-            "is_TensorFlow": 1,
-            "num_layers": 3,
-            "num_nodes": 100,
-            "dropout_rate": 0.1,
-            "final_activ": "linear"
-        },
-
         "late_fusion":
         {
             "is_TensorFlow": 1,

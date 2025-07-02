@@ -117,8 +117,8 @@ with sentiment in range [-3,3] and the six emotions in range [0,3]. In this repo
       -c, --with_custom_split
                             Perform custom split on training and validation sets (for more
                             details, cf. Williams et al. (2018) paper).
-      -mn {ef_from_mfn, ef_williams, ef_williams_debug, late_fusion, mfn, mult}, --model_name 
-          {ef_from_mfn, ef_williams, ef_williams_debug, late_fusion, mfn, mult}
+      -mn {ef_from_mfn, ef_williams, late_fusion, mfn, mult}, --model_name 
+          {ef_from_mfn, ef_williams, late_fusion, mfn, mult}
                             Name of the model currently tested. Values: ['ef_from_mfn', 
                             'ef_williams', 'ef_williams_debug', 'late_fusion', 'mfn', 'mult'].
       -lt {all,coarse,present,dominant}, --label_type {all,coarse,present,dominant}
@@ -256,7 +256,6 @@ generate other graphs, please refer to `label_statistics.ipynb` file.
 ## Models available
 
 Want to try one of the following models? Set `--model_name` parameter with the string value in bold. 
-For debugging, you can use **ef_williams_debug**.
 
 - **ef_from_mfn**: Early fusion model used by the authors of Memory Fusion Network (cf. model **mfn**).
 
@@ -267,10 +266,8 @@ In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Ch
    - Use standard training, validation and test sets from CMU-MOSEI SDK (instead of using only training and validation sets 
 originally specified in the paper)
    - Only model available in TensorFlow and PyTorch
-
-- **ef\_williams\_debug**: the same model as **ef_williams** used for debugging on PyTorch or TensorFlow.
-  
-- **late_fusion**: We replicated the model **ef_williams** for the three inputs (text, image, audio) and averaged the 
+ 
+- **lf_williams_tf**: We replicated the model **ef_williams** for the three inputs (text, image, audio) and averaged the 
 scores for each emotion.
 
 - **lf_mesm**: Late fusion based on RNNs used by the authors of 

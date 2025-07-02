@@ -64,15 +64,6 @@
             "final_activ": "Final activation"
         },
 
-        "ef_williams_debug":
-        {
-            "is_TensorFlow": "Is TensorFlow",
-            "num_layers": "Number layers",
-            "num_nodes": "Number nodes for the penultimate dense layer",
-            "dropout_rate": "Dropout rate",
-            "final_activ": "Final activation"
-        },
-
         "late_fusion":
         {
             "is_TensorFlow": "Is TensorFlow",
