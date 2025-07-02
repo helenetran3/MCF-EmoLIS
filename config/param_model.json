@@ -12,14 +12,14 @@
         "ef_rnn_me2e":
         {
             "is_TensorFlow": 0,
-            "mt_proj_size_per_mod": 64
+            "mt_proj_size": 0
         },
 
         "ef_trans_me2e":
         {
             "is_TensorFlow": 0,
             "trans_nlayers": 2,
-            "mt_proj_size_per_mod": 64
+            "mt_proj_size": 0
         },
 
         "ef_williams":
@@ -52,20 +52,23 @@
         "lf_rnn_me2e":
         {
             "is_TensorFlow": 0,
-            "mt_proj_size_per_mod": 64
+            "mt_proj_size_text": 0,
+            "mt_proj_size_audio": 0,
+            "mt_proj_size_image": 0
         },
 
         "lf_trans_me2e":
         {
             "is_TensorFlow": 0,
             "trans_nlayers": 2,
-            "mt_proj_size_per_mod": 64
+            "mt_proj_size_text": 0,
+            "mt_proj_size_audio": 0,
+            "mt_proj_size_image": 0
         },
 
         "mfn":
         {
             "is_TensorFlow": 0,
-            "gml": 0,
 
             "memsize": 64,
             "windowsize": 2,
@@ -91,9 +94,9 @@
             "out_shapes": 64,
             "out_drop": 0.2,
 
-            "mt_proj_size_per_mod": 64,
-            "mt_num_layers": 1,
-            "mt_dropout": 0.1
+            "mt_proj_size_text": 0,
+            "mt_proj_size_audio": 0,
+            "mt_proj_size_image": 0
         },
 
         "mme2e":
@@ -130,9 +133,9 @@
             "num_heads": 10,
             "attn_mask": 1,
 
-            "mt_proj_size_per_mod": 64,
-            "mt_num_layers": 1,
-            "mt_dropout": 0.1
+            "mt_proj_size_text": 0,
+            "mt_proj_size_audio": 0,
+            "mt_proj_size_image": 0
         },
 
         "mult_gml_2":

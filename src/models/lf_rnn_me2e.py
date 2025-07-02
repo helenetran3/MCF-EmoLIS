@@ -84,11 +84,18 @@ class MModel(nn.Module):
         })
 
         if self.multitask:
-            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']  # set to 60 for a multiple of 5
-            proj_size_total = proj_size_mt_per_mod * 3
-            self.proj_t = nn.Conv1d(3 * num_features_text, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
-            self.proj_a = nn.Conv1d(3 * num_features_audio, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
-            self.proj_v = nn.Conv1d(3 * num_features_image, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            # in the following block, if 0, take the total number of input features (text+audio+image) else take the one set by the user
+            proj_size_mt_text = param_model['mt_proj_size_text']
+            proj_size_mt_audio = param_model['mt_proj_size_audio']
+            proj_size_mt_image = param_model['mt_proj_size_image']
+            proj_size_mt_text = num_features_text if proj_size_mt_text == 0 else proj_size_mt_text
+            proj_size_mt_audio = num_features_audio if proj_size_mt_audio == 0 else proj_size_mt_audio
+            proj_size_mt_image = num_features_image if proj_size_mt_image == 0 else proj_size_mt_image
+            proj_size_total = proj_size_mt_text + proj_size_mt_audio + proj_size_mt_image
+
+            self.proj_t = nn.Conv1d(3 * num_features_text, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
+            self.proj_a = nn.Conv1d(3 * num_features_audio, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
+            self.proj_v = nn.Conv1d(3 * num_features_image, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
             self.rnn_multi = nn.LSTM(input_size=proj_size_total,
                                      hidden_size=proj_size_total,
                                      num_layers=num_layers,
@@ -144,15 +151,15 @@ class MModel(nn.Module):
             x_multi_t = x_multi_t.transpose(1, 2)  # (num_samples, num_features_text*3, t)
             x_multi_a = x_multi_a.transpose(1, 2)  # (num_samples, num_features_audio*3, t)
             x_multi_v = x_multi_v.transpose(1, 2)  # (num_samples, num_features_mage*3, t)
-            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size_per_mod, t)
-            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size_per_mod, t)
-            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size_per_mod, t)
-            x_multi_t = x_multi_t.transpose(1, 2)  # (num_samples, t, proj_size_per_mod)
-            x_multi_a = x_multi_a.transpose(1, 2)  # (num_samples, t, proj_size_per_mod)
-            x_multi_v = x_multi_v.transpose(1, 2)  # (num_samples, t, proj_size_per_mod)
-            x_multi = torch.cat([x_multi_t, x_multi_a, x_multi_v], dim=2) # (num_samples, t, 3*proj_size_per_mod)
-            _, (x_hn_multi, _) = self.rnn_multi(x_multi.transpose(0, 1)) # (2, num_samples, 3*proj_size_per_mod)
-            x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1) # (num_samples, 2*3*proj_size_per_mod)
+            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size_mt_text, t)
+            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size_mt_audio, t)
+            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size_mt_mage, t)
+            x_multi_t = x_multi_t.transpose(1, 2)  # (num_samples, t, proj_size_mt_text)
+            x_multi_a = x_multi_a.transpose(1, 2)  # (num_samples, t, proj_size_mt_audio)
+            x_multi_v = x_multi_v.transpose(1, 2)  # (num_samples, t, proj_size_mt_image)
+            x_multi = torch.cat([x_multi_t, x_multi_a, x_multi_v], dim=2) # (num_samples, t, proj_size_total)
+            _, (x_hn_multi, _) = self.rnn_multi(x_multi.transpose(0, 1)) # (2, num_samples, proj_size_total)
+            x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1) # (num_samples, 2*proj_size_total)
             output_multi = self.affine_multi(x_hn_multi) # (num_samples, num_output)
             output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
                       "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}

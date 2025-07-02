@@ -24,33 +24,35 @@ class MModel(nn.Module):
         self.multitask = type(self.label_type) == dict
 
         nlayers = param_model['trans_nlayers']
-        num_features_tav_incr = num_features_text + num_features_image + num_features_audio + 1 # 409+1 for div by 5
+        num_features_total_incr = num_features_text + num_features_image + num_features_audio + 1 # 409+1 for div by 5
         compute_dim = lambda l: self.num_classes * self.num_scores if 'oh' in l else self.num_classes
         output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
             if self.multitask else [compute_dim(self.label_type)]
 
         # num_branches = 2 if self.multitask else 1
-        # num_features_for_trans_and_aff = [num_features_tav_incr, proj_size_mt]
+        # num_features_for_trans_and_aff = [num_features_total_incr, proj_size_total]
         # self.transformer = nn.ModuleList([WrappedTransformerEncoder(dim=num_features_for_trans_and_aff[i],
         #                                                             num_layers=nlayers,
         #                                                             num_heads=5) for i in range(num_branches)])
 
-        self.transformer = WrappedTransformerEncoder(dim=num_features_tav_incr,
+        self.transformer = WrappedTransformerEncoder(dim=num_features_total_incr,
                                                      num_layers=nlayers,
                                                      num_heads=5)
 
-        self.affine_main = nn.Sequential(nn.Linear(num_features_tav_incr,
-                                                   num_features_tav_incr // 2),
+        self.affine_main = nn.Sequential(nn.Linear(num_features_total_incr,
+                                                   num_features_total_incr // 2),
                                          nn.ReLU(),
-                                         nn.Linear(num_features_tav_incr // 2, output_dim[0]))
+                                         nn.Linear(num_features_total_incr // 2, output_dim[0]))
 
         if self.multitask:
             num_layers_rnn = 1
             dropout = 0.1
             bi = True
-            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']
-            proj_size_total = 3 * proj_size_mt_per_mod
-            self.proj = nn.Conv1d(2*num_features_tav_incr, proj_size_total, kernel_size=1, padding=0, bias=False)
+            # in the following block, if 0, take the total number of input features (text+audio+image) else take the one set by the user
+            proj_size_mt = param_model['mt_proj_size']
+            proj_size_total = num_features_total_incr if proj_size_mt == 0 else proj_size_mt
+
+            self.proj = nn.Conv1d(2*num_features_total_incr, proj_size_total, kernel_size=1, padding=0, bias=False)
 
             self.rnn_multi = nn.LSTM(input_size=proj_size_total,
                                      hidden_size=proj_size_total,
@@ -77,18 +79,18 @@ class MModel(nn.Module):
         num_samples = x_text.size(0)
         assert num_samples == x_image.size(0) == x_audio.size(0)
 
-        zero_vector = torch.zeros(num_samples, max_all_lens, 1)  # for division by 5 in transformer for num_features
-        x = torch.cat((x_text, x_image, x_audio, zero_vector), 2) # (num_samples, t, num_features)
+        zero_vector = torch.zeros(num_samples, max_all_lens, 1)  # for num_features_total_incr to be divided by 5
+        x = torch.cat((x_text, x_image, x_audio, zero_vector), 2) # (num_samples, t, num_features_total_incr)
         all_lens = self.get_len_samples(x)  # list of sequence lengths in the training batch
-        x_cls, x_trans_main = self.transformer(x, all_lens, max_all_lens, get_cls=True) # (num_samples, num_features)
+        x_cls, x_trans_main = self.transformer(x, all_lens, max_all_lens, get_cls=True) # (num_samples, num_features_total_incr)
         output_main = self.affine_main(x_cls)
 
         if self.multitask:
-            x_multi = torch.cat([x, x_trans_main], dim=2)  # (num_samples, t, num_features*2)
-            x_multi = x_multi.permute(0, 2, 1)  # (num_samples, num_features*2, t)
-            x_multi = self.proj(x_multi)  # (num_samples, proj_size, t)
-            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
-            # x_multi = x_multi.permute(0, 2, 1)  # (num_samples, t, proj_size)
+            x_multi = torch.cat([x, x_trans_main], dim=2)  # (num_samples, t, num_features_total_incr*2)
+            x_multi = x_multi.permute(0, 2, 1)  # (num_samples, num_features_total_incr*2, t)
+            x_multi = self.proj(x_multi)  # (num_samples, proj_size_total, t)
+            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_total)
+            # x_multi = x_multi.permute(0, 2, 1)  # (num_samples, t, proj_size_total)
             # x_cls_multi, _ = self.transformer[1](x_multi, all_lens, max_all_lens, get_cls=True)
             _, (x_hn_multi, _) = self.rnn_multi(x_multi)
             x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)

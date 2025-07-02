@@ -27,7 +27,6 @@ class MModel(nn.Module):
         self.num_features_text = num_features_text
         self.num_features_image = num_features_image
         self.num_features_audio = num_features_audio
-        self.mods = 'tav'  # we use the three modalities here
 
         label_type = param_task['label_type']
         self.label_type, _ = create_label_multitask(label_type) if type(label_type) == list else (label_type, None)
@@ -35,28 +34,30 @@ class MModel(nn.Module):
 
         num_branches = 2 if self.multitask else 1
 
-        self.num_features_tav = num_features_text + num_features_image + num_features_audio
+        self.num_features_total = num_features_text + num_features_image + num_features_audio
         self.num_scores = 4
         self.num_classes = num_classes
         compute_dim = lambda l: self.num_classes * self.num_scores if 'oh' in l else self.num_classes
         output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
             if self.multitask else [compute_dim(self.label_type)]
 
-        self.rnn_main = nn.LSTM(input_size=self.num_features_tav,
-                                hidden_size=self.num_features_tav,
+        self.rnn_main = nn.LSTM(input_size=self.num_features_total,
+                                hidden_size=self.num_features_total,
                                 num_layers=num_layers,
                                 dropout=(dropout if num_layers > 1 else 0),
                                 bidirectional=bi)
 
-        linear_in_size = self.num_features_tav if not bi else self.num_features_tav * 2
+        linear_in_size = self.num_features_total if not bi else self.num_features_total * 2
         self.affine_main = nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
                                          nn.ReLU(),
                                          nn.Linear(linear_in_size // 2, output_dim[0]))
 
         if self.multitask:
-            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']
-            proj_size_total = 3 * proj_size_mt_per_mod
-            self.proj = nn.Conv1d(3*self.num_features_tav, proj_size_total, kernel_size=1, padding=0, bias=False)
+            # in the following block, if 0, take the total number of input features (text+audio+image) else take the one set by the user
+            proj_size_mt = param_model['mt_proj_size']
+            proj_size_total = self.num_features_total if proj_size_mt == 0 else proj_size_mt
+
+            self.proj = nn.Conv1d(3 * self.num_features_total, proj_size_total, kernel_size=1, padding=0, bias=False)
 
             self.rnn_multi = nn.LSTM(input_size=proj_size_total,
                                      hidden_size=proj_size_total,
@@ -92,8 +93,8 @@ class MModel(nn.Module):
         if self.multitask:
             x_multi = torch.cat([x, out_rnn], dim=2)  # (t, num_samples, 3*num_features)
             x_multi = x_multi.permute(1, 2, 0)  # (num_samples, 3*num_features, t)
-            x_multi = self.proj(x_multi)  # (num_samples, proj_size, t)
-            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            x_multi = self.proj(x_multi)  # (num_samples, proj_size_total, t)
+            x_multi = x_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_total)
             _, (x_hn_multi, _) = self.rnn_multi(x_multi)
             x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
             output_multi = self.affine_multi(x_hn_multi)

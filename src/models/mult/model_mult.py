@@ -120,13 +120,21 @@ class MModel(nn.Module):
 
         # Multitask
         if self.multitask:
-            num_layers = param_model['mt_num_layers']
-            dropout = param_model['mt_dropout']
-            proj_size_mt_per_mod = param_model['mt_proj_size_per_mod']
-            proj_size_total = 3 * proj_size_mt_per_mod
-            self.proj_l_mt = nn.Conv1d((self.d_a + self.d_v) + self.d_l, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
-            self.proj_a_mt = nn.Conv1d((self.d_l + self.d_v) + self.d_a, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
-            self.proj_v_mt = nn.Conv1d((self.d_l + self.d_a) + self.d_v, proj_size_mt_per_mod, kernel_size=1, padding=0, bias=False)
+            num_layers=1
+            dropout=0.1
+
+            # in the following block, if 0, take the total number of input features (text+audio+image) else take the one set by the user
+            proj_size_mt_text = param_model['mt_proj_size_text']
+            proj_size_mt_audio = param_model['mt_proj_size_audio']
+            proj_size_mt_image = param_model['mt_proj_size_image']
+            proj_size_mt_text = num_features_text if proj_size_mt_text == 0 else proj_size_mt_text
+            proj_size_mt_audio = num_features_audio if proj_size_mt_audio == 0 else proj_size_mt_audio
+            proj_size_mt_image = num_features_image if proj_size_mt_image == 0 else proj_size_mt_image
+            proj_size_total = proj_size_mt_text + proj_size_mt_audio + proj_size_mt_image
+
+            self.proj_l_mt = nn.Conv1d(num_features_text + 2 * self.d_l, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
+            self.proj_a_mt = nn.Conv1d(num_features_audio + 2 * self.d_a, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
+            self.proj_v_mt = nn.Conv1d(num_features_image + 2 * self.d_v, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
 
             self.rnn = nn.LSTM(input_size=proj_size_total,
                                hidden_size=proj_size_total,
@@ -317,20 +325,19 @@ class MModel(nn.Module):
             # proj_mem = [self.trans_mem_multi[i](proj_x[i]) for i in range(3)]
 
             # Reduce the full hidden sequence of each modality to proj_size along the num_features axis
-            x_l_multi = torch.cat((proj_x[0], hs_full_seq[0]), 2)
-            x_a_multi = torch.cat((proj_x[1], hs_full_seq[1]), 2)
-            x_v_multi = torch.cat((proj_x[2], hs_full_seq[2]), 2)
-            x_l_multi = x_l_multi.permute(1, 2, 0)  # (num_samples, num_features, t)
-            x_a_multi = x_a_multi.permute(1, 2, 0)  # (num_samples, num_features, t)
-            x_v_multi = x_v_multi.permute(1, 2, 0)  # (num_samples, num_features, t)
-            x_l_multi = self.proj_l_mt(x_l_multi)  # (num_samples, proj_size, t)
-            x_a_multi = self.proj_a_mt(x_a_multi)  # (num_samples, proj_size, t)
-            x_v_multi = self.proj_v_mt(x_v_multi)  # (num_samples, proj_size, t)
-            x_l_multi = x_l_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
-            x_a_multi = x_a_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
-            x_v_multi = x_v_multi.permute(2, 0, 1)  # (t, num_samples, proj_size)
+            x_l_multi = torch.cat((x_l.transpose(0, 1), hs_full_seq[0]), 2)  # (t, num_samples, num_features_text + 2 * d_l)
+            x_a_multi = torch.cat((x_a.transpose(0, 1), hs_full_seq[1]), 2)  # (t, num_samples, num_features_audio + 2 * d_a)
+            x_v_multi = torch.cat((x_v.transpose(0, 1), hs_full_seq[2]), 2)  # (t, num_samples, num_features_image + 2 * d_v)
+            x_l_multi = x_l_multi.permute(1, 2, 0)  # (num_samples, num_features_text + 2 * d_l, t)
+            x_a_multi = x_a_multi.permute(1, 2, 0)  # (num_samples, num_features_audio + 2 * d_a, t)
+            x_v_multi = x_v_multi.permute(1, 2, 0)  # (num_samples, num_features_image + 2 * d_v, t)
+            x_l_multi = self.proj_l_mt(x_l_multi)  # (num_samples, proj_size_mt_text, t)
+            x_a_multi = self.proj_a_mt(x_a_multi)  # (num_samples, proj_size_mt_audio, t)
+            x_v_multi = self.proj_v_mt(x_v_multi)  # (num_samples, proj_size_mt_image, t)
+            x_l_multi = x_l_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_text)
+            x_a_multi = x_a_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_audio)
+            x_v_multi = x_v_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_image)
             x_multi = torch.cat((x_l_multi, x_a_multi, x_v_multi), 2)
-
             # Apply RNN + FC layers to the concatenated vectors
             _, (x_hn_multi, _) = self.rnn(x_multi)
             x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
