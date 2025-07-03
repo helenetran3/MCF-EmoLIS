@@ -34,7 +34,7 @@ class MModel(nn.Module):
         # nheads = args['trans_nheads']
         # trans_dim = args['trans_dim']
 
-        self.transformers = nn.ModuleDict({
+        self.transformers_main = nn.ModuleDict({
             't': WrappedTransformerEncoder(
                 dim=num_features_text, # 300
                 num_layers=nlayers,
@@ -52,7 +52,7 @@ class MModel(nn.Module):
             )
         })
 
-        self.affines_main = nn.ModuleDict({
+        self.affines_main_out = nn.ModuleDict({
             't': nn.Sequential(
                 nn.Linear(num_features_text, num_features_text // 2),
                 nn.ReLU(),
@@ -70,6 +70,8 @@ class MModel(nn.Module):
             )
         })
 
+        self.weighted_fusion_main_out = nn.Linear(3, 1, bias=False)  # 3 modalities to fuse into 1
+
         if self.multitask:
             num_layers_rnn = 1
             dropout = 0.1
@@ -84,9 +86,9 @@ class MModel(nn.Module):
             proj_size_mt_image = num_features_image if proj_size_mt_image == 0 else proj_size_mt_image
             proj_size_total = proj_size_mt_text + proj_size_mt_audio + proj_size_mt_image
 
-            self.proj_t = nn.Conv1d(2 * num_features_text, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
-            self.proj_a = nn.Conv1d(2 * num_features_audio, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
-            self.proj_v = nn.Conv1d(2 * num_features_image, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
+            self.proj_t_multi = nn.Conv1d(2 * num_features_text, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
+            self.proj_a_multi = nn.Conv1d(2 * num_features_audio, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
+            self.proj_v_multi = nn.Conv1d(2 * num_features_image, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
 
             # self.transformer_multi = WrappedTransformerEncoder(
             #     dim=proj_size_total,
@@ -102,8 +104,6 @@ class MModel(nn.Module):
                 nn.Linear(2*proj_size_total, proj_size_total),
                 nn.ReLU(),
                 nn.Linear(proj_size_total, output_dim[1]))
-
-        self.weighted_fusion = nn.Linear(3, 1, bias=False)  # 3 modalities to fuse into 1
 
     def final_activation(self, output, label_i):
         if label_i in ['present', 'dominant']:
@@ -125,21 +125,21 @@ class MModel(nn.Module):
         img_features_lens = self.get_len_samples(x_image, 'image')
 
         # Apply transformer to text modality
-        texts_cls, x_trans_main_t = self.transformers['t'](x_text, text_features_lens, max_all_lens, get_cls=True)
-        texts = self.affines_main['t'](texts_cls)
+        texts_cls, x_trans_main_t = self.transformers_main['t'](x_text, text_features_lens, max_all_lens, get_cls=True)
+        texts = self.affines_main_out['t'](texts_cls)
         all_logits.append(texts)
 
         # Apply transformer to acoustic modality
-        audio_features_cls, x_trans_main_a = self.transformers['a'](x_audio, audio_features_lens, max_all_lens, get_cls=True)
-        audio_features = self.affines_main['a'](audio_features_cls)
+        audio_features_cls, x_trans_main_a = self.transformers_main['a'](x_audio, audio_features_lens, max_all_lens, get_cls=True)
+        audio_features = self.affines_main_out['a'](audio_features_cls)
         all_logits.append(audio_features)
 
         # Apply transformer to visual modality
-        img_features_cls, x_trans_main_v = self.transformers['v'](x_image, img_features_lens, max_all_lens, get_cls=True)
-        img_features = self.affines_main['v'](img_features_cls)
+        img_features_cls, x_trans_main_v = self.transformers_main['v'](x_image, img_features_lens, max_all_lens, get_cls=True)
+        img_features = self.affines_main_out['v'](img_features_cls)
         all_logits.append(img_features)
 
-        output_main = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
+        output_main = self.weighted_fusion_main_out(torch.stack(all_logits, dim=-1)).squeeze(-1)
 
         if self.multitask:
             x_multi_t = torch.cat([x_text, x_trans_main_t], dim=2)  # (num_samples, t, num_features_text*2)
@@ -148,9 +148,9 @@ class MModel(nn.Module):
             x_multi_t = x_multi_t.permute(0, 2, 1)  # (num_samples, num_features_text*2, t)
             x_multi_a = x_multi_a.permute(0, 2, 1)  # (num_samples, num_features_audio*2, t)
             x_multi_v = x_multi_v.permute(0, 2, 1)  # (num_samples, num_features_mage*2, t)
-            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size_mt_text, t)
-            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size_mt_audio, t)
-            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size_mt_image, t)
+            x_multi_t = self.proj_t_multi(x_multi_t)  # (num_samples, proj_size_mt_text, t)
+            x_multi_a = self.proj_a_multi(x_multi_a)  # (num_samples, proj_size_mt_audio, t)
+            x_multi_v = self.proj_v_multi(x_multi_v)  # (num_samples, proj_size_mt_image, t)
             x_multi_t = x_multi_t.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_text)
             x_multi_a = x_multi_a.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_audio)
             x_multi_v = x_multi_v.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_image)

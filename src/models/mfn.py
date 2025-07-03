@@ -51,29 +51,29 @@ class MModel(nn.Module):
         gamma2_dropout = param_model['gamma2_drop']
         out_dropout = param_model['out_drop']
 
-        self.lstm_l = nn.LSTMCell(self.d_l, self.dh_l)
-        self.lstm_a = nn.LSTMCell(self.d_a, self.dh_a)
-        self.lstm_v = nn.LSTMCell(self.d_v, self.dh_v)
+        self.lstm_l_main = nn.LSTMCell(self.d_l, self.dh_l)
+        self.lstm_a_main = nn.LSTMCell(self.d_a, self.dh_a)
+        self.lstm_v_main = nn.LSTMCell(self.d_v, self.dh_v)
 
-        self.att1_fc1 = nn.Linear(attInShape, h_att1)
-        self.att1_fc2 = nn.Linear(h_att1, attInShape)
-        self.att1_dropout = nn.Dropout(att1_dropout)
+        self.att1_fc1_main = nn.Linear(attInShape, h_att1)
+        self.att1_fc2_main = nn.Linear(h_att1, attInShape)
+        self.att1_dropout_main = nn.Dropout(att1_dropout)
 
-        self.att2_fc1 = nn.Linear(attInShape, h_att2)
-        self.att2_fc2 = nn.Linear(h_att2, self.mem_dim)
-        self.att2_dropout = nn.Dropout(att2_dropout)
+        self.att2_fc1_main = nn.Linear(attInShape, h_att2)
+        self.att2_fc2_main = nn.Linear(h_att2, self.mem_dim)
+        self.att2_dropout_main = nn.Dropout(att2_dropout)
 
-        self.gamma1_fc1 = nn.Linear(gammaInShape, h_gamma1)
-        self.gamma1_fc2 = nn.Linear(h_gamma1, self.mem_dim)
-        self.gamma1_dropout = nn.Dropout(gamma1_dropout)
+        self.gamma1_fc1_main = nn.Linear(gammaInShape, h_gamma1)
+        self.gamma1_fc2_main = nn.Linear(h_gamma1, self.mem_dim)
+        self.gamma1_dropout_main = nn.Dropout(gamma1_dropout)
 
-        self.gamma2_fc1 = nn.Linear(gammaInShape, h_gamma2)
-        self.gamma2_fc2 = nn.Linear(h_gamma2, self.mem_dim)
-        self.gamma2_dropout = nn.Dropout(gamma2_dropout)
+        self.gamma2_fc1_main = nn.Linear(gammaInShape, h_gamma2)
+        self.gamma2_fc2_main = nn.Linear(h_gamma2, self.mem_dim)
+        self.gamma2_dropout_main = nn.Dropout(gamma2_dropout)
 
-        self.out_fc1 = nn.Linear(final_out, h_out)
-        self.out_fc2 = nn.Linear(h_out, output_dim[0])
-        self.out_dropout = nn.Dropout(out_dropout)
+        self.out_fc1_main_out = nn.Linear(final_out, h_out)
+        self.out_fc2_main_out = nn.Linear(h_out, output_dim[0])
+        self.out_dropout_main_out = nn.Dropout(out_dropout)
 
         if self.multitask:
             num_layers = 1
@@ -88,20 +88,20 @@ class MModel(nn.Module):
             proj_size_mt_image = num_features_image if proj_size_mt_image == 0 else proj_size_mt_image
             proj_size_total = proj_size_mt_text + proj_size_mt_audio + proj_size_mt_image
 
-            self.proj_l = nn.Conv1d(num_features_text + self.dh_l + self.mem_dim, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
-            self.proj_a = nn.Conv1d(num_features_audio + self.dh_a + self.mem_dim, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
-            self.proj_v = nn.Conv1d(num_features_image + self.dh_v + self.mem_dim, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
-            # self.proj_mem = nn.Conv1d(self.mem_dim, self.proj_size_per_mod, kernel_size=1, padding=0, bias=False)
+            self.proj_l_multi = nn.Conv1d(num_features_text + self.dh_l + self.mem_dim, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
+            self.proj_a_multi = nn.Conv1d(num_features_audio + self.dh_a + self.mem_dim, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
+            self.proj_v_multi = nn.Conv1d(num_features_image + self.dh_v + self.mem_dim, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
+            # self.proj_mem_multi = nn.Conv1d(self.mem_dim, self.proj_size_per_mod, kernel_size=1, padding=0, bias=False)
 
-            self.rnn = nn.LSTM(input_size=proj_size_total,
-                                hidden_size=proj_size_total,
-                                num_layers=num_layers,
-                                dropout=(dropout if num_layers > 1 else 0),
-                                bidirectional=True)
+            self.rnn_multi = nn.LSTM(input_size=proj_size_total,
+                                     hidden_size=proj_size_total,
+                                     num_layers=num_layers,
+                                     dropout=(dropout if num_layers > 1 else 0),
+                                     bidirectional=True)
 
-            self.affine = nn.Sequential(nn.Linear(2*proj_size_total, proj_size_total),
-                                        nn.ReLU(),
-                                        nn.Linear(proj_size_total, output_dim[1]))
+            self.affine_multi = nn.Sequential(nn.Linear(2 * proj_size_total, proj_size_total),
+                                              nn.ReLU(),
+                                              nn.Linear(proj_size_total, output_dim[1]))
 
     def mfn_backbone(self, x_l, x_v, x_a, n, t):
         self.h_l = torch.zeros(n, self.dh_l)#.cuda()
@@ -124,19 +124,19 @@ class MModel(nn.Module):
             prev_c_a = self.c_a
             prev_c_v = self.c_v
             # curr time step
-            new_h_l, new_c_l = self.lstm_l(x_l[i], (self.h_l, self.c_l))
-            new_h_a, new_c_a = self.lstm_a(x_a[i], (self.h_a, self.c_a))
-            new_h_v, new_c_v = self.lstm_v(x_v[i], (self.h_v, self.c_v))
+            new_h_l, new_c_l = self.lstm_l_main(x_l[i], (self.h_l, self.c_l))
+            new_h_a, new_c_a = self.lstm_a_main(x_a[i], (self.h_a, self.c_a))
+            new_h_v, new_c_v = self.lstm_v_main(x_v[i], (self.h_v, self.c_v))
             # concatenate
             prev_cs = torch.cat([prev_c_l, prev_c_a, prev_c_v], dim=1)
             new_cs = torch.cat([new_c_l, new_c_a, new_c_v], dim=1)
             cStar = torch.cat([prev_cs, new_cs], dim=1)
-            attention = torch.softmax(self.att1_fc2(self.att1_dropout(torch.relu(self.att1_fc1(cStar)))), dim=1)
+            attention = torch.softmax(self.att1_fc2_main(self.att1_dropout_main(torch.relu(self.att1_fc1_main(cStar)))), dim=1)
             attended = attention * cStar
-            cHat = torch.tanh(self.att2_fc2(self.att2_dropout(torch.relu(self.att2_fc1(attended)))))
+            cHat = torch.tanh(self.att2_fc2_main(self.att2_dropout_main(torch.relu(self.att2_fc1_main(attended)))))
             both = torch.cat([attended, self.mem], dim=1)
-            gamma1 = torch.sigmoid(self.gamma1_fc2(self.gamma1_dropout(torch.relu(self.gamma1_fc1(both)))))
-            gamma2 = torch.sigmoid(self.gamma2_fc2(self.gamma2_dropout(torch.relu(self.gamma2_fc1(both)))))
+            gamma1 = torch.sigmoid(self.gamma1_fc2_main(self.gamma1_dropout_main(torch.relu(self.gamma1_fc1_main(both)))))
+            gamma2 = torch.sigmoid(self.gamma2_fc2_main(self.gamma2_dropout_main(torch.relu(self.gamma2_fc1_main(both)))))
             self.mem = gamma1 * self.mem + gamma2 * cHat
             all_mems.append(self.mem)
             # update
@@ -179,7 +179,7 @@ class MModel(nn.Module):
         last_h_v = all_h_vs[-1]
         last_mem = all_mems[-1]
         last_hs = torch.cat([last_h_l, last_h_a, last_h_v, last_mem], dim=1)
-        output_main = self.out_fc2(self.out_dropout(torch.relu(self.out_fc1(last_hs))))
+        output_main = self.out_fc2_main_out(self.out_dropout_main_out(torch.relu(self.out_fc1_main_out(last_hs))))
 
         # last hidden layer last_hs is n x h
         if self.multitask:
@@ -190,9 +190,9 @@ class MModel(nn.Module):
             x_l_multi = x_l_multi.permute(1, 2, 0)  # (num_samples, num_features_text + dh_l + mem_dim, t)
             x_a_multi = x_a_multi.permute(1, 2, 0)  # (num_samples, num_features_audio + dh_a + mem_dim, t)
             x_v_multi = x_v_multi.permute(1, 2, 0)  # (num_samples, num_features_image + dh_v + mem_dim, t)
-            x_l_multi = self.proj_l(x_l_multi)  # (num_samples, proj_size_mt_text, t)
-            x_a_multi = self.proj_a(x_a_multi)  # (num_samples, proj_size_mt_audio, t)
-            x_v_multi = self.proj_v(x_v_multi)  # (num_samples, proj_size_mt_image, t)
+            x_l_multi = self.proj_l_multi(x_l_multi)  # (num_samples, proj_size_mt_text, t)
+            x_a_multi = self.proj_a_multi(x_a_multi)  # (num_samples, proj_size_mt_audio, t)
+            x_v_multi = self.proj_v_multi(x_v_multi)  # (num_samples, proj_size_mt_image, t)
             x_l_multi = x_l_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_text)
             x_a_multi = x_a_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_audio)
             x_v_multi = x_v_multi.permute(2, 0, 1)  # (t, num_samples, proj_size_mt_image)
@@ -204,9 +204,9 @@ class MModel(nn.Module):
             #     mem_multi = mem_multi.permute(2, 0, 1)
 
             x_multi = torch.cat((x_l_multi, x_a_multi, x_v_multi), 2)
-            _, (x_hn_multi, _) = self.rnn(x_multi)
+            _, (x_hn_multi, _) = self.rnn_multi(x_multi)
             x_hn_multi = x_hn_multi.transpose(0, 1).flatten(start_dim=1)
-            output_multi = self.affine(x_hn_multi)
+            output_multi = self.affine_multi(x_hn_multi)
             output = {"coarse_task": self.final_activation(output_main, self.label_type['coarse_task']),
                       "fine_task": self.final_activation(output_multi, self.label_type['fine_task'])}
         else:

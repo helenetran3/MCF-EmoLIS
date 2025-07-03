@@ -41,7 +41,7 @@ class MModel(nn.Module):
         output_dim = [compute_dim(self.label_type['coarse_task']), compute_dim(self.label_type['fine_task'])] \
             if self.multitask else [compute_dim(self.label_type)]
 
-        self.rnns = nn.ModuleDict({
+        self.rnns_main = nn.ModuleDict({
             't': nn.LSTM(
                 input_size=num_features_text,
                 hidden_size=num_features_text,
@@ -65,7 +65,7 @@ class MModel(nn.Module):
             )
         })
 
-        self.affines = nn.ModuleDict({
+        self.affines_main_out = nn.ModuleDict({
             't': nn.Sequential(
                 nn.Linear(linear_in_sizes[0], linear_in_sizes[0] // 2),
                 nn.ReLU(),
@@ -83,6 +83,8 @@ class MModel(nn.Module):
             )
         })
 
+        self.weighted_fusion_main_out = nn.Linear(3, 1, bias=False)  # 3 modalities to fuse into 1
+
         if self.multitask:
             # in the following block, if 0, take the total number of input features (text+audio+image) else take the one set by the user
             proj_size_mt_text = param_model['mt_proj_size_text']
@@ -93,9 +95,9 @@ class MModel(nn.Module):
             proj_size_mt_image = num_features_image if proj_size_mt_image == 0 else proj_size_mt_image
             proj_size_total = proj_size_mt_text + proj_size_mt_audio + proj_size_mt_image
 
-            self.proj_t = nn.Conv1d(3 * num_features_text, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
-            self.proj_a = nn.Conv1d(3 * num_features_audio, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
-            self.proj_v = nn.Conv1d(3 * num_features_image, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
+            self.proj_t_multi = nn.Conv1d(3 * num_features_text, proj_size_mt_text, kernel_size=1, padding=0, bias=False)
+            self.proj_a_multi = nn.Conv1d(3 * num_features_audio, proj_size_mt_audio, kernel_size=1, padding=0, bias=False)
+            self.proj_v_multi = nn.Conv1d(3 * num_features_image, proj_size_mt_image, kernel_size=1, padding=0, bias=False)
             self.rnn_multi = nn.LSTM(input_size=proj_size_total,
                                      hidden_size=proj_size_total,
                                      num_layers=num_layers,
@@ -105,8 +107,6 @@ class MModel(nn.Module):
                 nn.Linear(2 * proj_size_total, proj_size_total),
                 nn.ReLU(),
                 nn.Linear(proj_size_total, output_dim[1]))
-
-        self.weighted_fusion = nn.Linear(3, 1, bias=False)  # 3 modalities to fuse into 1
 
     def final_activation(self, output, label_i):
         if label_i in ['present', 'dominant']:
@@ -121,25 +121,25 @@ class MModel(nn.Module):
         all_logits = []
 
         # Apply RNN to text modality
-        output_t, _ = self.rnns['t'](x_text.transpose(0, 1))
+        output_t, _ = self.rnns_main['t'](x_text.transpose(0, 1))
         output_t_logits = output_t[-1, :, :]
-        output_t_logits = self.affines['t'](output_t_logits)
+        output_t_logits = self.affines_main_out['t'](output_t_logits)
         all_logits.append(output_t_logits)
 
         # Apply RNN to audio modality
-        output_a, (audio_hn, _) = self.rnns['a'](x_audio.transpose(0, 1))
+        output_a, (audio_hn, _) = self.rnns_main['a'](x_audio.transpose(0, 1))
         audio_hn = audio_hn.transpose(0, 1).flatten(start_dim=1)  # (batch, hid_dim * 2)
-        audio_hn = self.affines['a'](audio_hn)
+        audio_hn = self.affines_main_out['a'](audio_hn)
         all_logits.append(audio_hn)
 
         # Apply RNN to image modality
-        output_v, (img_hn, _) = self.rnns['v'](x_image.transpose(0, 1))
+        output_v, (img_hn, _) = self.rnns_main['v'](x_image.transpose(0, 1))
         img_hn = img_hn.transpose(0, 1).flatten(start_dim=1)  # (batch, hid_dim * 2)
-        img_hn = self.affines['v'](img_hn)
+        img_hn = self.affines_main_out['v'](img_hn)
         all_logits.append(img_hn)
 
         # Weighted fusion
-        output_main = self.weighted_fusion(torch.stack(all_logits, dim=-1)).squeeze(-1)
+        output_main = self.weighted_fusion_main_out(torch.stack(all_logits, dim=-1)).squeeze(-1)
 
         if self.multitask:
             output_t = output_t.transpose(0, 1)
@@ -151,9 +151,9 @@ class MModel(nn.Module):
             x_multi_t = x_multi_t.transpose(1, 2)  # (num_samples, num_features_text*3, t)
             x_multi_a = x_multi_a.transpose(1, 2)  # (num_samples, num_features_audio*3, t)
             x_multi_v = x_multi_v.transpose(1, 2)  # (num_samples, num_features_mage*3, t)
-            x_multi_t = self.proj_t(x_multi_t)  # (num_samples, proj_size_mt_text, t)
-            x_multi_a = self.proj_a(x_multi_a)  # (num_samples, proj_size_mt_audio, t)
-            x_multi_v = self.proj_v(x_multi_v)  # (num_samples, proj_size_mt_mage, t)
+            x_multi_t = self.proj_t_multi(x_multi_t)  # (num_samples, proj_size_mt_text, t)
+            x_multi_a = self.proj_a_multi(x_multi_a)  # (num_samples, proj_size_mt_audio, t)
+            x_multi_v = self.proj_v_multi(x_multi_v)  # (num_samples, proj_size_mt_mage, t)
             x_multi_t = x_multi_t.transpose(1, 2)  # (num_samples, t, proj_size_mt_text)
             x_multi_a = x_multi_a.transpose(1, 2)  # (num_samples, t, proj_size_mt_audio)
             x_multi_v = x_multi_v.transpose(1, 2)  # (num_samples, t, proj_size_mt_image)

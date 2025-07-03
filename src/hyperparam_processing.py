@@ -362,18 +362,31 @@ def get_optimizer(optimizer_str, param_training, model, label_type_is_dict, is_t
         param_coarse = [param for name, param in model.named_parameters() if 'main' in name]
         param_coarse_names = [name for name, _ in model.named_parameters() if 'main' in name]
         param_coa_for_fine = [param for name, param in model.named_parameters()
-                              if ('main' in name and not 'affine_main' in name)]
-        param_coa_for_fine_name = [name for name, _ in model.named_parameters()
-                                   if ('main' in name and not 'affine_main' in name)]
+                              if ('main' in name and not 'main_out' in name)]
+        param_coa_for_fine_names = [name for name, _ in model.named_parameters()
+                                   if ('main' in name and not 'main_out' in name)]
         param_fine = param_coa_for_fine + [param for name, param in model.named_parameters() if 'multi' in name]
-        param_fine_names = param_coa_for_fine_name + [name for name, _ in model.named_parameters() if 'multi' in name]
+        param_fine_names = param_coa_for_fine_names + [name for name, _ in model.named_parameters() if 'multi' in name]
 
+        # This block checks whether all model layers are subject to optimization
         param_missed_to_optimize = list(set(param_model_names) - set(param_coarse_names) - set(param_fine_names))
         if len(param_missed_to_optimize) != 0:
             user_choice = input(
                 "The following list of model parameters will not be updated in the multitask setting due to their names: {} "
                 "they must either include 'main' (coarse_task) or 'multi' (fine task) to be updated. "
                 "Continue? (y/n) ".format(param_missed_to_optimize))
+            while user_choice.lower() not in ['y', 'n']:
+                user_choice = input("Please choose among y and n: ")
+            if user_choice.lower() == 'n':
+                sys.exit(0)
+
+        # This block checks whether there is a block dedicated for classification of coarse task
+        param_coa_affine = list(set(param_coarse_names) - set(param_coa_for_fine_names))
+        if len(param_coa_affine) == 0:
+            user_choice = input(
+                "There is no layers used specifically to generate the output of the coarse task "
+                "(the name must contain 'main_out' to be excluded from the list of layers to be optimized during the "
+                "optimization of the fine task). Continue? (y/n) ")
             while user_choice.lower() not in ['y', 'n']:
                 user_choice = input("Please choose among y and n: ")
             if user_choice.lower() == 'n':

@@ -208,6 +208,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     val_metrics = get_val_metrics(val_metrics_str, label_type, param_training, is_tf=False)
     val_metrics_is_none = val_metrics is None
     optimizer = get_optimizer(optimizer_name, param_training, model, label_type_is_dict, is_tf=False)
+    print("ok!")
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 

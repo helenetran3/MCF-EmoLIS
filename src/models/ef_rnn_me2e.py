@@ -48,9 +48,9 @@ class MModel(nn.Module):
                                 bidirectional=bi)
 
         linear_in_size = self.num_features_total if not bi else self.num_features_total * 2
-        self.affine_main = nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
-                                         nn.ReLU(),
-                                         nn.Linear(linear_in_size // 2, output_dim[0]))
+        self.affine_main_out = nn.Sequential(nn.Linear(linear_in_size, linear_in_size // 2),
+                                             nn.ReLU(),
+                                             nn.Linear(linear_in_size // 2, output_dim[0]))
 
         if self.multitask:
             # in the following block, if 0, take the total number of input features (text+audio+image) else take the one set by the user
@@ -88,7 +88,7 @@ class MModel(nn.Module):
         #        x_hnn of size (2, num_samples, num_features), 2 for bidirectional
         out_rnn, (x_hn_main, _) = self.rnn_main(x)
         x_hn_main = x_hn_main.transpose(0, 1).flatten(start_dim=1)  # (num_samples, 2 * num_features)
-        output_main = self.affine_main(x_hn_main)  # (num_samples, num_classes)
+        output_main = self.affine_main_out(x_hn_main)  # (num_samples, num_classes)
 
         if self.multitask:
             x_multi = torch.cat([x, out_rnn], dim=2)  # (t, num_samples, 3*num_features)
