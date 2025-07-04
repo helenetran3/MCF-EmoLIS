@@ -208,7 +208,6 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     val_metrics = get_val_metrics(val_metrics_str, label_type, param_training, is_tf=False)
     val_metrics_is_none = val_metrics is None
     optimizer = get_optimizer(optimizer_name, param_training, model, label_type_is_dict, is_tf=False)
-    print("ok!")
     if param_training["when"] != -1:
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=param_training["when"], factor=0.1, verbose=True)
 
@@ -433,7 +432,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
     def save_epoch_loss_and_monitor(epoch_loss_i, epoch_monitor_i, history_loss_i, history_monitor_i, func_bilevel_coa,
                                     is_train):
         # Compute training loss
-        if label_type_is_dict:
+        if type(epoch_loss_i) == dict:
             if func_bilevel_coa is not None:
                 task_i = 'coarse_task' if func_bilevel_coa else 'fine_task'
                 history_loss_i[task_i] += [epoch_loss_i[task_i]]
@@ -447,7 +446,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         if val_metrics_is_none and is_train:
             history_monitor_i = None
         else:
-            if func_bilevel_coa is not None:
+            if func_bilevel_coa is not None:  # not None only if we perform functional bilevel optimization
                 task_i = 'coarse_task' if func_bilevel_coa else 'fine_task'
                 history_monitor_i[task_i] += [epoch_monitor_i[task_i]]
             else:
@@ -651,7 +650,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             scheduler.step(valid_monitor)
 
         print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_loss, train_monitor, valid_monitor,
-                                     val_metrics, val_metrics_str, valid_thres_ml_per_emo, label_type, param_training)
+                                     val_metrics, val_metrics_str, valid_thres_ml_per_emo, label_type, param_training,
+                                     model_name, model_id)
 
         # For model checkpoint
         val_metrics_best, valid_thres_ml_best = model_checkpoint(valid_monitor, val_metrics_best,
@@ -662,7 +662,7 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
         time1 = time.time()
         duration = round(time1 - time0, 2)
         time_list.append(duration)
-        print("Time for epoch completion:", duration, " seconds.\n\n")
+        print("Epoch completion time: {}\n\n".format(time.strftime('%H:%M:%S', time.gmtime(duration))))
 
         # For early stopping
         if patience != -1:
@@ -671,7 +671,8 @@ def run_one_training(train_list, valid_list, param_model, param_training, param_
             if patience == num_epochs_without_improvement:
                 break
 
-    print("Total time training:", np.sum(time_list), " seconds.")
+    print("Class-wise thresholds for the best model:", valid_thres_ml_best)
+    print("Total training time: {}".format(time.strftime('%H:%M:%S', time.gmtime(np.sum(time_list)))))
     model_folder = os.path.join('results', model_name)
     save_and_plot_history(history_train_loss, history_valid_loss, ext_model_name, history_folder="history_loss",
                           root_folder=model_folder, display_fig=display_fig)
