@@ -91,7 +91,72 @@ def run_one_evaluation(test_list, with_cross_valid, fold_id, param_task, param_m
     model = model_module.MModel(model_id, param_model, param_task, num_features_text, num_features_image,
                                 num_features_audio, num_classes).to(device)
     checkpoint = torch.load(model_path)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    my_checkpoint = checkpoint['model_state_dict']
+    # for k in list(my_checkpoint.keys()):
+    #     if 'rnn.0' in k:
+    #         my_checkpoint[k.replace('rnn.0', 'rnn_main')] = my_checkpoint.pop(k)
+    #     if 'affine.0' in k:
+    #         my_checkpoint[k.replace('affine.0', 'affine_main_out')] = my_checkpoint.pop(k)
+    #     if 'affine_main.' in k:
+    #         my_checkpoint[k.replace('affine_main.', 'affine_main_out.')] = my_checkpoint.pop(k)
+    #     if 'affines.' in k:
+    #         my_checkpoint[k.replace('affines.', 'affines_main_out.')] = my_checkpoint.pop(k)
+    #     if 'rnns.' in k:
+    #         my_checkpoint[k.replace('rnns.', 'rnns_main.')] = my_checkpoint.pop(k)
+    #     if 'weighted_fusion.' in k:
+    #         my_checkpoint[k.replace('weighted_fusion.', 'weighted_fusion_main_out.')] = my_checkpoint.pop(k)
+    #     if 'transformer.0.' in k:
+    #         my_checkpoint[k.replace('transformer.0.', 'transformer_main.')] = my_checkpoint.pop(k)
+    #     if 'transformers.' in k:
+    #         my_checkpoint[k.replace('transformers.', 'transformers_main.')] = my_checkpoint.pop(k)
+    #     if 'affines_main.' in k:
+    #         my_checkpoint[k.replace('affines_main.', 'affines_main_out.')] = my_checkpoint.pop(k)
+    #     if 'lstm_l.0.' in k:
+    #         my_checkpoint[k.replace('lstm_l.0.', 'lstm_l_main.')] = my_checkpoint.pop(k)
+    #     if 'lstm_a.0.' in k:
+    #         my_checkpoint[k.replace('lstm_a.0.', 'lstm_a_main.')] = my_checkpoint.pop(k)
+    #     if 'lstm_v.0.' in k:
+    #         my_checkpoint[k.replace('lstm_v.0.', 'lstm_v_main.')] = my_checkpoint.pop(k)
+    #     if 'fc1.0.' in k:
+    #         my_checkpoint[k.replace('fc1.0.', 'fc1_main.')] = my_checkpoint.pop(k)
+    #     if 'fc2.0.' in k:
+    #         my_checkpoint[k.replace('fc2.0.', 'fc2_main.')] = my_checkpoint.pop(k)
+    #     if 'proj_l.' in k:
+    #         my_checkpoint[k.replace('proj_l.', 'proj_l_main.')] = my_checkpoint.pop(k)
+    #     if 'proj_a.' in k:
+    #         my_checkpoint[k.replace('proj_a.', 'proj_a_main.')] = my_checkpoint.pop(k)
+    #     if 'proj_v.' in k:
+    #         my_checkpoint[k.replace('proj_v.', 'proj_v_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_l_with_a.0.' in k:
+    #         my_checkpoint[k.replace('trans_l_with_a.0.', 'trans_l_with_a_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_l_with_v.0.' in k:
+    #         my_checkpoint[k.replace('trans_l_with_v.0.', 'trans_l_with_v_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_a_with_v.0.' in k:
+    #         my_checkpoint[k.replace('trans_a_with_v.0.', 'trans_a_with_v_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_a_with_l.0.' in k:
+    #         my_checkpoint[k.replace('trans_a_with_l.0.', 'trans_a_with_l_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_v_with_l.0.' in k:
+    #         my_checkpoint[k.replace('trans_v_with_l.0.', 'trans_v_with_l_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_v_with_a.0.' in k:
+    #         my_checkpoint[k.replace('trans_v_with_a.0.', 'trans_v_with_a_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_l_mem.0.' in k:
+    #         my_checkpoint[k.replace('trans_l_mem.0.', 'trans_l_mem_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_a_mem.0.' in k:
+    #         my_checkpoint[k.replace('trans_a_mem.0.', 'trans_a_mem_main.')] = my_checkpoint.pop(k)
+    #     if 'trans_v_mem.0.' in k:
+    #         my_checkpoint[k.replace('trans_v_mem.0.', 'trans_v_mem_main.')] = my_checkpoint.pop(k)
+    #     if 'proj1.0.' in k:
+    #         my_checkpoint[k.replace('proj1.0.', 'proj1_main_out.')] = my_checkpoint.pop(k)
+    #     if 'proj2.0.' in k:
+    #         my_checkpoint[k.replace('proj2.0.', 'proj2_main_out.')] = my_checkpoint.pop(k)
+    #     if 'out_layer.0.' in k:
+    #         my_checkpoint[k.replace('out_layer.0.', 'affine_main_out.')] = my_checkpoint.pop(k)
+    # for k in list(my_checkpoint.keys()):
+    #     if 'out_fc1_main.' in k:
+    #         my_checkpoint[k.replace('out_fc1_main.', 'out_fc1_main_out.')] = my_checkpoint.pop(k)
+    #     if 'out_fc2_main.' in k:
+    #         my_checkpoint[k.replace('out_fc2_main.', 'out_fc2_main_out.')] = my_checkpoint.pop(k)
+    model.load_state_dict(my_checkpoint)
     model.eval()
 
     fold_text = ": Fold {}".format(fold_id) if with_cross_valid else ""
