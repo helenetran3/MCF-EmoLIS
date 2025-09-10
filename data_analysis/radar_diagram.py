@@ -48,7 +48,7 @@ def plot_radar_charts(blocks, titles, metrics, output_file):
     axs = axs.flatten()
 
     # Réduction des tailles / espacement
-    fig.subplots_adjust(wspace=0.2, hspace=0.5, top=0.9, bottom=0.1)
+    fig.subplots_adjust(wspace=0.3, hspace=0.5, top=0.9, bottom=0.1)
 
     angles = np.linspace(0, 2 * np.pi, len(metrics), endpoint=False).tolist()
     angles += angles[:1]  # Fermer le radar
@@ -72,10 +72,10 @@ def plot_radar_charts(blocks, titles, metrics, output_file):
         ax.set_theta_direction(-1)
         ax.set_thetagrids(np.degrees(angles[:-1]), metrics, fontsize=8)
 
-        y_pos = [0.03, 0.03, 0.03, 0.03, 0.03, 0, 0.03, 0.12, 0.1, 0.03]
+        y_pos = [0.03, 0.06, 0.08, 0.08, 0.08, 0, 0.1, 0.2, 0.15, 0.1]
         for lab_id, (label, angle) in enumerate(zip(ax.get_xticklabels(), angles)):
             label.set_horizontalalignment('center')
-            label.set_fontsize(8)
+            label.set_fontsize(11)
             x, y = label.get_position()
             label.set_position((x, y-y_pos[lab_id]))  # Décale verticalement vers l’extérieur
 
@@ -84,7 +84,7 @@ def plot_radar_charts(blocks, titles, metrics, output_file):
         ax.set_yticks(range(10, 101, 10))
         ax.set_yticklabels([str(i) for i in range(10, 101, 10)], color="grey", size=7)
 
-        ax.set_title(titles[i], size=14, pad=20)
+        ax.set_title(titles[i], size=15, pad=20, fontweight="bold")
 
         # Récupérer handles/labels pour la légende globale
         handles, labels = ax.get_legend_handles_labels()
@@ -93,7 +93,7 @@ def plot_radar_charts(blocks, titles, metrics, output_file):
 
     # Légende globale (unique en bas)
     by_label = dict(zip(all_labels, all_handles))  # Éviter doublons
-    fig.legend(by_label.values(), by_label.keys(), loc='lower center', ncol=6, fontsize=11)
+    fig.legend(by_label.values(), by_label.keys(), loc='lower center', ncol=6, fontsize=15)
 
     plt.savefig(output_file, dpi=300)
     plt.show()
@@ -104,12 +104,12 @@ def plot_radar_charts(blocks, titles, metrics, output_file):
 csv_path = "csv_diagram_radar.csv"
 
 titles = [
-    "RNN-based early fusion",
-    "Transformer-based early fusion",
-    "RNN-based late fusion",
-    "Transformer-based late fusion",
-    "Memory Fusion Network",
-    "Multimodal Transformer"
+    "RNN-based early fusion (EF-RNN)",
+    "RNN-based late fusion (LF-RNN)",
+    "Memory Fusion Network (MFN)",
+    "Transformer-based early fusion (EF-Trans)",
+    "Transformer-based late fusion (LF-Trans)",
+    "Multimodal Transformer (MulT)"
 ]
 
 metrics = [
@@ -129,4 +129,4 @@ metrics = [
 # ]
 
 blocks = split_csv_by_empty_lines(csv_path)
-plot_radar_charts(blocks, titles, metrics, "../diagram_radars.png")
+plot_radar_charts(blocks, titles, metrics, "diagram_radars.png")
