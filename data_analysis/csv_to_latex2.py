@@ -1,10 +1,18 @@
 import pandas as pd
 import numpy as np
+import os
+import argparse
 
-input_file_p = "test_csv_latex.csv"
-find_max_p = True
+parser = argparse.ArgumentParser()
+parser.add_argument('-f', '--filename', required=True)
+args = vars(parser.parse_args())
 
-def process_csv_blocks(input_file, find_max, output_file="output.txt"):
+filename = args['filename']
+find_max = [False, False, False, True]
+
+def process_csv_blocks():
+    input_file = filename + ".csv"
+    output_file = filename + "_latex.txt"
     # Lire brut les lignes
     with open(input_file, encoding="utf-8") as f:
         raw_lines = f.readlines()
@@ -44,9 +52,9 @@ def process_csv_blocks(input_file, find_max, output_file="output.txt"):
         print(df_copy)
         print("\n")
 
-        for col_a in col_indices:
+        for col_id, col_a in enumerate(col_indices):
             col_data = df.iloc[:, col_a]
-            if find_max:
+            if find_max[col_id]:
                 target_val = col_data.max()
             else:
                 target_val = col_data.min()
@@ -102,4 +110,4 @@ def process_csv_blocks(input_file, find_max, output_file="output.txt"):
     print(f"✅ Fichier généré : {output_file}")
 
 
-process_csv_blocks(input_file_p, find_max_p)
+process_csv_blocks()
