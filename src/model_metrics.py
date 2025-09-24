@@ -13,7 +13,7 @@ from sklearn.preprocessing import label_binarize, LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, jaccard_score, roc_auc_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, mutual_info_score
 from sklearn.metrics import multilabel_confusion_matrix, ConfusionMatrixDisplay
-
+from sklearn.utils import resample
 
 def round_not_nan(macro_val, round_decimals):
     return np.round(macro_val, round_decimals) if not np.isnan(macro_val) else np.nan
@@ -131,6 +131,37 @@ def compute_accuracy_per_class(is_weighted, num_classes, with_cross_val, model_i
 
     return acc_list, weight_classes_for_mean
 
+def concordance_index(true_scores, pred_scores, label_type, all_scores):
+    scores = all_scores if label_type == 'all' else [0, 1, 2, 3] if 'coarse' in label_type else [0, 1]
+    # Create list of boolean values where
+    index_scores = [list(np.where(true_scores == sc_i)[0]) for sc_i in scores]
+    num_values = true_scores.shape[0] * true_scores.shape[1] if true_scores.ndim == 2 else true_scores.shape[0]
+    assert(np.sum([len(ind) for ind in index_scores]) == num_values)
+
+    res, total_values = 0., 0
+    # i and j are indexes in scores
+    for i in range(len(scores)-1):
+        for j in range(1, len(scores)):
+            if i < j:
+                index_inf, index_sup = index_scores[i], index_scores[j]
+                card_inf_times_card_sup = len(index_inf) * len(index_sup)
+                if card_inf_times_card_sup != 0:
+                    total_values += card_inf_times_card_sup
+                    for i_sup_sample in index_sup:
+                        for i_inf_sample in index_inf:
+                            if true_scores.ndim == 2:
+                                i_sup_row, i_sup_col = i_sup_sample
+                                i_inf_row, i_inf_col = i_inf_sample
+                                p_val_sup, p_val_inf = pred_scores[i_sup_row, i_sup_col], pred_scores[i_inf_row, i_inf_col]
+                            else:  # dimension of t is 1
+                                p_val_sup, p_val_inf = pred_scores[i_sup_sample], pred_scores[i_inf_sample]
+                            if p_val_sup > p_val_inf:
+                                res += 1.
+                            if p_val_sup == p_val_inf:
+                                res += 0.5
+
+    return res / total_values
+
 
 def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, round_decimals):
     """
@@ -144,37 +175,6 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     :param round_decimals: number of decimals to be rounded for metrics
     :return: List of classification metrics
     """
-
-    def concordance_index(t, p):
-        scores = all_scores if label_type == 'all' else [0, 1, 2, 3] if 'coarse' in label_type else [0, 1]
-        # Create list of boolean values where
-        index_scores = [list(np.where(t == sc_i)[0]) for sc_i in scores]
-        num_values = t.shape[0] * t.shape[1] if t.ndim == 2 else t.shape[0]
-        assert(np.sum([len(ind) for ind in index_scores]) == num_values)
-
-        res, total_values = 0., 0
-        # i and j are indexes in scores
-        for i in range(len(scores)-1):
-            for j in range(1, len(scores)):
-                if i < j:
-                    index_inf, index_sup = index_scores[i], index_scores[j]
-                    card_inf_times_card_sup = len(index_inf) * len(index_sup)
-                    if card_inf_times_card_sup != 0:
-                        total_values += card_inf_times_card_sup
-                        for i_sup_sample in index_sup:
-                            for i_inf_sample in index_inf:
-                                if t.ndim == 2:
-                                    i_sup_row, i_sup_col = i_sup_sample
-                                    i_inf_row, i_inf_col = i_inf_sample
-                                    p_val_sup, p_val_inf = p[i_sup_row, i_sup_col], p[i_inf_row, i_inf_col]
-                                else:  # dimension of t is 1
-                                    p_val_sup, p_val_inf = p[i_sup_sample], p[i_inf_sample]
-                                if p_val_sup > p_val_inf:
-                                    res += 1.
-                                if p_val_sup == p_val_inf:
-                                    res += 0.5
-
-        return res / total_values
 
     def RRMSE(t, p, t_mean):
         num = math.sqrt(mean_squared_error(t, p))
@@ -221,7 +221,7 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     print("KL divergence (for each emotion):", [round_not_nan(val, round_decimals+2) for val in kl_div_emo])
     print("KL divergence (overall):", round_not_nan(kl_div, round_decimals))
 
-    c_index_emo = [concordance_index(t, p)*100 for t, p in zip(true_scores_emo, pred_scores_emo)]
+    c_index_emo = [concordance_index(t, p, label_type, all_scores)*100 for t, p in zip(true_scores_emo, pred_scores_emo)]
     c_index = np.mean(c_index_emo)
     print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
     print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
@@ -713,6 +713,48 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
     return met_reg, met_score, met_pres, met_dom
 
 
+def compute_c_index_bootstrap(true_scores_all, pred_raw, label_type, all_scores, num_bootstrap=1000, ci=95):
+    """
+    Return a dictionary containing the mean of c-indexes, the lower and upper limits of the confidence interval, and
+    all c-index values obtained from the bootstrap. The first two parameters can be a list of arrays when there is
+    cross-validation.
+
+    :param true_scores_all: array of shape (test size, 6) giving the true scores for the 6 emotions (given by the database).
+    :param pred_raw: array of shape (test_size, 6) predicting the presence score of the 6 emotions
+    :param label_type: Type of labels used for model training and evaluation
+    :param all_scores: list of available presence scores
+    :param num_bootstrap: Number of bootstrap resamplings (default 1000)
+    :param ci: Confidence interval in percentage (default 95)
+    """
+
+    # Stack arrays from different folds if needed
+    if type(pred_raw) == list:
+        true_scores_all = np.vstack(true_scores_all)
+        pred_raw = np.vstack(pred_raw)
+    num_samples, num_classes = true_scores_all.shape[0], true_scores_all.shape[1]
+
+    # Bootstrap resampling
+    indices = np.arange(num_samples)
+    c_ind_list = []
+    for _ in range(num_bootstrap):
+        sample_idx = resample(indices, replace=True, n_samples=num_samples)
+        c = concordance_index(true_scores_all[sample_idx], pred_raw[sample_idx], label_type, all_scores)
+        c_ind_list.append(c)
+
+    c_index_val = np.array(c_ind_list)
+    ci_lower = np.percentile(c_index_val, (100 - ci) / 2)
+    ci_upper = np.percentile(c_index_val, 100 - (100 - ci) / 2)
+
+    return {
+        "cindex_mean": np.mean(c_index_val),
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "all_values": c_index_val
+    }
+
+
+
+
 def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_output,
                                    pred_raw, pred_classes_pres, pred_classes_dom,
                                    param_task, param_training, param_log, model_name, model_id, label_type,
@@ -817,6 +859,8 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                                   pred_raw, pred_classes_pres, pred_classes_dom, with_cross_val, thres_score_pres,
                                   num_classes, all_scores, round_decimals, model_id, model_folder, num_folds)
+
+    metrics_bootstrap = compute_c_index_bootstrap(true_scores_all, pred_raw, label_type, all_scores)
 
     # Save metrics in csv file
     if param_log['save_csv']:
