@@ -76,11 +76,13 @@ def write_csv(csv_path, header, data_to_save):
             writer.writerow(data_to_save)
 
 
-def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutral_class, is_classification):
+def get_header_and_data_metrics(metrics, metrics_bootstrap, header_param, data_param, predict_neutral_class,
+                                is_classification):
     """
     Creates two lists of strings (header and data) that will contain all the metrics for the specified task.
 
     :param metrics: a list of metric values
+    :param metrics_bootstrap: Dictionary of values for C-index, from bootstrap validation
     :param header_param: a list of strings to identify the model (and the fold if applicable)
     :param data_param: a list of values to identify the model (and the fold if applicable)
     :param predict_neutral_class: Whether we predict the neutral class
@@ -110,15 +112,20 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         header_overall = ['mae', 'mse', 'msep', 'rmse', 'rmsep', 'rrmse', 'r2', 'kl_div', 'c_index']
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
+        # Add c_index bootstrap at the end
+        header = header + ['c_index_bs_macro', 'c_index_bs_weighted', 'c_index_ci_lower', 'c_index_ci_upper']
+        header = header + ['c_index_bs_{}'.format(e) for e in emotions]
         data_param = ['N/A' if d is None else d for d in data_param]
         data = data_param + metrics
+        data = data + [metrics_bootstrap['c_index_macro'], metrics_bootstrap['c_index_weighted'],
+                       metrics_bootstrap['ci_lower'], metrics_bootstrap['ci_upper']] + metrics_bootstrap['c_index_emo']
 
     return header, data
 
 
 def save_results_in_csv_file(model_name, model_id, model_eval_output,
-                             metrics_regression, metrics_scores, metrics_presence, metrics_dominant, with_cross_val,
-                             predict_neutral_class, thres_score_pres, label_type):
+                             metrics_regression, metrics_bootstrap, metrics_scores, metrics_presence, metrics_dominant,
+                             with_cross_val, predict_neutral_class, thres_score_pres, label_type):
     """
     Save results of a single model to a csv file.
 
@@ -126,6 +133,7 @@ def save_results_in_csv_file(model_name, model_id, model_eval_output,
     :param model_id: Model id (int)
     :param model_eval_output: List of [loss function, validation metric] obtained by the model
     :param metrics_regression: List of metrics for regression
+    :param metrics_bootstrap: Dictionary of values for C-index, from bootstrap validation
     :param metrics_scores: List of metrics for classifying the presence scores of each emotion
     :param metrics_presence: T lists of lists of metrics for detecting the presence/absence of an emotion
     (T is the number of thresholds set)
@@ -161,7 +169,8 @@ def save_results_in_csv_file(model_name, model_id, model_eval_output,
             else:
                 data_losses = [eval_out[0], None, None, eval_out[1]]
             data_id_reg = data_id_reg + data_losses  # data_losses contains loss function and validation metric values
-            header_regression, data_regression = get_header_and_data_metrics(met_reg, header_id_reg, data_id_reg,
+            header_regression, data_regression = get_header_and_data_metrics(met_reg, metrics_bootstrap,
+                                                                             header_id_reg, data_id_reg,
                                                                              predict_neutral_class,
                                                                              is_classification=False)
             write_csv(csv_path_regression, header_regression, data_regression)

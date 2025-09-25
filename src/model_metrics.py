@@ -770,18 +770,24 @@ def compute_c_index_bootstrap(true_scores_all, pred_raw, label_type, all_scores,
     c_ind_list = []
     for _ in range(num_bootstrap):
         sample_idx = resample(indices, replace=True, n_samples=num_samples)
-        c = concordance_index(true_scores_all[sample_idx], pred_raw[sample_idx], label_type, all_scores)
-        c_ind_list.append(c)
+        c_ind_per_emo = []
+        for cl_i in range(num_classes):
+            c_ind = concordance_index(true_scores_all[sample_idx, cl_i], pred_raw[sample_idx, cl_i], label_type, all_scores)
+            c_ind_per_emo.append(c_ind)
+        c_ind_list.append(c_ind_per_emo)
 
-    c_index_val = np.array(c_ind_list)
+    c_index_val = np.array(c_ind_list)  # array of shape (num_bootstrap, num_classes)
+    c_index_emo = np.mean(c_index_val, axis=0)
+    weights_emo = list(np.sum(true_scores_all > 0, axis=0))
     ci_lower = np.percentile(c_index_val, (100 - ci) / 2)
     ci_upper = np.percentile(c_index_val, 100 - (100 - ci) / 2)
 
     return {
-        "cindex_mean": np.mean(c_index_val),
+        "c_index_emo": c_index_emo,
+        "c_index_macro": np.mean(c_index_emo),
+        "c_index_weighted": np.average(c_index_emo, weights=weights_emo) if np.sum(weights_emo) > 0 else None,
         "ci_lower": ci_lower,
-        "ci_upper": ci_upper,
-        "all_values": c_index_val
+        "ci_upper": ci_upper
     }
 
 
@@ -897,5 +903,5 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     # Save metrics in csv file
     if param_log['save_csv']:
         save_results_in_csv_file(model_name, model_id, model_eval_output,
-                                 metrics_regression, metrics_score, metrics_presence, metrics_dominant,
+                                 metrics_regression, metrics_bootstrap, metrics_score, metrics_presence, metrics_dominant,
                                  with_cross_val, predict_neutral_class, thres_score_pres, label_type)
