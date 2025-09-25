@@ -150,8 +150,7 @@ def print_summary_training_epoch(epoch, loss_function_str, train_loss, valid_los
     print("-------------------------------------------------------------------------------------------------------")
 
 
-def print_mean_std_cross_validation(met_reg, met_score, met_pres, met_dom, label_type, num_classes,
-                                    thres_score_pres, decimals):
+def print_metrics(met_reg, met_score, met_pres, met_dom, label_type, num_classes, thres_score_pres, decimals):
     print("\n======================== Mean and std of folds ========================\n")
     print("Number of folds:", len(met_reg))
 

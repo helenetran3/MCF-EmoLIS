@@ -107,7 +107,7 @@ def get_header_and_data_metrics(metrics, header_param, data_param, predict_neutr
         data = data_param + metrics
 
     else:
-        header_overall = ['mae', 'mse', 'rmse', 'rrmse', 'r2', 'kl_div', 'c_index']
+        header_overall = ['mae', 'mse', 'msep', 'rmse', 'rmsep', 'rrmse', 'r2', 'kl_div', 'c_index']
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
         data_param = ['N/A' if d is None else d for d in data_param]
@@ -140,7 +140,7 @@ def save_results_in_csv_file(model_name, model_id, model_eval_output,
     ext_name = "_n" if predict_neutral_class else ""
 
     # Create filenames
-    csv_path_regression = create_csv_path(model_name, "regression", ext_name, with_cross_val)
+    csv_path_regression = create_csv_path(model_name, "regression_final", ext_name, with_cross_val)
     csv_path_score = create_csv_path(model_name, "classif_score", ext_name, with_cross_val)
     csv_path_presence = create_csv_path(model_name, "classif_pres", ext_name, with_cross_val)
     csv_path_dominant = create_csv_path(model_name, "classif_dom", ext_name, with_cross_val)

@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from src.pickle_functions import save_with_pickle, load_from_pickle
 from src.csv_functions import save_results_in_csv_file
 from src.label_processing import compute_true_labels, shorten_label
-from src.print_functions import print_mean_std_cross_validation
+from src.print_functions import print_metrics
 
 from sklearn.preprocessing import label_binarize, LabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, jaccard_score, roc_auc_score
@@ -176,6 +176,34 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     :return: List of classification metrics
     """
 
+    def mse_rmse_positive_only():
+        num_classes = true_scores.shape[1]
+        msep_emo = []
+        rmsep_emo = []
+
+        # Calculate per class
+        for c in range(num_classes):
+            mask = true_scores[:, c] > 0
+            true_pos = true_scores[mask, c]
+            pred_pos = pred_scores[mask, c]
+            if len(true_pos) == 0:
+                msep = np.nan
+                rmsep = np.nan
+            else:
+                msep = mean_absolute_error(true_pos, pred_pos)
+                rmsep = np.sqrt(msep)
+            msep_emo.append(msep)
+            rmsep_emo.append(rmsep)
+
+        # Macro average, we remove nan values before doing the averages
+        msep_emo_no_nan = np.array([v for v in msep_emo if not np.isnan(v)])
+        rmsep_emo_no_nan = np.array([v for v in rmsep_emo if not np.isnan(v)])
+        msep_macro = np.mean(msep_emo_no_nan)
+        rmsep_macro = np.mean(rmsep_emo_no_nan)
+
+        return msep_macro, msep_emo, rmsep_macro, rmsep_emo
+
+
     def RRMSE(t, p, t_mean):
         num = math.sqrt(mean_squared_error(t, p))
         den = math.sqrt(mean_squared_error(t, np.full(t.shape, t_mean)))
@@ -204,6 +232,12 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     print("Root mean squared error (for each emotion):", [round_not_nan(val, round_decimals+2) for val in rmse_emo])
     print("Root mean squared error (overall):", round_not_nan(rmse, round_decimals))
 
+    msep, msep_emo, rmsep, rmsep_emo = mse_rmse_positive_only()
+    print("Mean squared error, positive instances only (for each emotion):", [round_not_nan(val, round_decimals+2) for val in msep_emo])
+    print("Mean squared error, positive instances only (overall):", round_not_nan(msep, round_decimals))
+    print("Root mean squared error, positive instances only (for each emotion):", [round_not_nan(val, round_decimals + 2) for val in rmsep_emo])
+    print("Root mean squared error, positive instances only (overall):", round_not_nan(rmsep, round_decimals))
+
     true_scores_emo_mean = [np.mean(ts) for ts in true_scores_emo]
     rrmse_emo = [RRMSE(t, p, tm) for t, p, tm in zip(true_scores_emo, pred_scores_emo, true_scores_emo_mean)]
     rrmse = np.mean(rrmse_emo)
@@ -226,8 +260,8 @@ def get_regression_metrics(true_scores, pred_scores, label_type, all_scores, rou
     print("C-index (for each emotion):", [round_not_nan(val, round_decimals) for val in c_index_emo])
     print("C-index (unweighted mean):", round_not_nan(c_index, round_decimals))
 
-    return ([mae, mse, rmse, rrmse, r2, kl_div, c_index] + mae_emo + mse_emo + rmse_emo + rrmse_emo +
-            r2_emo + kl_div_emo + c_index_emo)
+    return ([mae, mse, msep, rmse, rmsep, rrmse, r2, kl_div, c_index] + mae_emo + mse_emo + msep_emo + rmse_emo +
+            rmsep_emo + rrmse_emo + r2_emo + kl_div_emo + c_index_emo)
 
 
 def get_classification_metrics_score(true_scores, pred_scores, num_classes, round_decimals,
@@ -621,8 +655,6 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
         label_t = label_type[task_mt] if task_mt is not None else label_type
         label_t = label_t if 'coarse' not in label_t else 'coarse'
 
-        if fold_id is not None:
-            print("\n\n=============================== Fold {} ===============================".format(fold_id))
         if task_mt is not None:
             print("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             print(">>>>>> Metrics for {}: {}".format(task_mt, label_t))
@@ -684,14 +716,14 @@ def get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true
                 met_pres_i += [mp]
                 met_dom_i += [md]
 
-            # Print Mean and Std of values
-            label_t = label_type[task_mt] if task_mt is not None else label_type
-            print_mean_std_cross_validation(met_reg_i, met_score_i, met_pres_i, met_dom_i, label_t, num_classes,
-                                            thres_score_pres, round_decimals)
-
         else:
             met_reg_i, met_score_i, met_pres_i, met_dom_i = compute_metrics_one_model(t_all, t_coa, t_pres, t_dom,
                                                                               p_raw, p_pres, p_dom, task_mt)
+
+        # Print metrics
+        label_t = label_type[task_mt] if task_mt is not None else label_type
+        print_metrics(met_reg_i, met_score_i, met_pres_i, met_dom_i, label_t, num_classes,
+                      thres_score_pres, round_decimals)
 
         return met_reg_i, met_score_i, met_pres_i, met_dom_i
 
