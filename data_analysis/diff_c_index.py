@@ -1,0 +1,176 @@
+from src.pickle_functions import pickle_file_exists, load_from_pickle
+from src.dataset_utils import get_dataset_from_sdk, get_fold_ids, process_and_split_dataset, get_length_dataset, \
+    split_for_cross_validation, data_normalization
+from src.hyperparam_processing import get_hyperparam_from_json
+from src.csv_functions import get_current_model_id, save_model_param_in_csv_file, csv_summary
+from src.label_processing import create_label_multitask, create_label_filename, update_labels
+from src.model_metrics import compute_and_save_model_metrics
+from src.hyperparam_processing import possible_val_metrics
+import itertools
+import torch
+from src.pytorch_utils.model_evaluation import evaluate_torch_model
+
+
+def compute_IC_c_index(model_names):
+
+    param_log = get_hyperparam_from_json("param_logistics")
+    param_training, param_task = get_hyperparam_from_json("param_training_task")
+    num_folds = param_training['cross_val_folds']
+    with_cross_validation = (num_folds != -1)
+
+    # Transform label_type to dict with keys 'coarse_task' and 'fine_task' when label_type is a list
+    label_type = param_task['label_type']
+    label_type, granularity_order = create_label_multitask(label_type) if type(label_type) == list else (label_type, None)
+
+    # Get data for training, validation and test sets from pickle (split provided by the SDK)
+    root_data_folder = param_log['root_data_folder']
+    tnan = param_task['thres_nan']
+    nan_str = param_task['replace_nan'] + "_tnan_" + str(tnan)
+    thres_score = param_task['thres_score_pres']
+    tscore_str = "_tscore_" + str(thres_score)
+    length_seq = param_task['set_length']
+    length_str = "_length_" + str(length_seq) if type(length_seq) == int else ""
+    data_ext_name_raw = nan_str + length_str
+    data_ext_name_proc = nan_str + tscore_str + length_str
+
+    predict_neutral_class = param_task['predict_neutral_class']
+    label_filename = create_label_filename(label_type)  # for multitask, it looks like coa&pres
+    cv_filename = "cv_" + str(num_folds) + "_true_" + label_filename + "_" + data_ext_name_proc
+    cv_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
+
+    # Load folds for cross-validation if the targeted task (mono or multi) are already saved locally
+    if with_cross_validation and pickle_file_exists("train_" + cv_filename, "processed_folds", root_data_folder):
+        train_list_task = load_from_pickle("train_" + cv_filename, 'processed_folds', root_data_folder)
+        valid_list_task = load_from_pickle("valid_" + cv_filename, 'processed_folds', root_data_folder)
+        test_list_task = load_from_pickle("test_" + cv_filename, 'processed_folds', root_data_folder)
+        all_scores = load_from_pickle("all_scores_with_no_split_" + data_ext_name_raw, "raw_folds", root_data_folder)
+        print("\nLoaded {} folds for cross-validation, for task {}, max NaN of {}%, max length of {}, score threshold of"
+              " {} and predict neutral class is {}, from folder '{}/processed_folds'."
+              .format(num_folds, label_type, tnan, length_seq, thres_score, (predict_neutral_class == 1),
+                      root_data_folder))
+
+    else:
+        # Load hold-out data if the targeted task (mono or multi) are already saved locally
+        ho_filename = "ho_true_" + label_filename + "_" + data_ext_name_proc
+        ho_filename += "_pred-neu" if predict_neutral_class else "_rm-neu"
+        if pickle_file_exists("train_" + ho_filename, "processed_folds", root_data_folder):
+            train_list_task = load_from_pickle("train_" + ho_filename, "processed_folds", root_data_folder)
+            valid_list_task = load_from_pickle("valid_" + ho_filename, "processed_folds", root_data_folder)
+            test_list_task = load_from_pickle("test_" + ho_filename, "processed_folds", root_data_folder)
+            if with_cross_validation:
+                train_list_orig = load_from_pickle("train_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                valid_list_orig = load_from_pickle("valid_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                test_list_orig = load_from_pickle("test_" + data_ext_name_raw,  "raw_folds", root_data_folder)
+                no_split_list_orig = load_from_pickle("no_split_" + data_ext_name_raw,  "raw_folds", root_data_folder)
+                no_split_list_task = load_from_pickle("no_split_" + ho_filename, "processed_folds", root_data_folder)
+            split_str = "with_no_split_" if with_cross_validation else "split_only_"
+            all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name_raw, "raw_folds", root_data_folder)
+
+        else:
+            # Load raw data from CMU-MOSEI SDK if already saved locally
+            if pickle_file_exists("train_" + data_ext_name_raw, "raw_folds", root_data_folder):
+                train_list_orig = load_from_pickle("train_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                valid_list_orig = load_from_pickle("valid_" + data_ext_name_raw, "raw_folds", root_data_folder)
+                test_list_orig = load_from_pickle("test_" + data_ext_name_raw,  "raw_folds", root_data_folder)
+                no_split_list_orig = load_from_pickle("no_split_" + data_ext_name_raw,  "raw_folds", root_data_folder)
+                split_str = "with_no_split_" if with_cross_validation else "split_only_"
+                all_scores = load_from_pickle("all_scores_" + split_str + data_ext_name_raw, "raw_folds", root_data_folder)
+
+            else:
+                # Load CMU-MOSEI dataset
+                dataset = get_dataset_from_sdk(param_log, param_task)
+
+                # Get data for training, validation and test sets (split provided by the SDK)
+                train_ids, valid_ids, test_ids = get_fold_ids(param_task)
+                train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, all_scores = \
+                    process_and_split_dataset(dataset, train_ids, valid_ids, test_ids, param_task, param_log,
+                                              with_cross_validation)
+
+            # Update labels so that it matches with the targeted task given by label_type (all, coarse, coarse_prob,
+            # coarse_oh, present, dominant) + remove samples assigned to neutral when predict_neutral_class is False
+            # In the case of multitask, the second element of each of the four lists are a dictionary with keys
+            # 'coarse_task' and 'fine_task'
+            train_list_task, valid_list_task, test_list_task, no_split_list_task = \
+                update_labels(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig, param_task,
+                              label_type, all_scores, data_ext_name_proc, root_data_folder)
+
+        # Cross-validation
+        if with_cross_validation:
+            train_list_task, valid_list_task, test_list_task = \
+                split_for_cross_validation(train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig,
+                                           train_list_task, valid_list_task, test_list_task, no_split_list_task,
+                                           param_training, param_task, param_log, label_type, data_ext_name_proc)
+
+        del train_list_orig, valid_list_orig, test_list_orig, no_split_list_orig
+
+    # Data normalization: we perform it after cross-validation (or hold-out) because it uses values from training set
+    train_list_task, valid_list_task, test_list_task = data_normalization(train_list_task, valid_list_task,
+                                                                          test_list_task, param_task,
+                                                                          with_cross_validation)
+
+    def run_one_inference(model_name, loss_function, val_metrics, param_model_j):
+        num_steps = get_length_dataset(train_list_task, valid_list_task, test_list_task, param_task,
+                                       with_cross_validation, is_tf=False)
+
+
+        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        print(f"\nUsing {device} device")
+
+        name_id_dict = {'mult': 18, 'lf_trans_me2e': 6}
+        model_id = name_id_dict[model_name]
+        thres_multilabel = [{'coarse_task': [1, 1, 1, 1, 1, 1], 'fine_task': None},
+                            {'coarse_task': [1, 1, 1, 1, 1, 1], 'fine_task': None},
+                            {'coarse_task': [1, 1, 1, 1, 1, 1], 'fine_task': None},
+                            {'coarse_task': [1, 1, 1, 1, 1, 1], 'fine_task': None},
+                            {'coarse_task': [1, 1, 1, 1, 1, 1], 'fine_task': None}]
+
+        _, pred_raw, _, _ = \
+            evaluate_torch_model(test_list_task, param_task, param_model_j, param_training,
+                                 param_log, num_steps, model_name, model_id, label_type, loss_function, val_metrics,
+                                 thres_multilabel, device, with_cross_validation)
+
+        return pred_raw
+
+    # # Loop over the list of models, loss functions and validation metrics
+    if type(label_type) == dict:
+        loss_function_str, val_metrics_str = {}, {}
+        loss_fn_param = param_training['loss_function']
+        val_metrics_param = param_training['val_metrics']
+        for task_i in ['coarse_task', 'fine_task']:
+            if type(loss_fn_param) == list:
+                # take loss function at the same position as its corresponding task in label_type from param_task
+                loss_function_str[task_i] = loss_fn_param[granularity_order[task_i]]
+            else:
+                # Same loss function when only one loss function is provided
+                loss_function_str[task_i] = loss_fn_param
+            if type(val_metrics_param) == list:
+                val_metrics_str[task_i] = val_metrics_param[granularity_order[task_i]]
+            else:
+                val_metrics_str[task_i] = val_metrics_param
+    else:
+        loss_function_str = param_training['loss_function']
+        val_metrics_str = param_training['val_metrics']
+    loss_function_list = loss_function_str if type(loss_function_str) == list else [loss_function_str]
+    val_metrics_list = val_metrics_str if type(val_metrics_str) == list else [val_metrics_str]
+    for val_met in val_metrics_list:
+        if val_met == -1 and ((type(label_type) != dict and label_type not in ['present', 'dominant']) or
+                              (type(label_type) == dict and
+                               any([label_i not in ['present', 'dominant'] for label_i in label_type.values()]))):
+            raise ValueError("The value '-1' assigned to hyperparameter 'val_metrics' is incompatible with",
+                             "tasks" if type(label_type) == list else "task",
+                             "'{}'. Please choose a value among {} in 'param_training_task.json' file."
+                             .format(param_task['label_type'], possible_val_metrics))
+
+    # Compute predictions of already saved models
+    pred_models = []
+    for model_i in model_names:
+        param_model_i = get_hyperparam_from_json("param_model", model_name=model_i)
+        # Iterate over all pairs (loss_function, val_metrics)
+        for lf_i, vm_i in list(itertools.product(loss_function_list, val_metrics_list)):
+            pred_model = run_one_inference(model_i, lf_i, vm_i, param_model_i)
+            pred_models += [pred_model]
+
+    # TODO compute pairwise c_indexes
+
+
+compute_IC_c_index(model_names=['mult', 'lf_trans_me2e'])
