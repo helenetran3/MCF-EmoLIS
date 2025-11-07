@@ -174,35 +174,43 @@ def print_metrics(met_reg, met_score, met_pres, met_dom, label_type, num_classes
 
     def print_mean_std_regression(met_regression):
         length = len(met_regression[0])
-        num_metrics = 7  # mae, mse, rmse, rrmse, r2, kl, c-index
+        num_metrics = 9  # mae, mse, msep, rmse, rmsep, rrmse, r2, kl, c-index
         assert(length == num_metrics + num_metrics * num_classes)
         mae = [met_i[0] for met_i in met_regression]
         mse = [met_i[1] for met_i in met_regression]
-        rmse = [met_i[2] for met_i in met_regression]
-        rrmse = [met_i[3] for met_i in met_regression]
-        r2 = [met_i[4] for met_i in met_regression]
-        kl = [met_i[5] for met_i in met_regression]
+        msep = [met_i[2] for met_i in met_regression]
+        rmse = [met_i[3] for met_i in met_regression]
+        rmsep = [met_i[4] for met_i in met_regression]
+        rrmse = [met_i[5] for met_i in met_regression]
+        r2 = [met_i[6] for met_i in met_regression]
+        kl = [met_i[7] for met_i in met_regression]
         mae_per_fold = [met_i[num_metrics:num_metrics + num_classes] for met_i in met_regression]
         mse_per_fold = [met_i[num_metrics + num_classes:num_metrics + 2 * num_classes] for met_i in met_regression]
-        rmse_per_fold = [met_i[num_metrics + 2 * num_classes:num_metrics + 3 * num_classes] for met_i in met_regression]
-        rrmse_per_fold = [met_i[num_metrics + 3 * num_classes:num_metrics + 4 * num_classes] for met_i in met_regression]
-        r2_per_fold = [met_i[num_metrics + 4 * num_classes:num_metrics + 5 * num_classes] for met_i in met_regression]
-        kl_per_fold = [met_i[num_metrics + 5 * num_classes:num_metrics + 6 * num_classes] for met_i in met_regression]
+        msep_per_fold = [met_i[num_metrics + 2 * num_classes:num_metrics + 3 * num_classes] for met_i in met_regression]
+        rmse_per_fold = [met_i[num_metrics + 3 * num_classes:num_metrics + 4 * num_classes] for met_i in met_regression]
+        rmsep_per_fold = [met_i[num_metrics + 4 * num_classes:num_metrics + 5 * num_classes] for met_i in met_regression]
+        rrmse_per_fold = [met_i[num_metrics + 5 * num_classes:num_metrics + 6 * num_classes] for met_i in met_regression]
+        r2_per_fold = [met_i[num_metrics + 6 * num_classes:num_metrics + 7 * num_classes] for met_i in met_regression]
+        kl_per_fold = [met_i[num_metrics + 7 * num_classes:num_metrics + 8 * num_classes] for met_i in met_regression]
         print("Mean absolute error (for each emotion):", str_emo(mae_per_fold))
         print("Mean absolute error (overall):", str_overall(mae))
         print("Mean squared error (for each emotion):", str_emo(mse_per_fold))
         print("Mean squared error (overall):", str_overall(mse))
+        print("Mean squared error, on positive instances only (for each emotion):", str_emo(msep_per_fold))
+        print("Mean squared error, on positive instances only (overall):", str_overall(msep))
         print("Root mean squared error (for each emotion):", str_emo(rmse_per_fold))
         print("Root mean squared error (overall):", str_overall(rmse))
+        print("Root mean squared error, on positive instances only (for each emotion):", str_emo(rmsep_per_fold))
+        print("Root mean squared error, on positive instances only (overall):", str_overall(rmsep))
         print("Relative root mean squared error (for each emotion):", str_emo(rrmse_per_fold))
         print("Relative root mean squared error (overall):", str_overall(rrmse))
         print("R2 score (for each emotion):", str_emo(r2_per_fold))
         print("R2 score (overall):", str_overall(r2))
         print("KL divergence (for each emotion):", str_emo(kl_per_fold))
         print("KL divergence (overall):", str_overall(kl))
-        if met_regression[0][6] is not None:
-            c_index = [met_i[6] for met_i in met_regression]
-            c_index_per_fold = [met_i[num_metrics + 6 * num_classes:num_metrics + 7 * num_classes] for met_i in
+        if met_regression[0][8] is not None:
+            c_index = [met_i[8] for met_i in met_regression]
+            c_index_per_fold = [met_i[num_metrics + 8 * num_classes:num_metrics + 9 * num_classes] for met_i in
                                 met_regression]
             print("C-index (for each emotion):", str_emo(c_index_per_fold))
             print("C-index (unweighted mean):", str_overall(c_index))

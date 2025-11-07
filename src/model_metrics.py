@@ -15,6 +15,9 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, m
 from sklearn.metrics import multilabel_confusion_matrix, ConfusionMatrixDisplay
 from sklearn.utils import resample
 
+from alive_progress import alive_bar
+
+
 def round_not_nan(macro_val, round_decimals):
     return np.round(macro_val, round_decimals) if not np.isnan(macro_val) else np.nan
 
@@ -159,6 +162,29 @@ def concordance_index(true_scores, pred_scores, label_type, all_scores):
                                 res += 1.
                             if p_val_sup == p_val_inf:
                                 res += 0.5
+
+    return res / total_values
+
+
+def concordance_index_1d(true_scores, pred_scores, label_type, all_scores):
+    scores = all_scores if label_type == 'all' else [0, 1, 2, 3] if 'coarse' in label_type else [0, 1]
+    index_scores = [list(np.where(true_scores == sc_i)[0]) for sc_i in scores]
+    num_values = true_scores.shape[0]
+    assert(np.sum([len(ind) for ind in index_scores]) == num_values)
+
+    res, total_values = 0., 0
+    for i in range(len(scores)-1):
+        for j in range(i+1, len(scores)):
+            idx_inf, idx_sup = index_scores[i], index_scores[j]
+            if len(idx_inf) == 0 or len(idx_sup) == 0:
+                continue
+            total_values += len(idx_inf) * len(idx_sup)
+
+            preds_sup = pred_scores[idx_sup][:, None]  # shape (len_sup,1)
+            preds_inf = pred_scores[idx_inf][None, :]  # shape (1,len_inf)
+
+            comp = preds_sup - preds_inf
+            res += np.sum(comp > 0) + 0.5 * np.sum(comp == 0)
 
     return res / total_values
 
@@ -761,34 +787,66 @@ def compute_c_index_bootstrap(true_scores_all, pred_raw, label_type, all_scores,
 
     # Stack arrays from different folds if needed
     if type(pred_raw) == list:
-        true_scores_all = np.vstack(true_scores_all)
-        pred_raw = np.vstack(pred_raw)
+        if type(label_type) == dict:
+            true_scores_all = np.vstack([d['fine_task'] for d in true_scores_all])
+            pred_raw = np.vstack([d['fine_task'] for d in pred_raw])
+        else:
+            true_scores_all = np.vstack(true_scores_all)
+            pred_raw = np.vstack(pred_raw)
+
+    label_type_reg = label_type['fine_task'] if type(label_type) == dict else label_type
     num_samples, num_classes = true_scores_all.shape[0], true_scores_all.shape[1]
 
     # Bootstrap resampling
     indices = np.arange(num_samples)
     c_ind_list = []
-    for _ in range(num_bootstrap):
-        sample_idx = resample(indices, replace=True, n_samples=num_samples)
-        c_ind_per_emo = []
-        for cl_i in range(num_classes):
-            c_ind = concordance_index(true_scores_all[sample_idx, cl_i], pred_raw[sample_idx, cl_i], label_type, all_scores)
-            c_ind_per_emo.append(c_ind)
-        c_ind_list.append(c_ind_per_emo)
-
-    c_index_val = np.array(c_ind_list)  # array of shape (num_bootstrap, num_classes)
-    c_index_emo = np.mean(c_index_val, axis=0)
+    c_ind_macro, c_ind_wei = [], []
     weights_emo = list(np.sum(true_scores_all > 0, axis=0))
-    ci_lower = np.percentile(c_index_val, (100 - ci) / 2)
-    ci_upper = np.percentile(c_index_val, 100 - (100 - ci) / 2)
 
-    return {
-        "c_index_emo": c_index_emo,
-        "c_index_macro": np.mean(c_index_emo),
-        "c_index_weighted": np.average(c_index_emo, weights=weights_emo) if np.sum(weights_emo) > 0 else None,
-        "ci_lower": ci_lower,
-        "ci_upper": ci_upper
+    with alive_bar(num_bootstrap, title='Bootstrap resampling for C-index') as bar:
+        for n_i in range(num_bootstrap):
+            sample_idx = resample(indices, replace=True, n_samples=num_samples)
+            c_ind_per_emo = []
+
+            for cl_i in range(num_classes):
+                c_ind = concordance_index_1d(true_scores_all[sample_idx, cl_i], pred_raw[sample_idx, cl_i], label_type_reg, all_scores)
+                c_ind_per_emo.append(c_ind)
+            c_ind_list.append(c_ind_per_emo)
+            c_ind_macro.append(np.mean(c_ind_per_emo))
+            c_ind_wei.append(np.average(c_ind_per_emo, weights=weights_emo))
+            bar()
+
+    def ci_lower_values(c_array):
+        return np.percentile(c_array, (100 - ci) / 2)
+
+    def ci_upper_values(c_array):
+        return np.percentile(c_array, 100 - (100 - ci) / 2)
+
+    c_index_arr = np.array(c_ind_list)  # array of shape (num_bootstrap, num_classes)
+    c_index_arr_per_emo = [c_index_arr[:, cl_i] for cl_i in range(num_classes)]
+    ci_lower_emo = [ci_lower_values(c_arr) for c_arr in c_index_arr_per_emo]
+    ci_upper_emo = [ci_upper_values(c_arr) for c_arr in c_index_arr_per_emo]
+    ci_lower_macro = ci_lower_values(np.array(c_ind_macro))
+    ci_upper_macro = ci_upper_values(np.array(c_ind_macro))
+    ci_lower_wei = ci_lower_values(np.array(c_ind_wei))
+    ci_upper_wei = ci_upper_values(np.array(c_ind_wei))
+
+
+    final_values = {
+        "c_index_emo": [np.mean(c_arr) for c_arr in c_index_arr_per_emo],
+        "c_index_macro": np.mean(c_ind_macro),
+        "c_index_weighted": np.mean(c_ind_wei),
+        "ci_lower_emo": ci_lower_emo,
+        "ci_upper_emo": ci_upper_emo,
+        "ci_lower_macro": ci_lower_macro,
+        "ci_upper_macro": ci_upper_macro,
+        "ci_lower_weighted": ci_lower_wei,
+        "ci_upper_weighted": ci_upper_wei
     }
+
+    print("Results of bootstrap sampling for C-index:")
+    print(final_values)
+    return final_values
 
 
 
@@ -893,12 +951,12 @@ def compute_and_save_model_metrics(test_list_task, with_cross_val, model_eval_ou
     print("Loss function:", loss_function)
     print("Validation metrics:", val_metrics_str)
 
+    metrics_bootstrap = compute_c_index_bootstrap(true_scores_all, pred_raw, label_type, all_scores)
+
     metrics_regression, metrics_score, metrics_presence, metrics_dominant = \
         get_and_print_all_metrics(label_type, true_scores_all, true_scores_coa, true_classes_pres, true_classes_dom,
                                   pred_raw, pred_classes_pres, pred_classes_dom, with_cross_val, thres_score_pres,
                                   num_classes, all_scores, round_decimals, model_id, model_folder, num_folds)
-
-    metrics_bootstrap = compute_c_index_bootstrap(true_scores_all, pred_raw, label_type, all_scores)
 
     # Save metrics in csv file
     if param_log['save_csv']:

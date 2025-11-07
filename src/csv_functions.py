@@ -113,12 +113,15 @@ def get_header_and_data_metrics(metrics, metrics_bootstrap, header_param, data_p
         header_per_emo = ['{}_{}'.format(m, e) for m in header_overall for e in emotions]
         header = header_param + header_overall + header_per_emo
         # Add c_index bootstrap at the end
-        header = header + ['c_index_bs_macro', 'c_index_bs_weighted', 'c_index_ci_lower', 'c_index_ci_upper']
-        header = header + ['c_index_bs_{}'.format(e) for e in emotions]
+        header = header + ['c_index_bs_macro', 'c_index_ci_low_macro', 'c_index_ci_up_macro',
+                           'c_index_bs_weighted', 'c_index_ci_low_weighted', 'c_index_ci_up_weighted']
+        header = header + ['c_index_bs_{}_{}'.format(e, n) for e in emotions for n in ['val', 'ci_low', 'ci_up']]
         data_param = ['N/A' if d is None else d for d in data_param]
         data = data_param + metrics
-        data = data + [metrics_bootstrap['c_index_macro'], metrics_bootstrap['c_index_weighted'],
-                       metrics_bootstrap['ci_lower'], metrics_bootstrap['ci_upper']] + metrics_bootstrap['c_index_emo']
+        data = data + [metrics_bootstrap['c_index_macro'], metrics_bootstrap['ci_lower_macro'],
+                       metrics_bootstrap['ci_upper_macro'], metrics_bootstrap['c_index_weighted'],
+                       metrics_bootstrap['ci_lower_weighted'], metrics_bootstrap['ci_upper_weighted']]
+        data = data + [x for trio in zip(metrics_bootstrap['c_index_emo'], metrics_bootstrap['ci_lower_emo'], metrics_bootstrap['ci_upper_emo']) for x in trio]
 
     return header, data
 
@@ -148,7 +151,7 @@ def save_results_in_csv_file(model_name, model_id, model_eval_output,
     ext_name = "_n" if predict_neutral_class else ""
 
     # Create filenames
-    csv_path_regression = create_csv_path(model_name, "regression_final", ext_name, with_cross_val)
+    csv_path_regression = create_csv_path(model_name, "regression_final_2_3dec", ext_name, with_cross_val)
     csv_path_score = create_csv_path(model_name, "classif_score", ext_name, with_cross_val)
     csv_path_presence = create_csv_path(model_name, "classif_pres", ext_name, with_cross_val)
     csv_path_dominant = create_csv_path(model_name, "classif_dom", ext_name, with_cross_val)
@@ -158,7 +161,7 @@ def save_results_in_csv_file(model_name, model_id, model_eval_output,
         label_t = label_type[task_mt] if task_mt is not None else label_type
 
         header_id = ['model_id'] if not with_cross_val else ['model_id', 'fold_id']
-        model_id_str = str(model_id) + '_' + shorten_label(label_t) if task_mt is not None else str(model_id)
+        model_id_str = str(model_id) + '_for_reg_' + shorten_label(label_t) if task_mt is not None else str(model_id) + '_for_reg'
 
         # Regression metrics
         if met_reg is not None:
@@ -295,6 +298,7 @@ def csv_summary(with_cross_val, param_log):
             return re.search(pattern, model_id_str).group(0)
 
         csv_path_model_id = create_csv_path(model, "model_ids", with_cross_val=None)
+        print("csv_path_model_id:", csv_path_model_id)
         data_param = pd.read_csv(csv_path_model_id).set_index('model_id')
 
         task_column = pd.Series(data_metrics_i['model_id'].apply(get_only_model_id))
