@@ -9,6 +9,7 @@ from src.hyperparam_processing import get_hyperparam_from_json
 from src.label_processing import create_label_filename, update_labels
 from src.pytorch_utils.model_evaluation import evaluate_torch_model
 from src.csv_functions import create_csv_path
+from src.pickle_functions import save_with_pickle
 
 from alive_progress import alive_bar
 from sklearn.utils import resample
@@ -30,7 +31,7 @@ def compute_c_index_diff_bootstrap(test_list_task, num_folds, pred_raw_s, pred_r
     """
 
     y_test = [test_list_task[fold_i][1] for fold_i in range(num_folds)]
-    true_scores_all = np.reshape(np.array(y_test), (-1, 6))
+    true_scores_all = np.reshape(np.vstack(y_test), (-1, 6))
 
     # Stack arrays from different folds if needed
     if type(pred_raw_s) == list:
@@ -141,11 +142,9 @@ def compute_c_index_diff_bootstrap(test_list_task, num_folds, pred_raw_s, pred_r
 
 def save_ic_values_to_csv(all_final_values, model_s, id_s, model_mts, id_mts, with_cross_val):
     emotions = ['happiness', 'sadness', 'anger', 'surprise', 'disgust', 'fear']
-    filename = f"diff_ic_{model_s}_{id_s}_{model_mts}_{id_mts}.csv"
+    filename = f"diff_ic_{model_s}_{id_s}_{model_mts}_{id_mts}"
     csv_path_ic_val = create_csv_path("summary", filename, with_cross_val=with_cross_val,
                                        is_summary=True)
-    # This additional line since we are in "data_analysis" folder
-    csv_path_ic_val = os.path.join("../", csv_path_ic_val)
 
     with open(csv_path_ic_val, mode="w", newline="") as f:
         writer = csv.writer(f)
@@ -319,6 +318,8 @@ def compute_IC_diff_c_index(model_names, name_id_dict, loss_function_l, val_metr
             pred_raw_mts = pred_model
         else:
             pred_raw_s = pred_model
+        save_with_pickle(pred_model, "pred_{}_{}".format(model_i, name_id_dict[model_i]),
+                         pickle_folder="predictions", root_folder="summary")
 
     values_s, values_mts, values_diff = compute_c_index_diff_bootstrap(test_list_task, num_folds,
                                                                        pred_raw_s, pred_raw_mts,
