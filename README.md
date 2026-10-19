@@ -1,19 +1,30 @@
 # MCF-EmoLIS, A Multimodal Coarse-to-Fine multitask framework for EmotionaL Intensity Scaling
 
-:dart: This repository provides a generic framework for experimenting state-of-the-art models for Multimodal Emotion Recognition. It is modular by design: add your own models for training, or easily integrate them into MCF-EmoLIS via the configuration file!
+:dart: This repository provides a generic framework for experimenting state-of-the-art models for Multimodal Emotion Recognition. It is modular by design: add your own models for training, or easily integrate them into MCF-EmoLIS via the configuration files!
 
 Feel free to open an issue on this repository if you have any question or remark. Thank you for your interest!
 
 
 ### README Structure
 
-1. [CMU-MOSEI Database](#CMU-MOSEI-Database)
-2. [Environment](#Environment)
-3. [How to run the code](#How-to-run-the-code)
-4. [Output generated](#outputs-generated)
-5. [Data preprocessing and resulting statistics](#Data-preprocessing-and-resulting-statistics)
-6. [Models available](#models-available)
-7. [How to add a new model](#how-to-add-a-new-model)
+1. [MCF-EmoLIS](#MCF-EmoLIS)
+2. [CMU-MOSEI Database](#CMU-MOSEI-Database)
+3. [Environment](#Environment)
+4. [How to run the code](#How-to-run-the-code)
+5. [Output generated](#outputs-generated)
+6. [Data preprocessing and resulting statistics](#Data-preprocessing-and-resulting-statistics)
+7. [Models available](#models-available)
+8. [How to add a new model](#how-to-add-a-new-model)
+
+## MCF-EmoLIS
+
+While the majority of multimodal emotion recognition models targets emotion detection (multilabel classification), MCF-EmoLIS performs the estimation of the intensities of six basic emotions, i.e., happiness, sadness, anger, surprise, disgust and fear. MCF-EmoLIS is based on a hierarchical multitask learning, in a coarse-to-fine fashion. While we originally do multilabel classification as coarse-grained task and multi-output regression as fine-grained task, this repository enables the selection of any other tasks (from the coarsest to the finest: unilabel classification, multilabel classification, graded multilabel classification, and multi-output regression), as long as the granular hierarchy is respected (cf. config/param_training_task.json). 
+
+   <p font="italic" align="center">  
+
+  <img src="images/contribution_model.png" align="center" alt="MCF_EmoLIS">
+
+  </p>
 
 ## CMU-MOSEI Database
 
