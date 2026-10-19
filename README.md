@@ -1,6 +1,6 @@
 # MCF-EmoLIS, A Multimodal Coarse-to-Fine multitask framework for EmotionaL Intensity Scaling
 
-:dart: This repository provides a generic framework for for experimenting state-of-the-art models for Multimodal Emotion Recognition. It is modular by design: add your own models for training, or easily integrate them into MCF-EmoLIS via the configuration file!
+:dart: This repository provides a generic framework for experimenting state-of-the-art models for Multimodal Emotion Recognition. It is modular by design: add your own models for training, or easily integrate them into MCF-EmoLIS via the configuration file!
 
 Feel free to open an issue on this repository if you have any question or remark. Thank you for your interest!
 
@@ -259,6 +259,10 @@ Want to try one of the following models? Set `--model_name` parameter with the s
 
 - **ef_from_mfn**: Early fusion model used by the authors of Memory Fusion Network (cf. model **mfn**).
 
+- **ef_rnn_me2e**: Early fusion model using bidirectional LSTMs, used for the experiments in our paper. Adapted from the code [Multimodal End2End Sparse Model](https://github.com/wenliangdai/Multimodal-End2end-Sparse/).
+
+- **ef_trans_me2e**: Early fusion model using transformers, used for the experiments in our paper. Adapted from the code [Multimodal End2End Sparse Model](https://github.com/wenliangdai/Multimodal-End2end-Sparse/).
+
 - **ef_williams**: Williams, J., Kleinegesse, S., Comanescu, R., & Radu, O. (2018, July). 
 [Recognizing Emotions in Video Using Multimodal DNN Feature Fusion](http://www.aclweb.org/anthology/W18-3302). 
 In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Challenge-HML)* (pp. 11-19). 
@@ -266,12 +270,10 @@ In *Proceedings of Grand Challenge and Workshop on Human Multimodal Language (Ch
    - Use standard training, validation and test sets from CMU-MOSEI SDK (instead of using only training and validation sets 
 originally specified in the paper)
    - Only model available in TensorFlow and PyTorch
- 
-- **lf_williams_tf**: We replicated the model **ef_williams** for the three inputs (text, image, audio) and averaged the 
-scores for each emotion.
 
-- **lf_mesm**: Late fusion based on RNNs used by the authors of 
-[Multimodal End2End Sparse Model](https://github.com/wenliangdai/Multimodal-End2end-Sparse/)
+- **lf_rnn_me2e**: Late fusion model using bidirectional LSTMs, used for the experiments in our paper. Adapted from the code [Multimodal End2End Sparse Model](https://github.com/wenliangdai/Multimodal-End2end-Sparse/).
+
+- **lf_trans_me2e**: Late fusion model using transformers, used for the experiments in our paper. Adapted from the code [Multimodal End2End Sparse Model](https://github.com/wenliangdai/Multimodal-End2end-Sparse/).
 
 - **mfn**: Zadeh, A., Liang, P. P., Mazumder, N., Poria, S., Cambria, E., & Morency, L. P. (2018, April). [Memory Fusion 
 Network for Multi-view Sequential Learning](https://ojs.aaai.org/index.php/AAAI/article/view/12021/11880). In 
