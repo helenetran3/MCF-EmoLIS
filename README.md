@@ -1,6 +1,6 @@
-# SOTA models for Multimodal Emotion Recognition
+# MCF-EmoLIS, A Multimodal Coarse-to-Fine multitask framework for EmotionaL Intensity Scaling
 
-:dart: This repository is intended to experiment state-of-the-art codes on Multimodal Emotion Recognition.
+:dart: This repository provides a generic framework for for experimenting state-of-the-art models for Multimodal Emotion Recognition. It is modular by design: add your own models for training, or easily integrate them into MCF-EmoLIS via the configuration file!
 
 Feel free to open an issue on this repository if you have any question or remark. Thank you for your interest!
 
